@@ -1,0 +1,9 @@
+{
+  "name": "chogpool",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "check:addresses": "node infra/check-addresses.mjs",
+    "build:web": "pnpm --filter web build"
+  }
+}
