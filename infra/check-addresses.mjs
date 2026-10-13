@@ -18,7 +18,7 @@ const ALLOW_FILES = [
 const SCAN_DIRS = ["contracts", "web", "packages", "infra", "docs"];
 const SKIP = (p) =>
   p.includes("node_modules") || p.includes("/out/") || p.includes("/cache/") ||
-  p.includes("/lib/") || p.endsWith(".lock") || p.includes(".git/");
+  p.includes("/lib/") || p.endsWith(".lock") || p.includes(".git/") || p.includes("/dist/");
 const IS_GENERATED = (p) => p.includes("generated") || p.includes(".gen.");
 
 let violations = 0;
