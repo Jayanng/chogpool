@@ -236,6 +236,25 @@ Deploy targets: **Monad testnet** (chainId 10143). All addresses via infra/verif
 
 ---
 
+## GATE PROTOCOL (binding for EVERY phase gate, added 2026-10-13 after the Phase 0 audit)
+
+**Why this exists:** Phase 0 was first reported "complete" off green builds alone. The audit then found a tracked build artifact (foundry.lock), a gitignore pattern that silently failed twice, and an enforcement tool whose failure path had never been exercised. The protocol below is now the minimum bar for claiming ANY phase is done. "Green builds" alone is NOT done.
+
+Every phase gate must show, in order:
+
+1. **Positive suite:** forge build + forge test green; check-addresses clean; web + ui builds green; CI run on the merge commit green (all jobs).
+2. **Negative tests of every enforcement tool:** plant a known violation, prove the tool FAILS (exit code 1, read from the tool itself, never after a pipe — `| head` masks exit codes and produced a false pass in the Phase 0 audit), remove it, prove the tool passes again. An enforcement tool whose failure path is unproven is treated as not existing.
+3. **Tracked-file audit:** `git ls-files` contains zero build artifacts (out/, cache/, dist/, *.lock), zero ignored-but-added files, zero research/private notes. `git status` clean after the audit commands.
+4. **Pattern-correctness spot check:** any ignore/skip/exclusion rule added this phase is tested against BOTH outcomes (a file it should ignore stays ignored after `git add -A`; a file it should not ignore still gets tracked). A rule never tested both ways is presumed wrong — the Phase 0 lockfile slipped through exactly this way, twice.
+5. **Drift check vs the registry:** every address and number used in the phase output still matches infra/verified.json; the registry still parses; the generated TS module regenerates byte-identically from the registry (`node infra/gen-addresses.mjs` + git diff empty).
+6. **Honest-report rule:** any defect found during the gate is fixed and the fix re-verified through steps 1-4 BEFORE the phase is declared closed. The gate report lists what was found and fixed, not just "all green."
+7. **Exit-code discipline (all shells, all CI):** the exit status reported is always the real one. No piping a command through head/tail/grep and reading that exit code instead.
+8. **User sign-off:** for phases producing user-visible output (design, live demo, video, submission), the user manually verifies and approves before the phase closes (standing rule).
+
+A phase is CLOSED only when all 8 pass. A phase is AUDITED only when steps 1-6 are re-run by someone other than the author of that phase's code (the other teammate, or a fresh agent pass with no prior context).
+
+---
+
 ## SCHEDULE SUMMARY (Oct 14 → Oct 23, 15:00 UTC)
 - Oct 14-15: Phase 0 + start Phase 1
 - Oct 15-17: Phases 1-2 parallel
