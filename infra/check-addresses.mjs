@@ -15,7 +15,7 @@ const ALLOW_FILES = [
   "docs/PLAN.md",          // the plan documents the verified addresses (read-only doc)
   "package-lock.json",
 ];
-const SCAN_DIRS = ["contracts", "web", "packages", "infra", "docs"];
+const SCAN_DIRS = ["contracts", "web", "packages", "infra", "docs", ".github"];
 const SKIP = (p) =>
   p.includes("node_modules") || p.includes("/out/") || p.includes("/cache/") ||
   p.includes("/lib/") || p.endsWith(".lock") || p.includes(".git/") || p.includes("/dist/");
