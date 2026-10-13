@@ -1,4 +1,4 @@
 out/
 cache/
 lib/forge-std/
-contracts/foundry.lock
+foundry.lock
