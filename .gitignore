@@ -1,0 +1,16 @@
+node_modules/
+out/
+cache/
+.env
+.env.*
+*.key
+research/
+gmi-*.md
+gmi-*.json
+gmi-stream.txt
+gmi-out*.json
+gmi-err.log
+mine.md
+ping.json
+RESEARCH-pooltogether.md
+.DS_Store
