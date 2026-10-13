@@ -16,3 +16,9 @@
 - Prizes scale with the pool. Never promise prize sizes.
 - Traits are off-chain IPFS metadata; say "reads the Chog's traits", never "on-chain traits".
 - APY is read live and labeled "current, variable" — never a hardcoded number.
+
+## Label discipline: Verified Holder vs Test Drive (user-approved 2026-10-14)
+- Two racers exist in the testnet demo: **Verified Holder** (minted with a real mainnet owner signature) and **Test Drive** (anyone, one per wallet, clearly labeled).
+- The two paths are NEVER blurred: every UI surface showing a racer carries its badge; Test Chog metadata carries the "Test Chog" label; the demo video shows both paths once each.
+- Test Drive is testnet-only. The production/mainnet path accepts real Chogs only. No exception.
+- Framing rule: lead with the open experience ("try the full track in one click"), never with what we lack. Test Drive is a feature and a funnel (spectator → cheerer → test driver → real holder), not a workaround.

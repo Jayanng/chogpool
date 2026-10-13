@@ -110,7 +110,7 @@ chogpool/
 
 Deploy targets: **Monad testnet** (chainId 10143). All addresses via infra/verified.json.
 
-1. **`IChogMirror.sol`** (interfaces/): `mintWithSig(tokenId, v, r, s)` verifying an EIP-191 personal_sign message from the REAL mainnet owner; `ownerOf` mirror; `tokenURI` returns the REAL mainnet `ipfs://bafybeid.../{shuffledId}.json` by calling mainnet `tokenURI(tokenId)` off-chain at mint time and storing it (the mirror stores the real URI, never invented traits). Also `mintForTesting(tokenId)` (dev only, guarded `onlyDev`, useful for the 1,969 real IDs during dev and the demo).
+1. **`IChogMirror.sol`** (interfaces/): `mintWithSig(tokenId, v, r, s)` verifying an EIP-191 personal_sign message from the REAL mainnet owner; `ownerOf` mirror; `tokenURI` returns the REAL mainnet `ipfs://bafybeid.../{shuffledId}.json` by calling mainnet `tokenURI(tokenId)` off-chain at mint time and storing it (the mirror stores the real URI, never invented traits). Also `mintTestDrive(tokenId)` — **Test Drive mode (user-approved 2026-10-14):** any address may claim one clearly-labeled Test Chog (an unclaimed real tokenId from the 1,969, same real metadata/image) for the full demo experience; Test Drive tokens are flagged on-chain (`isTestDrive(tokenId) → true`, "Test Chog" name suffix in metadata) and visually distinct in every UI ("Test Drive" vs "Verified Holder" badge). Test Drive exists on testnet only and never on the production/mainnet path — the production contract accepts real Chogs only. Label discipline is a RULES.md clause: the two paths are never blurred in copy or UI.
 2. **`ChogMirror.sol`**: ERC-721 (OpenZeppelin 5.6.1). Mirror metadata: `tokenURI` = REAL mainnet URI (fetched via viem in the mint flow and passed in, or reconstructed from the shuffle mapping if a deterministic source is found; otherwise stored at mint). Emits `MirrorMinted(mainnetOwner, tokenId, realURI)`.
 3. **`IChogPool.sol`** (interfaces/): `deposit(uint usdc)`, `withdraw(uint shares)`, `withdrawAll()`, `twabOf(tokenId)`, `potBalance()`, `depositOf(tokenId)`, `nextDrawAt()`. Events: Deposited, Withdrawn, YieldHarvested, PotIncreased.
 4. **`ChogPool.sol`** (src/): accepts **PuddleSwap core USDC** (testnet) or mainnet USDC via registry; per-Depositor accounting keyed by the Chog tokenId they bind at deposit (one wallet → multiple Chogs allowed, each with its own book); **TWAB accounting** (ring buffer, standard time-weighted-average math: cumulative balance = lastCumulative + lastBalance × Δt; average = Δcumulative / Δt); **instant full principal withdrawal** (no lock, no fee); snipe-proof odds: win probability ∝ time-weighted average balance (not last-second snapshot).
@@ -124,7 +124,7 @@ Deploy targets: **Monad testnet** (chainId 10143). All addresses via infra/verif
 **Gate 1 (both):** forge test green including fork tests; a scripted end-to-end on testnet: mint mirror → deposit 10 USDC (claimed from StableFaucet) → add liquidity → simulate swap volume → harvest real fees into pot → draw once with real commit-reveal → winner takes pot → withdraw all. Recorded demo log appended to repo.
 
 **Phase 1 build prompt (teammate's agent):**
-> Build contracts/ per PLAN.md Phase 1 using OpenZeppelin 5.6.1 and Foundry. All external addresses must come from infra/verified.json. PuddleLpAdapter must earn pot income only from actual removeLiquidity/swap value differences — no paper fee accounting. DrawEngine: commit-reveal with blockhash binding, winner re-derivable from published seed. TWAB ring buffer like the odds math in PLAN.md. Tests: pool invariants, TWAB vs closed-form, draw binding + bias fuzz, adapter fork test against the real USDC/USDT pair on an anvil fork of https://testnet-rpc.monad.xyz. Do not import anything from contracts/fixtures in src. Write no 0x literals.
+> Build contracts/ per PLAN.md Phase 1 using OpenZeppelin 5.6.1 and Foundry. All external addresses must come from infra/verified.json. PuddleLpAdapter must earn pot income only from actual removeLiquidity/swap value differences — no paper fee accounting. DrawEngine: commit-reveal with blockhash binding, winner re-derivable from published seed. TWAB ring buffer like the odds math in PLAN.md. ChogMirror: mintWithSig (EIP-191, real mainnet owner) AND mintTestDrive (any address, one per wallet, on-chain isTestDrive flag, testnet-only, labeled metadata). Tests: pool invariants, TWAB vs closed-form, draw binding + bias fuzz, adapter fork test against the real USDC/USDT pair on an anvil fork of https://testnet-rpc.monad.xyz, mirror signature + test-drive cap tests. Do not import anything from contracts/fixtures in src. Write no 0x literals.
 
 ---
 
@@ -194,6 +194,13 @@ Deploy targets: **Monad testnet** (chainId 10143). All addresses via infra/verif
 5. $CHOG hybrid read: frontend shows the user's **real mainnet $CHOG balance** (read-only) next to Test $CHOG balance, labeled.
 
 **Gate 5 (both):** career page, crews, ladder working with real contracts on testnet.
+
+**Test Drive (user-approved 2026-10-14, fold into Phase 5 UI):**
+- `/test-drive` entry: one click → wallet signs → `mintTestDrive(random unclaimed tokenId)` → the user is racing with full site access.
+- The Test Drive Chog uses the REAL image + traits (it is a real mirror, just unverified ownership) with an always-visible "Test Drive" badge; Verified Holders get a "Verified Holder" badge.
+- Career records: Test Drive Chogs get careers too (the demo experience is complete), but Test Drive careers are visibly segmented on the profile page.
+- Conversion moment in UI: after a Test Drive race win, one card: "This was your test run. Imagine it with the real thing." + link to the Chog collection. Spectator → cheerer → test driver → real holder funnel, explicit.
+- One-per-wallet cap on `mintTestDrive` (contract-level) so demo farming is bounded.
 
 **Phase 5 build prompt (combined agents, split files):**
 > Career/crews/seasons per PLAN.md Phase 5. Fatigue multipliers affect odds within the capped window and decay linearly; all contract state changes emit events the UI subscribes to. No speculative features beyond PLAN.md.
