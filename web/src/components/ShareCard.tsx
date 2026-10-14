@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Badge, Button, Card } from "@chogpool/ui";
+import { Badge, Button, Card, tokens } from "@chogpool/ui";
 
 /**
  * Share-card generator stub (Phase 2). Renders ONLY real data we hold:
@@ -23,19 +23,19 @@ export function ShareCard({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    ctx.fillStyle = "#0d1014";
+    ctx.fillStyle = tokens.color.ground;
     ctx.fillRect(0, 0, 1200, 630);
-    ctx.fillStyle = "#ff8a3d";
+    ctx.fillStyle = tokens.color.accent;
     ctx.fillRect(0, 0, 1200, 10);
     ctx.fillRect(0, 620, 1200, 10);
 
-    ctx.fillStyle = "#f4f6f8";
+    ctx.fillStyle = tokens.color.ink;
     ctx.font = "800 64px 'Plus Jakarta Sans', system-ui, sans-serif";
     ctx.fillText("CHOG", 72, 160);
-    ctx.fillStyle = "#ff8a3d";
+    ctx.fillStyle = tokens.color.accent;
     ctx.fillText("TRACK", 268, 160);
 
-    ctx.fillStyle = "#aab4be";
+    ctx.fillStyle = tokens.color.muted;
     ctx.font = "500 30px 'DM Mono', monospace";
     ctx.fillText(raceLabel.toUpperCase(), 72, 230);
 
@@ -45,23 +45,23 @@ export function ShareCard({
           const img = await loadImage(chog.imageUrl);
           ctx.drawImage(img, 72, 300, 240, 240);
         } catch {
-          ctx.fillStyle = "#1b222a";
+          ctx.fillStyle = tokens.color.panel;
           ctx.fillRect(72, 300, 240, 240);
         }
       }
-      ctx.fillStyle = "#f4f6f8";
+      ctx.fillStyle = tokens.color.ink;
       ctx.font = "700 42px 'Plus Jakarta Sans', system-ui, sans-serif";
       ctx.fillText(chog.name, 348, 420);
-      ctx.fillStyle = "#c6ef6d";
+      ctx.fillStyle = tokens.color.lime;
       ctx.font = "500 26px 'DM Mono', monospace";
       ctx.fillText(`CHOG #${chog.tokenId}`, 348, 470);
     } else {
-      ctx.fillStyle = "#68737e";
+      ctx.fillStyle = tokens.color.faint;
       ctx.font = "500 28px 'DM Mono', monospace";
       ctx.fillText("A savings game for Chog holders.", 72, 420);
     }
 
-    ctx.fillStyle = "#68737e";
+    ctx.fillStyle = tokens.color.faint;
     ctx.font = "500 22px 'DM Mono', monospace";
     ctx.fillText("READ: MONAD MAINNET · PLAY: MONAD TESTNET", 72, 585);
     setStatus("Card rendered below. Download to share.");

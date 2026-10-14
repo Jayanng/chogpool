@@ -6,6 +6,8 @@ export type GameSourceKind = "fixture" | "live";
 
 export interface GameSource {
   kind: GameSourceKind;
+  /** Non-empty only in dev fixtures: a bundle sentinel the fixture checker scans for. */
+  sentinel: string;
   /** Unix seconds of the next draw, or null when the schedule is not known yet. */
   nextDrawAt(): Promise<number | null>;
   /** Pot balance in smallest unit of the prize token, or null when unknown. */

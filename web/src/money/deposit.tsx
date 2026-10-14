@@ -75,7 +75,7 @@ export default function Deposit() {
           {source ? (
             <>
               <Stat label="BOUND CHOG" value={bound ? `#${bound}` : "—"} note="One wallet may bind several Chogs; each has its own book." />
-              <Stat label="DEPOSIT" value={bound ? "Recorded (fixture)" : "—"} note="TWAB odds favor time in the pool, not last-second size." tone="lime" />
+              <Stat label="DEPOSIT" value={bound ? (source.kind === "fixture" ? "Recorded (fixture)" : "Recorded") : "—"} note="TWAB odds favor time in the pool, not last-second size." tone="lime" />
             </>
           ) : (
             <p className="muted">No game source connected yet. Nothing here is simulated in production builds.</p>

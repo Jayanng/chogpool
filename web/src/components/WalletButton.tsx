@@ -9,6 +9,7 @@ import {
   switchToTestnet,
   type WalletState,
 } from "../lib/wallet";
+import { CHAIN } from "../generated/addresses.gen";
 import { GAME_LABELS } from "../types/game";
 
 type Phase = "idle" | "connecting" | "connected" | "error";
@@ -52,8 +53,10 @@ export function WalletButton() {
       <div className="wallet-slot">
         <Badge tone="lime">{chainLabel(wallet.chainId)}</Badge>
         <span className="wallet-note">{shortAddress(wallet.address)}</span>
-        {wallet.chainId !== 10143 && (
-          <Button variant="outline" onClick={() => void switchToTestnet(wallet.walletClient).then(() => setWallet({ ...wallet, chainId: 10143 })).catch((e) => setError(e instanceof Error ? e.message : "Switch failed."))}>
+        {wallet.chainId !== CHAIN.monadTestnet.id && (
+          <Button variant="outline" onClick={() => void switchToTestnet(wallet.walletClient)
+            .then(async () => setWallet({ ...wallet, chainId: await wallet.walletClient.getChainId() }))
+            .catch((e) => setError(e instanceof Error ? e.message : "Switch failed."))}>
             Switch to Play network
           </Button>
         )}

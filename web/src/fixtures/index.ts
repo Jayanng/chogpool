@@ -20,6 +20,7 @@ const mock: MockRace = {
 
 export const fixtureGameSource: GameSource = {
   kind: "fixture",
+  sentinel: "CHOGPOOL_FIXTURE_BUNDLE_SENTINEL", // scanned for in web/dist by infra/check-fixtures.mjs
   async nextDrawAt() {
     return mock.nextDrawAt;
   },

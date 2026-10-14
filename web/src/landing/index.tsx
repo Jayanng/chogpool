@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Badge, Button, Card, Marquee, Panel, Stat } from "@chogpool/ui";
+import { Badge, Button, Card, Marquee, Panel, Stat, tokens } from "@chogpool/ui";
 import { ChogViewer } from "../components/ChogViewer";
 import { Countdown } from "../components/Countdown";
 import { ShareCard } from "../components/ShareCard";
@@ -91,10 +91,10 @@ export default function Landing() {
         <p className="kicker">PHASE 2 · DESIGN BASE</p>
         <h2>Built for proof, designed for play.</h2>
         <div className="token-row">
-          <span style={{ background: "#ff8a3d" }} />
-          <span style={{ background: "#c6ef6d" }} />
-          <span style={{ background: "#151a20" }} />
-          <span style={{ background: "#f4f6f8" }} />
+          <span style={{ background: tokens.color.accent }} />
+          <span style={{ background: tokens.color.lime }} />
+          <span style={{ background: tokens.color.raised }} />
+          <span style={{ background: tokens.color.ink }} />
         </div>
         <p className="muted">Every race is a deterministic replay of an on-chain result. The verifier is part of the experience, not a footnote.</p>
         <Button variant="outline" onClick={() => navigate("/style")}>Open the style guide</Button>
