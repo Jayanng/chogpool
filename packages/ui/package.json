@@ -5,6 +5,10 @@
   "type": "module",
   "main": "src/index.tsx",
   "types": "src/index.tsx",
+  "exports": {
+    ".": "./src/index.tsx",
+    "./styles.css": "./styles.css"
+  },
   "scripts": {
     "build": "tsc --noEmit"
   },
