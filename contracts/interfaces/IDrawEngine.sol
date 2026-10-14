@@ -49,6 +49,7 @@ interface IDrawEngine {
     error RevealBlockUnavailable();
     error BoostOutOfRange(uint256 boost);
     error ZeroTickets();
+    error ZeroAddress();
 
     // ---------- configuration ----------
 

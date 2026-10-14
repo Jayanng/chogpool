@@ -52,6 +52,10 @@ interface IChogPool {
     /// @notice Unix timestamp of the next draw (0 when no draw is scheduled).
     function nextDrawAt() external view returns (uint64);
 
+    /// @notice Let the draw engine publish when the next draw closes, so the UI can
+    ///         count down from a single on-chain source.
+    function setNextDrawAt(uint64 at) external;
+
     // ---------- deposits / withdrawals ----------
 
     /// @notice Deposit `amount` of the stable, bound to Chog `tokenId`.
@@ -104,6 +108,20 @@ interface IChogPool {
     /// @notice A tokenId's win probability out of the current draw's ticket pool,
     ///         in basis points (0..10000). 0 when there are no tickets.
     function oddsBpsOf(uint256 tokenId) external view returns (uint256);
+
+    /// @notice The tokenIds that had non-zero tickets when drawId was frozen.
+    /// @dev This is the racer set the draw engine needs to re-derive winners, so a
+    ///      draw is independently re-verifiable from the published seed.
+    function frozenRacers(uint256 drawId) external view returns (uint256[] memory);
+
+    /// @notice Tickets frozen for a racer in a draw.
+    function ticketsOfFrozen(uint256 drawId, uint256 tokenId) external view returns (uint256);
+
+    /// @notice Total frozen tickets in a draw.
+    function totalTicketsOfFrozen(uint256 drawId) external view returns (uint256);
+
+    /// @notice Freeze the ticket book for a draw. Callable only by the draw engine.
+    function freezeTickets(uint256 drawId, uint256[] calldata tokenIds) external;
 
     // ---------- pot settlement ----------
 

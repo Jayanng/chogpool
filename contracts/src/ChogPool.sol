@@ -81,6 +81,7 @@ contract ChogPool is IChogPool, IYieldAdapter, Ownable2Step, ReentrancyGuard {
     /// @dev Draw id -> frozen ticket book (so odds cannot move after close).
     struct DrawTickets {
         uint256 total;
+        uint256[] racers;
         mapping(uint256 => uint256) tickets;
     }
 
@@ -337,6 +338,7 @@ contract ChogPool is IChogPool, IYieldAdapter, Ownable2Step, ReentrancyGuard {
             uint256 t = twabOf(tokenId);
             if (t == 0) continue;
             dt.tickets[tokenId] = t;
+            dt.racers.push(tokenId);
             total += t;
         }
         dt.total = total;
@@ -366,6 +368,13 @@ contract ChogPool is IChogPool, IYieldAdapter, Ownable2Step, ReentrancyGuard {
 
     function totalTicketsOfFrozen(uint256 drawId) external view returns (uint256) {
         return _drawTickets[drawId].total;
+    }
+
+    /// @notice The tokenIds that had non-zero tickets when drawId was frozen.
+    /// @dev This is the racer set the draw engine needs to re-derive winners, so a
+    ///      draw is independently re-verifiable from the published seed.
+    function frozenRacers(uint256 drawId) external view returns (uint256[] memory) {
+        return _drawTickets[drawId].racers;
     }
 
     // ---------------- views ----------------

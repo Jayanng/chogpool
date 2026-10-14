@@ -10,6 +10,9 @@
 - Changing any frozen interface requires BOTH approvals on the PR.
 - Everything else can move freely inside your own zones.
 
+### Shared surfaces (current)
+- `web/src/types/game.ts` — the `GameSource` TS type is a frozen shared surface. It currently covers only 4 of `IChogPool`'s methods (`nextDrawAt`, `potBalance`, `depositOf`, `deposit`). **It must be extended with `twabOf`, `oddsBpsOf` and `withdrawAll` before Phase 3/4 work can use them** — those three are needed by the race view (odds), the deposit dashboard (time-weighted odds) and the withdraw-all action. Extending it is a shared-surface change: heads-up in chat first, both sides agree the signature matches the Solidity interface exactly, then it lands.
+
 ## Branching
 - Trunk-based: `main` is always green (CI).
 - Feature branches `feat/<zone>-<thing>`, lifetime ≤ 2 days, merged via PR.
@@ -26,6 +29,22 @@
 - `forge build && forge test` (contracts), `node infra/check-addresses.mjs` (registry), `pnpm run build:web` (web).
 - The VPS is for: orchestration, demo video capture, local anvil fork rehearsals.
 - Address rule: any new address must be added to `infra/verified.json` WITH a source + date, then `node infra/gen-addresses.mjs` regenerates the TS module. Never inline.
+
+### Submodules are pinned — never `forge install` to "fix" a build
+- **`forge install` silently rewrites the pin.** It bumps `contracts/lib/openzeppelin-contracts` from the pinned commit to the newest tag (it moved v5.6.1 → v5.7.0) and rewrites the `.gitmodules` URL. CI checks out the pinned commit, so your local tree and CI then disagree with no warning — you test one OpenZeppelin and ship another.
+- **The rule:** never run `forge install` / `forge update` on this repo. If a dependency looks missing or out of date, run:
+  ```
+  git submodule update --init --recursive
+  ```
+  That materialises exactly the commits the index pins, locally and in CI alike.
+- **After any dependency change, verify the pin before you commit:**
+  ```
+  git submodule status          # must show the pinned tags/commits
+  git diff --submodule          # must be EMPTY
+  cat .gitmodules               # URLs must be the canonical github.com ones
+  ```
+  A non-empty `git diff --submodule` means you have drifted from CI. Restore with the command above.
+- Only the owner of the dependency decision bumps a pin deliberately, and that bump is its own commit so CI logs stay readable.
 
 ## Daily sync
 - One async check-in message per day: what changed on shared surfaces (interfaces, verified.json, ui versions). Silence = nothing shared changed.
