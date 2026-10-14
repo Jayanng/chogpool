@@ -22,8 +22,13 @@ jobs:
           version: v1.8.5
       - name: Forge build
         run: forge build
-      - name: Forge test
+      - name: Forge test (unit suites)
         run: forge test -vvv
+      # Fork suites need the CLI --rpc-url so Foundry selects the right EVM spec for
+      # the forked chain. They read the RPC URL itself out of infra/verified.json, so
+      # the registry stays the single source of truth.
+      - name: Forge test (fork suites, real Monad testnet)
+        run: forge test --match-contract 'Fork' --rpc-url monad_testnet -vvv
   addresses:
     runs-on: ubuntu-latest
     steps:

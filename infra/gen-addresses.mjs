@@ -27,6 +27,7 @@ export const MAINNET = {
 export const TESTNET = {
   usdc: "${reg.monadTestnet.puddleUSDC.address}",
   usdt: "${reg.monadTestnet.puddleUSDT.address}",
+  faucetUsdc: "${reg.monadTestnet.faucetUSDC.address}",
   wmon: "${reg.monadTestnet.wmon.address}",
   stableFaucet: "${reg.monadTestnet.stableFaucet.address}",
   v2Factory: "${reg.monadTestnet.uniswapV2Factory.address}",

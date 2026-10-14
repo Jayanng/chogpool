@@ -55,6 +55,13 @@
       "source": "eth_call symbol + puddleswap.org/skill.md 2026-10-14",
       "note": "Mintable via StableFaucet.claim() 1000/day, 24h cooldown."
     },
+    "faucetUSDC": {
+      "address": "0xc152fe819323913e478cab556be9e24a81790eaf",
+      "symbol": "USDC",
+      "decimals": 6,
+      "source": "StableFaucet.claim() Transfer log on anvil fork of testnet-rpc.monad.xyz 2026-10-14; eth_call symbol/decimals confirm",
+      "note": "The SECOND token StableFaucet.claim() mints (1000/day, same 24h cooldown). Distinct from PuddleSwap core USDC 0x534b...43A3, which is NOT mintable. Use this one to fund fork tests of the LP path."
+    },
     "wmon": {
       "address": "0x97B3070F9Da6C002343862b35E68Bd8e22608943",
       "symbol": "WMON",

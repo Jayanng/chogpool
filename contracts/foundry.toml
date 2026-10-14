@@ -19,3 +19,9 @@ runs = 1000
 [rpc_endpoints]
 monad = "https://rpc.monad.xyz"
 monad_testnet = "https://testnet-rpc.monad.xyz"
+
+# Fork tests (contracts/test/*.fork.t.sol) read the RPC out of infra/verified.json at
+# runtime and pass it to vm.createFork, so the registry stays the single source of
+# truth. Foundry ALSO needs a CLI --rpc-url to pick the right EVM spec for the forked
+# chain, so run them with:
+#   forge test --match-contract '*Fork*' --rpc-url monad_testnet

@@ -37,6 +37,13 @@ contract DrawEngineTest is Test {
     bytes32 constant SEED = keccak256("chogpool-draw-seed");
 
     function setUp() public {
+        // This suite is a PURE unit suite: it relies on vm.roll()/vm.warp() producing
+        // readable parent blockhashes, which a forked chain does not guarantee (the
+        // fork's parent hash is not in the local cache). If someone runs the whole
+        // suite with --rpc-url, fail loudly here instead of producing 10 confusing
+        // RevealBlockUnavailable errors in unrelated tests.
+        if (block.chainid != 31337) revert("DrawEngineTest is a unit suite: run without --rpc-url");
+
         usdc = new MockERC20("USD Coin", "USDC", 6);
         mirror = new MockMirror();
         careerStore = new MockCareerStore();
