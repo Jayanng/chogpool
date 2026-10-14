@@ -15,3 +15,5 @@ ping.json
 RESEARCH-pooltogether.md
 .DS_Store
 web/dist/
+.vercel
+.env*
