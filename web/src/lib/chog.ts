@@ -37,8 +37,16 @@ export function ipfsToGateway(uri: string): string {
   return `${IPFS.gateway}${path}`;
 }
 
-export async function readChog(tokenId: bigint): Promise<ChogRecord> {
-  if (tokenId < 1n || tokenId > 1969n) throw new Error("Enter a Chog ID from 1 to 1,969.");
+// SWR-style cache keyed by tokenId (plan Phase 2 item 4): a cached record is
+// served instantly while a background revalidation refreshes it, so owners
+// that changed hands update without a second explicit lookup. In-flight reads
+// are deduplicated. TTL keeps the revalidation window small and honest.
+const CACHE_TTL_MS = 60_000;
+type CacheEntry = { record: ChogRecord; at: number };
+const cache = new Map<string, CacheEntry>();
+const inFlight = new Map<string, Promise<ChogRecord>>();
+
+async function fetchChog(tokenId: bigint): Promise<ChogRecord> {
   const [owner, uri] = await Promise.all([
     chogClient.readContract({ address: collection, abi: chogAbi, functionName: "ownerOf", args: [tokenId] }),
     chogClient.readContract({ address: collection, abi: chogAbi, functionName: "tokenURI", args: [tokenId] }),
@@ -47,4 +55,33 @@ export async function readChog(tokenId: bigint): Promise<ChogRecord> {
   if (!response.ok) throw new Error(`Chog metadata unavailable (IPFS gateway returned ${response.status}).`);
   const metadata = (await response.json()) as ChogMetadata;
   return { tokenId, owner, tokenURI: uri, metadata };
+}
+
+function refresh(tokenId: bigint, key: string): Promise<ChogRecord> {
+  const pending = fetchChog(tokenId)
+    .then((record) => {
+      cache.set(key, { record, at: Date.now() });
+      return record;
+    })
+    .catch((error) => {
+      inFlight.delete(key);
+      throw error;
+    });
+  inFlight.set(key, pending);
+  return pending;
+}
+
+export function readChog(tokenId: bigint): Promise<ChogRecord> {
+  if (tokenId < 1n || tokenId > 1969n) return Promise.reject(new Error("Enter a Chog ID from 1 to 1,969."));
+  const key = tokenId.toString();
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return Promise.resolve(hit.record);
+  const pending = inFlight.get(key);
+  if (pending) return pending;
+  if (hit) {
+    // stale-while-revalidate: return the cached record now, refresh in background
+    void refresh(tokenId, key).catch(() => {});
+    return Promise.resolve(hit.record);
+  }
+  return refresh(tokenId, key);
 }

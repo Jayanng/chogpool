@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "scripts": {
     "check:addresses": "node infra/check-addresses.mjs",
+    "check:fixtures": "node infra/check-fixtures.mjs",
     "build:web": "pnpm --filter web build"
   }
 }

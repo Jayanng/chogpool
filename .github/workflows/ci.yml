@@ -49,5 +49,7 @@ jobs:
         run: node infra/gen-addresses.mjs
       - name: Build web
         run: pnpm run build:web
+      - name: Check fixtures excluded from production bundle
+        run: node infra/check-fixtures.mjs
       - name: Build ui package
         run: pnpm --filter @chogpool/ui build
