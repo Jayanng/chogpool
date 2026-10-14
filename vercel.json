@@ -1,5 +1,4 @@
 {
-  "$comment": "Chog Track static SPA on Vercel. All routes are client-side (see web/src/lib/router.ts); unknown paths fall back to the app shell. Static assets are served by the filesystem handler before these rewrites.",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
