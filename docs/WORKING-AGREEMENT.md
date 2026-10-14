@@ -55,3 +55,7 @@
 ## Gates
 - Every phase gate: shared tests green in CI + both humans confirm the integrated slice + record in docs/DECISIONS.md before the next phase starts.
 - Submission: user (Jayanng) manually verifies the app + video and approves before anything is submitted (standing rule).
+
+## Wiring an external contract address
+- Any `set<X>(address)` that the contract later CALLS must validate that the target has code (`target.code.length == 0` → revert). A non-zero, codeless address compiles, deploys and passes review, then reverts mid-transaction forever. Found in `DrawEngine.setCareerStore`: the engine calls `recordRace` inside `award()`, so wiring a dead address bricked every draw with the pot already locked up — unrecoverable without an owner intervention that itself could not happen because `award()` reverts. Validate at wiring time, where the failure is cheap, never at call time, where it is not.
+- Do not "fix" this by wrapping the call in a try/catch. Silently dropping the career hook hides a misconfiguration and lets draws settle with careers quietly not recorded — the exact class of invisible divergence the agreement exists to prevent.

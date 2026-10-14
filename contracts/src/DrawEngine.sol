@@ -38,6 +38,9 @@ contract DrawEngine is IDrawEngine, Ownable2Step, ReentrancyGuard {
     ///      adding to a frozen interface needs both owners' approval.
     event OperatorUpdated(address indexed newOperator);
 
+    /// @dev Raised when a wiring target has no code — see setCareerStore.
+    error NotAContract(address target);
+
     // ---------------- immutables / wiring ----------------
 
     /// @inheritdoc IDrawEngine
@@ -107,7 +110,11 @@ contract DrawEngine is IDrawEngine, Ownable2Step, ReentrancyGuard {
     }
 
     function setCareerStore(address careerStore_) external onlyOwner {
-        if (careerStore_ == address(0)) revert ZeroAddress();
+        // A career store with no code would make award() revert on every draw,
+        // bricking the draw: no pot paid, no winners recorded, stuck in Awarded.
+        // Catch it at wiring time where the failure is obvious and fixable, rather
+        // than mid-draw where the pot is already locked up.
+        if (careerStore_.code.length == 0) revert NotAContract(careerStore_);
         careerStore = careerStore_;
     }
 
