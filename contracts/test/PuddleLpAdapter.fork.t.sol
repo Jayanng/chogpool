@@ -210,6 +210,35 @@ contract PuddleLpAdapterForkTest is Test {
         );
     }
 
+    /// The entry cost is real and permanent, so shares minted for the NOMINAL
+    /// deposit cannot be honoured. This is the exact failure that left a live draw
+    /// pot unpaid: the pool credited the full deposit while the pair only ever
+    /// delivered ~99%, and the first withdraw-all reverted InsufficientLiquidity.
+    ///
+    /// Proves against the real pair that (a) the entry cost is measurable through
+    /// positionValue(), and (b) redeeming exactly what was taken in always succeeds.
+    function test_Fork_EntryCost_IsReal_AndFullyRedeemable() public needsFork {
+        uint256 deposited = START;
+
+        uint256 valueBefore = adapter.positionValue();
+        vm.prank(pool);
+        adapter.supply(deposited);
+        uint256 credited = adapter.positionValue() - valueBefore;
+
+        // The pair really does take a cut. If this ever equals the deposit, either
+        // the pair became free or the valuation stopped charging the swap fee.
+        assertLt(credited, deposited, "the live pair charges a real entry cost");
+
+        // Redeeming exactly the credited value must succeed — no revert, no shortfall.
+        vm.prank(pool);
+        adapter.redeem(credited, address(0xbabe));
+        uint256 back = IERC20(asset).balanceOf(address(0xbabe));
+        assertApproxEqRel(back, credited, 0.01e18, "credited value is fully redeemable");
+
+        // And the position is drained rather than left owing anything.
+        assertLt(adapter.positionValue(), credited / 100, "nothing stuck in the pair");
+    }
+
     /// A partial withdraw must leave a healthy, still-withdrawable position behind.
     function test_Fork_Redeem_Partial_KeepsPosition() public needsFork {
         vm.prank(pool);

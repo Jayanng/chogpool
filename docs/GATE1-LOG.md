@@ -286,3 +286,87 @@ about itself. `Gate1.s.sol` now asserts the things it claims (principal reached
 the LP, the mirror really owns the minted Chogs, the winner's trophy was
 recorded), but the assertions are worthless unless someone also checks the
 outside world. That check is now part of the run.
+
+## Finding: the entry cost, and why shares are no longer minted 1:1
+
+The live run surfaced a real accounting bug, not a script bug. Withdrawing all of
+a position reverted `InsufficientLiquidity(76577421, 75872479)`.
+
+`ChogPool.deposit()` credited `pos.shares += amount` — the full nominal deposit.
+`PuddleLpAdapter.supply()` does not take the full amount in: it swaps half the
+asset into the quote token before adding liquidity, so a deposit of N arrives in
+the position worth about N x (1 - entryCost). Measured on the live USDC/USDT pair,
+the entry cost was ~0.92% — 744,015 USDC on a 76.6M deposit.
+
+The pool therefore booked more principal than the venue could deliver. The first
+withdraw-all reverted, and the last depositor to leave would have absorbed the
+entire shortfall.
+
+This is not a testnet artifact and not a rounding error. A V2 pair charges a swap
+fee and moves the price on every liquidity add, so the cost is real and permanent
+on mainnet too. The question was never how to remove it, but how to account for
+it honestly.
+
+**Fix:** `deposit()` now measures the venue's `positionValue()` either side of the
+`supply()` call and credits the delta. Shares are always redeemable, `withdrawAll`
+always succeeds, and the cost is visible in the numbers rather than hidden behind
+a revert that lands on whichever address exits last.
+
+`IChogPool.Deposited` already carried both fields — `amount` and `sharesMinted` —
+so the event needed no change.
+
+**What was deliberately not done:** pro-rata withdrawal distribution. It would
+have added a payout mechanism to solve an accounting problem, and it would not
+have made the `IYieldAdapter.redeem` guarantee ("must always be able to return the
+FULL principal, instantly") any more true. Crediting the delivered value is the
+smaller change that keeps the guarantee honest.
+
+**What this does not fix:** if the LP price moves against the position, the
+redeemable value drops and withdrawals can still fall short. That is inherent to
+an LP position, so it is documented in the `ChogPool` docstring rather than
+engineered away.
+
+Verified by `test_Fork_EntryCost_IsReal_AndFullyRedeemable`, which proves against
+the real pair that the entry cost is measurable through `positionValue()` and that
+redeeming exactly the credited value always succeeds.
+
+## Gate 1 passed live, end to end, on the fixed stack
+
+Deployed fresh after the entry-cost fix and ran the full sequence with real
+broadcast transactions. Every number below was read from chain state.
+
+- Faucet claims: both racers on the 24h cooldown from earlier runs. The trader
+  funded both from its own quote through the same real pair, priced against the
+  live reserves. Deposits are sized to what that path can actually deliver
+  (55 / 20 USDC) rather than to a round number, and the log states what moved.
+- Deposit: 53.6M + 18.3M USDC into a real LP position. Odds 7436 / 2563 bps.
+- Volume: 20M USDC of real swaps through the pair, both directions.
+- Harvest: 22,941 USDC of surplus, realized through actual removeLiquidity.
+- Draw: 71,186,086 tickets frozen at close. Winner re-derived off chain and
+  MATCHED the on-chain result (tokenId 1462). Pot paid. Trophy recorded.
+- Withdraw all: 52,934,966 shares out, 52,934,966 asset received.
+
+The withdraw-all is the point. On the previous stack the identical call reverted
+`InsufficientLiquidity(76577421, 75872479)` because the pool booked 744,015 USDC
+more principal than the venue could deliver. This time
+`totalPrincipal == positionValue == 71,186,086` and the withdrawal succeeds for
+the full credited amount, instantly, with no fee.
+
+### Resumability fixes found by this run
+
+A reverted forge script discards the ENTIRE send phase, not just the failing
+transaction. Every step therefore has to be safe to re-run, and three were not:
+
+- **Faucet cooldown.** A zero balance does not prove an actor may claim: one that
+  claimed earlier today and already spent the proceeds holds nothing yet still
+  cannot. All three actors are in that state, so reading `nextClaimAt()` instead
+  of the balance is what keeps the phase from reverting.
+- **Zero-balance racers.** An actor with nothing to deposit is skipped rather than
+  reverting, so the other racer's deposit is not discarded with it.
+- **Deposit assertion.** `totalPrincipal >= dep1 + dep2` compared the nominal
+  deposit against the credited value, which is legitimately lower by the venue's
+  entry cost. It now compares credited values and additionally asserts the pool
+  never books more principal than the venue holds.
+
+The trader's quote is capped per racer so the second racer is not left with
+nothing, and the cap is reported in the log.

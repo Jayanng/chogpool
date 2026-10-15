@@ -1,4 +1,4 @@
-// GENERATED from infra/verified.json + infra/deployments.json. Do not edit by hand.
+// GENERATED from infra/verified.json + infra/deployments.json — do not edit by hand.
 // Source of truth: infra/verified.json (verified live 2026-10-14).
 // DEPLOYED is our own testnet deployment; null when nothing is deployed yet.
 export const CHAIN = {
@@ -34,11 +34,11 @@ export const IPFS = {
 
 export const DEPLOYED = {
   chainId: 10143,
-  mirror: "0xD26d708fdC03113B13ED47fC468E4B2E6538c440",
-  pool: "0x50E326283BbF7eeC51dB4f1552945a75457e331b",
-  yieldAdapter: "0xAB952e448d1A041Ee33602E1676a4309253Ce6Fc",
-  drawEngine: "0x5Ca9781057215edCe19D335A9eFDD7f45e8aBbFc",
-  careerStore: "0x2d60CA5A9975c7d8A87e247CE20E7DF396B9656D",
-  testChogToken: "0x8d95C0A0A4bC24F16E2eB7682e21390229922C70",
-  deployedAt: 1792044082,
+  mirror: "0x9FAA8Def6d45E380D3B9Bf1d02a0145584bCFdeB",
+  pool: "0x1f5a15a16db8146b33729D86116c411270595893",
+  yieldAdapter: "0x2eac87255A8e2C82221BD3DF61090d18031Ab86e",
+  drawEngine: "0xED286549529aB1dE744d04309bd29242c9ac9342",
+  careerStore: "0xe0ce0ED1Cf3Fd880E30E21a4B50d1dCea20bB464",
+  testChogToken: "0x95Ff864F9942481f1aE8C568771016dfa1b479B0",
+  deployedAt: 1792067115,
 } as const;
