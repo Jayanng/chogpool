@@ -18,7 +18,7 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 .topbar { height: 82px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid rgba(255,255,255,.1); position: sticky; top: 0; background: rgba(13,16,20,.86); backdrop-filter: blur(12px); z-index: 10; }
 .brand { font-size: 15px; letter-spacing: .13em; font-weight: 800; color: #f4f6f8; text-decoration: none; }
 .brand span { color: #ff8a3d; margin-left: 6px; }
-.nav-links { display: flex; gap: 26px; flex-wrap: wrap; }
+.nav-links { display: flex; gap: 26px; flex-wrap: wrap; flex: 1; justify-content: center; }
 .nav-links a { font-size: 13px; color: #aab4be; text-decoration: none; padding: 4px 2px; border-bottom: 2px solid transparent; }
 .nav-links a:hover { color: #f4f6f8; }
 .nav-links a.nav-active { color: #ff8a3d; border-bottom-color: #ff8a3d; }

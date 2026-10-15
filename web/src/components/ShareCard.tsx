@@ -5,7 +5,7 @@ import { Badge, Button, Card, tokens } from "@chogpool/ui";
  * Share-card generator stub (Phase 2). Renders ONLY real data we hold:
  * the brand, the countdown label from the game source, and optionally a Chog
  * the user just looked up (real image + real tokenId). No winner or prize
- * values are ever drawn here — those exist only after a real draw (Phase 3).
+ * values are ever drawn here; those exist only after a real draw (Phase 3).
  */
 export function ShareCard({
   chog,

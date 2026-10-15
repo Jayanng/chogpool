@@ -79,7 +79,7 @@ export default function Deposit() {
           ) : liveOn ? (
             <p className="muted">
               The pool contract is live on Monad Testnet and this page reads it (pot, schedule,
-              per-Chog books). The wallet money path — faucet claim → approve → deposit → withdraw —
+              per-Chog books). The wallet money path (faucet claim → approve → deposit → withdraw)
               lands with the Phase 4 money layer. Today, walk the full visual flow with{" "}
               <code>VITE_FIXTURES=1</code>.
             </p>
@@ -96,8 +96,8 @@ export default function Deposit() {
         <Card title="Your position" footer="READ-ONLY PREVIEW · VALUES COME FROM THE GAME SOURCE">
           {fixturesOn ? (
             <>
-              <Stat label="BOUND CHOG" value={bound ? `#${bound}` : "—"} note="One wallet may bind several Chogs; each has its own book." />
-              <Stat label="DEPOSIT" value={bound ? "Recorded (fixture)" : "—"} note="TWAB odds favor time in the pool, not last-second size." tone="lime" />
+              <Stat label="BOUND CHOG" value={bound ? `#${bound}` : "N/A"} note="One wallet may bind several Chogs; each has its own book." />
+              <Stat label="DEPOSIT" value={bound ? "Recorded (fixture)" : "N/A"} note="TWAB odds favor time in the pool, not last-second size." tone="lime" />
             </>
           ) : liveOn ? (
             <>

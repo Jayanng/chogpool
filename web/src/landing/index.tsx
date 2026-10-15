@@ -54,7 +54,7 @@ export default function Landing() {
           <div className="lane lane-two"><div className="lane-label">02 <span>CHOG #1</span></div><div className="runner runner-two">◉</div></div>
           <div className="lane lane-three"><div className="lane-label">03 <span>CHOG #954</span></div><div className="runner runner-three">◉</div></div>
           <div className="track-footer"><span>PRIZE POT</span><strong>{pot === null ? "Yield accumulates live" : `${formatUnits(pot, POT_DECIMALS)} USDC${fixturesOn ? " (fixture)" : ""}`}</strong><span>↗</span></div>
-          <p className="track-note">Design preview of the race UI (Phase 3). Lanes are illustrative — no race is running.</p>
+          <p className="track-note">Design preview of the race UI (Phase 3). Lanes are illustrative. No race is running.</p>
         </Panel>
       </section>
 
@@ -109,7 +109,7 @@ export default function Landing() {
         <ul className="rules-list">
           <li>Test Drive Chogs are clearly labeled everywhere. They never blur into Verified Holder status.</li>
           <li>Traits are real off-chain IPFS metadata. Any boost mapping is our design, derived from real traits.</li>
-          <li>Deposits are principal-safe by design, not by guarantee — yield sources carry their own risks.</li>
+          <li>Deposits are principal-safe by design, not by guarantee. Yield sources carry their own risks.</li>
         </ul>
       </Card>
     </>

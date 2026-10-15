@@ -1,11 +1,11 @@
-// LIVE game source: read-only against the deployed ChogPool (testnet) — the
+// LIVE game source: read-only against the deployed ChogPool (testnet). The
 // single on-chain source for the countdown (nextDrawAt), the pot (potBalance)
 // and per-Chog books (depositOf). All addresses come from the generated module.
 //
 // Scope honesty (PLAN.md phases): this source NEVER writes. Wallet-driven
 // deposit/withdraw transactions are the Phase 4 money path. `deposit()` below
 // exists only to satisfy the frozen GameSource shape and always answers with
-// that boundary — the UI never offers it as an action.
+// that boundary. The UI never offers it as an action.
 
 import type { Address } from "viem";
 import { DEPLOYED } from "../generated/addresses.gen";

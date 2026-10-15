@@ -23,7 +23,7 @@ export default function Verify() {
           <Button disabled>Recompute winner</Button>
           <p className="muted">
             The verifier lands with the draw engine (Phase 3). The formula above is the frozen one from
-            the plan — the page recomputes exactly this, step by step, from the published seed.
+            the plan. The page recomputes exactly this, step by step, from the published seed.
           </p>
           <Button variant="outline" onClick={() => navigate("/")}>Back to the track</Button>
         </Card>
