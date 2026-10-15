@@ -53,7 +53,7 @@ export default function Landing() {
           <div className="lane lane-two"><div className="lane-label">02 <span>CHOG #1</span></div><div className="runner runner-two">◉</div></div>
           <div className="lane lane-three"><div className="lane-label">03 <span>CHOG #954</span></div><div className="runner runner-three">◉</div></div>
           <div className="track-footer"><span>PRIZE POT</span><strong>{pot === null ? "Yield accumulates live" : `${formatUnits(pot, POT_DECIMALS)} USDC${fixturesOn ? " (fixture)" : ""}`}</strong><span>↗</span></div>
-          <p className="track-note">Design preview of the race UI (Phase 3). Lanes are illustrative. No race is running.</p>
+          <p className="track-note">A preview of the race experience. Lanes are illustrative. No race is running.</p>
         </Panel>
       </section>
 
@@ -91,20 +91,13 @@ export default function Landing() {
       </section>
 
       <section className="style-panel">
-        <p className="kicker">PHASE 2 · DESIGN BASE</p>
+        <p className="kicker">BUILT FOR PROOF</p>
         <h2>Built for proof, designed for play.</h2>
-        <div className="token-row">
-          <span style={{ background: tokens.color.accent }} />
-          <span style={{ background: tokens.color.lime }} />
-          <span style={{ background: tokens.color.raised }} />
-          <span style={{ background: tokens.color.ink }} />
-        </div>
         <p className="muted">Every race is a deterministic replay of an on-chain result. The verifier is part of the experience, not a footnote.</p>
-        <Button variant="outline" onClick={() => navigate("/style")}>Open the style guide</Button>
-        {fixturesOn && <Badge tone="danger">DEV FIXTURE MODE ACTIVE (VITE_FIXTURES=1)</Badge>}
+        {fixturesOn && <Badge tone="danger">DEV FIXTURE MODE · SIMULATED DATA</Badge>}
       </section>
 
-      <Card title="Honest boundaries" footer="LABEL DISCIPLINE IS A RULES.md CLAUSE">
+      <Card title="Honest boundaries" footer="CLEAR LABELS, ALWAYS">
         <ul className="rules-list">
           <li>Test Drive Chogs are clearly labeled everywhere. They never blur into Verified Holder status.</li>
           <li>Traits are real off-chain IPFS metadata. Any boost mapping is our design, derived from real traits.</li>

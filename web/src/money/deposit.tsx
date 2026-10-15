@@ -51,7 +51,7 @@ export default function Deposit() {
       </section>
 
       {fixturesOn && (
-        <Toast tone="info" message="DEV FIXTURE MODE (VITE_FIXTURES=1): this flow is simulated. No real funds move." />
+        <Toast tone="info" message="DEV FIXTURE MODE: this flow is simulated. No real funds move." />
       )}
 
       <div className="deposit-grid">
@@ -59,10 +59,10 @@ export default function Deposit() {
           title="Deposit flow"
           aside={
             <Badge tone={fixturesOn ? "accent" : "neutral"}>
-              {fixturesOn ? "FIXTURE · SIMULATED" : liveOn ? "LIVE POOL · READ-ONLY" : "AWAITING WIRING"}
+              {fixturesOn ? "FIXTURE · SIMULATED" : liveOn ? "LIVE POOL · READ-ONLY" : "NOT LIVE YET"}
             </Badge>
           }
-          footer="INTERFACES FROZEN: deposit(usdc) · withdraw(shares) · withdrawAll() · depositOf(tokenId)"
+          footer="DEPOSIT, WITHDRAW AND PER-CHOG BOOKS, READ FROM THE POOL CONTRACT"
         >
           {fixturesOn ? (
             <>
@@ -79,15 +79,14 @@ export default function Deposit() {
           ) : liveOn ? (
             <p className="muted">
               The pool contract is live on Monad Testnet and this page reads it (pot, schedule,
-              per-Chog books). The wallet money path (faucet claim → approve → deposit → withdraw)
-              lands with the Phase 4 money layer. Today, walk the full visual flow with{" "}
-              <code>VITE_FIXTURES=1</code>.
+              per-Chog books). Wallet deposits and withdrawals (faucet claim → approve → deposit → withdraw)
+              are coming soon. Today, walk the full visual flow in the demo build.
             </p>
           ) : (
             <p className="muted">
-              No pool deployment is recorded in this build's registry, so nothing here is simulated or
-              guessed. The interface is frozen (IChogPool), so this page wires straight in at the next
-              deploy. Run the dev build with <code>VITE_FIXTURES=1</code> to walk the flow visually today.
+              The pool contract is not connected in this build, so nothing here is simulated or
+              guessed. The page is wired to the pool and fills in the moment it connects. Try the
+              full visual flow in the demo build.
             </p>
           )}
           {toast && <div className="toast-row"><Toast tone={toast.tone} message={toast.message} /></div>}

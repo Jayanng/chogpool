@@ -2,10 +2,10 @@ import { useRef, useState } from "react";
 import { Badge, Button, Card, tokens } from "@chogpool/ui";
 
 /**
- * Share-card generator stub (Phase 2). Renders ONLY real data we hold:
+ * Share-card generator preview. Renders ONLY real data we hold:
  * the brand, the countdown label from the game source, and optionally a Chog
  * the user just looked up (real image + real tokenId). No winner or prize
- * values are ever drawn here; those exist only after a real draw (Phase 3).
+ * values are ever drawn here; those exist only after a real draw.
  */
 export function ShareCard({
   chog,
@@ -80,8 +80,8 @@ export function ShareCard({
   return (
     <Card
       title="Share card"
-      aside={<Badge tone="neutral">STUB · REAL DATA ONLY</Badge>}
-      footer="WINNER AND POT FIELDS APPEAR ONLY AFTER A REAL DRAW (PHASE 3)"
+      aside={<Badge tone="neutral">PREVIEW · REAL DATA ONLY</Badge>}
+      footer="WINNER AND POT APPEAR AFTER A REAL DRAW"
     >
       <div className="share-actions">
         <Button onClick={() => void render()}>Render card</Button>

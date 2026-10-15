@@ -11,7 +11,7 @@ function format(remaining: number): string {
 
 /**
  * Countdown to the next race. Takes the timestamp ONLY from the game source
- * (fixture in dev, contract after Phase 1), never a hardcoded schedule.
+ * (fixture in dev, live contract in production), never a hardcoded schedule.
  * When the schedule is unknown it says so honestly.
  */
 export function Countdown({ nextDrawAt, sourceLabel }: { nextDrawAt: number | null; sourceLabel: string }) {

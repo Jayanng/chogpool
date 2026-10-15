@@ -30,7 +30,7 @@ export default function StyleGuide() {
       <section className="page-head">
         <p className="kicker">CHOG TRACK · DESIGN SYSTEM v{UI_VERSION}</p>
         <h1>Style guide</h1>
-        <p className="lede">Every component and token of packages/ui, rendered with real values. Graphite ground, track-orange signal, lane-lime confirm.</p>
+        <p className="lede">Every component and token of the design system, rendered with real values. Graphite ground, track-orange signal, lane-lime confirm.</p>
         <Button variant="outline" onClick={() => navigate("/")}>Back to the track</Button>
       </section>
 
