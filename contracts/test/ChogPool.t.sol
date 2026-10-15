@@ -160,6 +160,77 @@ contract ChogPoolTwabTest is Test {
         pool.withdrawAll(TOKEN_A);
     }
 
+    // ---------- entry cost accounting ----------
+
+    /// The venue charges a real entry cost (swap fee + price impact), so shares must
+    /// be minted against the value the venue actually took in, NOT the nominal amount.
+    /// Crediting the nominal amount books a liability the venue cannot honour and the
+    /// first withdraw-all reverts InsufficientLiquidity.
+    function test_Deposit_CreditsOnlyWhatTheVenueTookIn() public {
+        adapter.setEntryCostBps(100); // 1% — the order of magnitude a real pair charges
+
+        uint256 amount = 100 * ONE;
+        uint256 before = usdc.balanceOf(alice);
+        _deposit(alice, TOKEN_A, amount);
+
+        // Alice paid the full amount...
+        assertEq(before - usdc.balanceOf(alice), amount, "depositor pays the full amount");
+        // ...but only ~99% is redeemable, and shares match the redeemable value.
+        assertEq(pool.sharesOf(TOKEN_A), 99 * ONE, "shares match the venue's taken-in value");
+        assertEq(pool.totalShares(), 99 * ONE, "totalShares matches");
+        assertEq(pool.totalPrincipal(), 99 * ONE, "totalPrincipal is redeemable value");
+        assertEq(adapter.principalDeployed(), 99 * ONE, "venue holds exactly the credited amount");
+        assertLt(pool.sharesOf(TOKEN_A), amount, "shares must never exceed the redeemable value");
+    }
+
+    /// Withdraw-all must succeed even when the venue charged an entry cost. This is
+    /// the exact failure that left a live draw pot unpaid: the pool had booked more
+    /// principal than the pair could deliver, so the redeemer reverted.
+    function test_WithdrawAll_SucceedsWithEntryCost() public {
+        adapter.setEntryCostBps(100);
+        _deposit(alice, TOKEN_A, 100 * ONE);
+        vm.warp(block.timestamp + 7 days);
+
+        uint256 before = usdc.balanceOf(alice);
+        vm.prank(alice);
+        pool.withdrawAll(TOKEN_A); // must NOT revert
+
+        uint256 got = usdc.balanceOf(alice) - before;
+        assertEq(got, 99 * ONE, "depositor gets back exactly the redeemable value");
+        assertEq(pool.sharesOf(TOKEN_A), 0);
+        assertEq(pool.totalShares(), 0);
+        assertEq(adapter.principalDeployed(), 0, "venue fully drained");
+    }
+
+    /// Two depositors through a cost-charging venue must both be able to exit in
+    /// full. With nominal accounting the second one to leave would revert, because
+    /// the first withdrawal would consume value the second depositor's shares claim.
+    function test_TwoDepositors_BothExitInFull_ThroughCostChargingVenue() public {
+        adapter.setEntryCostBps(92); // ~0.92%, measured on the live pair
+
+        _deposit(alice, TOKEN_A, 500 * ONE);
+        _deposit(bob, TOKEN_B, 500 * ONE);
+        vm.warp(block.timestamp + 30 days);
+
+        // Shares are minted against the venue's taken-in value, so each depositor's
+        // claim is exactly what the venue can pay.
+        assertEq(pool.sharesOf(TOKEN_A), 500 * ONE - (500 * ONE * 92) / 10_000);
+        assertEq(pool.sharesOf(TOKEN_B), 500 * ONE - (500 * ONE * 92) / 10_000);
+        assertEq(pool.totalShares(), 2 * (500 * ONE - (500 * ONE * 92) / 10_000));
+        assertEq(adapter.principalDeployed(), pool.totalShares(), "venue holds exactly the credited amount");
+
+        // Both exit in full, in sequence. Neither reverts, and neither is short-paid.
+        vm.prank(alice);
+        pool.withdrawAll(TOKEN_A);
+        vm.prank(bob);
+        pool.withdrawAll(TOKEN_B);
+
+        assertEq(pool.sharesOf(TOKEN_A), 0);
+        assertEq(pool.sharesOf(TOKEN_B), 0);
+        assertEq(pool.totalShares(), 0, "nothing stuck");
+        assertEq(adapter.principalDeployed(), 0, "venue fully drained");
+    }
+
     // ---------- TWAB math vs closed form ----------
 
     /// Constant balance over a window: TWAB must equal that balance exactly.

@@ -286,3 +286,46 @@ about itself. `Gate1.s.sol` now asserts the things it claims (principal reached
 the LP, the mirror really owns the minted Chogs, the winner's trophy was
 recorded), but the assertions are worthless unless someone also checks the
 outside world. That check is now part of the run.
+
+## Finding: the entry cost, and why shares are no longer minted 1:1
+
+The live run surfaced a real accounting bug, not a script bug. Withdrawing all of
+a position reverted `InsufficientLiquidity(76577421, 75872479)`.
+
+`ChogPool.deposit()` credited `pos.shares += amount` — the full nominal deposit.
+`PuddleLpAdapter.supply()` does not take the full amount in: it swaps half the
+asset into the quote token before adding liquidity, so a deposit of N arrives in
+the position worth about N x (1 - entryCost). Measured on the live USDC/USDT pair,
+the entry cost was ~0.92% — 744,015 USDC on a 76.6M deposit.
+
+The pool therefore booked more principal than the venue could deliver. The first
+withdraw-all reverted, and the last depositor to leave would have absorbed the
+entire shortfall.
+
+This is not a testnet artifact and not a rounding error. A V2 pair charges a swap
+fee and moves the price on every liquidity add, so the cost is real and permanent
+on mainnet too. The question was never how to remove it, but how to account for
+it honestly.
+
+**Fix:** `deposit()` now measures the venue's `positionValue()` either side of the
+`supply()` call and credits the delta. Shares are always redeemable, `withdrawAll`
+always succeeds, and the cost is visible in the numbers rather than hidden behind
+a revert that lands on whichever address exits last.
+
+`IChogPool.Deposited` already carried both fields — `amount` and `sharesMinted` —
+so the event needed no change.
+
+**What was deliberately not done:** pro-rata withdrawal distribution. It would
+have added a payout mechanism to solve an accounting problem, and it would not
+have made the `IYieldAdapter.redeem` guarantee ("must always be able to return the
+FULL principal, instantly") any more true. Crediting the delivered value is the
+smaller change that keeps the guarantee honest.
+
+**What this does not fix:** if the LP price moves against the position, the
+redeemable value drops and withdrawals can still fall short. That is inherent to
+an LP position, so it is documented in the `ChogPool` docstring rather than
+engineered away.
+
+Verified by `test_Fork_EntryCost_IsReal_AndFullyRedeemable`, which proves against
+the real pair that the entry cost is measurable through `positionValue()` and that
+redeeming exactly the credited value always succeeds.

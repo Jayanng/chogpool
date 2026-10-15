@@ -21,11 +21,23 @@ contract MockYieldAdapter is IYieldAdapter {
     /// @dev Principal the venue currently holds for the pool (asset units).
     uint256 public principal;
 
+    /// @dev Entry cost in basis points, charged on every supply(). The real venue
+    ///      charges a swap fee plus price impact when it converts half the deposit
+    ///      before adding liquidity. A lossless mock would leave the pool's 1:1
+    ///      share assumption untested, which is exactly the assumption that broke
+    ///      withdraw-all against the live pair.
+    uint256 public entryCostBps;
+
     error OnlyPool();
 
     constructor(address asset_, address pool_) {
         asset = asset_;
         pool = pool_;
+    }
+
+    /// @dev TEST ONLY: make supply() charge `bps` of entry cost, like a real venue.
+    function setEntryCostBps(uint256 bps) external {
+        entryCostBps = bps;
     }
 
     modifier onlyPool() {
@@ -36,7 +48,12 @@ contract MockYieldAdapter is IYieldAdapter {
     /// @inheritdoc IYieldAdapter
     function supply(uint256 amount) external onlyPool {
         IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
-        principal += amount;
+        // Charge the entry cost by handing the difference back immediately, so the
+        // venue's own balance — and therefore positionValue() — reflects what the
+        // pool can actually redeem.
+        uint256 cost = (amount * entryCostBps) / 10_000;
+        if (cost > 0) IERC20(asset).safeTransfer(msg.sender, cost);
+        principal += amount - cost;
         emit Supplied(amount);
     }
 

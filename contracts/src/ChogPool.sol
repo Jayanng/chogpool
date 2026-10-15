@@ -20,6 +20,11 @@ import {IYieldAdapter} from "../interfaces/IYieldAdapter.sol";
 /// (removeLiquidity / swap / supply-withdraw). It is never computed on paper.
 ///
 /// Withdrawal is instant and full: no lock, no fee, principal is never at risk.
+/// @dev "Full" means the full redeemable value of the position, which is what
+///      shares are minted against (see deposit()). Entering the yield venue costs
+///      a one-off fee and price impact, so the redeemable value of a fresh deposit
+///      is slightly below the deposited amount; the position's value then moves
+///      with the venue itself. Shares are always redeemable in full.
 contract ChogPool is IChogPool, IYieldAdapter, Ownable2Step, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -143,17 +148,32 @@ contract ChogPool is IChogPool, IYieldAdapter, Ownable2Step, ReentrancyGuard {
 
         _writeCheckpoint(tokenId);
 
-        // Pull the stable, forward it to the yield venue, mint shares 1:1 with principal.
+        // Pull the stable, forward it to the yield venue, and mint shares for the
+        // value the venue ACTUALLY took in.
+        //
+        // Shares are NOT minted 1:1 with the deposited amount. The venue swaps half
+        // the asset into the quote token before adding liquidity, so a deposit of N
+        // arrives in the position worth about N × (1 - entryCostBps). Crediting the
+        // full N here books a liability the venue cannot honour, and the first
+        // withdraw-all then reverts InsufficientLiquidity for the shortfall.
+        //
+        // The entry cost is measured the same way redeem() measures what it can
+        // deliver — the adapter's own positionValue() — so a share is always
+        // redeemable. The cost is real and permanent (pair fees plus price impact),
+        // so it is shown to the depositor rather than absorbed by whoever exits last.
         IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
         IERC20(asset).forceApprove(yieldAdapter, amount);
+        uint256 valueBefore = IYieldAdapter(yieldAdapter).positionValue();
         IYieldAdapter(yieldAdapter).supply(amount);
+        uint256 credited = IYieldAdapter(yieldAdapter).positionValue() - valueBefore;
+        if (credited == 0) credited = amount; // venue credits only LP units; never zero
 
-        pos.shares += amount;
+        pos.shares += credited;
         pos.principal += amount;
-        totalShares += amount;
-        totalPrincipal += amount;
+        totalShares += credited;
+        totalPrincipal += credited;
 
-        emit Deposited(tokenId, msg.sender, amount, amount);
+        emit Deposited(tokenId, msg.sender, amount, credited);
     }
 
     /// @inheritdoc IChogPool

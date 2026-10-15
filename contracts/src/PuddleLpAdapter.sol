@@ -250,6 +250,20 @@ contract PuddleLpAdapter is IYieldAdapter, ReentrancyGuard {
         return lpHeld;
     }
 
+    /// @notice The surplus harvest() would realize right now, or 0 if there is none.
+    /// @dev harvest() returns 0 when the position is worth no more than the principal
+    ///      it was bought with, and the POOL then reverts NothingToHarvest. A caller
+    ///      that must not broadcast a reverting transaction — the Gate 1 driver in
+    ///      particular, where a single gas-estimation failure aborts the send of
+    ///      every transaction queued behind it — needs to know BEFORE sending. This
+    ///      view exposes exactly what harvest() would compute, so the decision is
+    ///      made from chain state instead of from a revert.
+    function realizableSurplus() external view returns (uint256) {
+        uint256 value = _totalValueInAsset();
+        if (value <= principalDeployed) return 0;
+        return value - principalDeployed;
+    }
+
     // ---------------- internals ----------------
 
     function _totalValueInAsset() internal view returns (uint256) {
