@@ -143,3 +143,72 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
   .nav-links a:last-of-type { border-bottom: 0; }
   .nav-links a.nav-active { border-bottom-color: #ff8a3d; }
 }
+
+/* ---------------------------------------------------------- race show */
+.show { display: grid; gap: 20px; }
+.show-stage { padding: 26px; display: grid; gap: 18px; }
+.show-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+.show-title { margin: 6px 0 0; font-size: clamp(24px, 2.6vw, 34px); }
+.show-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+.show-status { display: grid; gap: 10px; }
+.show-status-line { font: 500 12px 'DM Mono', ui-monospace, monospace; letter-spacing: .12em; color: #ff8a3d; margin: 0; }
+.show-lanes { display: grid; gap: 14px; }
+.show-lane { display: grid; gap: 8px; padding: 14px; border-radius: 16px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); }
+.show-lane--winner { border-color: rgba(198,239,109,.5); background: rgba(198,239,109,.06); }
+.show-lane-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.show-lane-id { font: 500 12px 'DM Mono', ui-monospace, monospace; letter-spacing: .1em; color: #f4f6f8; }
+.show-lane-name { font-size: 13px; color: #aab4be; }
+.show-track { position: relative; height: 58px; border-radius: 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); overflow: hidden; }
+.show-track::after { content: ""; position: absolute; right: 10px; top: 8px; bottom: 8px; width: 2px; background: rgba(255,138,61,.6); }
+.show-runner { position: absolute; top: 50%; transform: translateY(-50%); transition: left 90ms linear; }
+.show-runner-img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 2px solid #ff8a3d; display: block; }
+.show-runner-dot { font-size: 26px; color: #c6ef6d; }
+.show-lane-meta { display: flex; gap: 14px; flex-wrap: wrap; font: 500 11px 'DM Mono', ui-monospace, monospace; letter-spacing: .06em; color: #68737e; }
+.show-perk { color: #c6ef6d; }
+.show-foot { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; border-top: 1px solid rgba(255,255,255,.08); padding-top: 14px; }
+.show-disclosure { flex: 1; min-width: 260px; font-size: 12px; line-height: 1.6; color: #68737e; }
+.truth-strip { padding: 18px 22px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 14px; color: #aab4be; }
+.truth-strip span { flex: 1; min-width: 260px; line-height: 1.6; }
+
+/* ------------------------------------------------------------- podium */
+.podium-wrap { position: relative; }
+.confetti-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+.podium { padding: 28px; display: grid; gap: 20px; position: relative; z-index: 1; }
+.podium-head { display: grid; gap: 10px; }
+.podium-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; }
+.podium-winner { display: grid; grid-template-columns: 180px 1fr; gap: 20px; align-items: start; }
+.podium-img { width: 180px; height: 180px; border-radius: 16px; object-fit: cover; border: 2px solid #c6ef6d; }
+.podium-winner h3 { margin: 4px 0 10px; font-size: 22px; }
+.podium-rest { display: grid; gap: 8px; align-content: start; }
+.podium-place { display: flex; gap: 10px; margin: 0; font-size: 15px; color: #f4f6f8; }
+.podium-place em { font-style: normal; color: #68737e; font: 500 11px 'DM Mono', ui-monospace, monospace; letter-spacing: .06em; }
+.show-inscription { font: 500 12px 'DM Mono', ui-monospace, monospace; color: #c6ef6d; line-height: 1.6; }
+
+/* ------------------------------------------------------------ verify */
+.verdict { padding: 22px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.verdict--verified { border: 1px solid rgba(198,239,109,.5); background: rgba(198,239,109,.07); }
+.verdict--mismatch { border: 1px solid rgba(255,110,110,.55); background: rgba(255,110,110,.08); }
+.verdict-line { margin: 0; flex: 1; min-width: 280px; font-size: 15px; line-height: 1.6; color: #f4f6f8; }
+.verify-lines { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: 13px; line-height: 1.7; color: #aab4be; overflow-wrap: anywhere; }
+.verify-lines--fail li::marker { color: #ff6e6e; }
+.verify-lines--pass li::marker { color: #c6ef6d; }
+.verify-table { width: 100%; border-collapse: collapse; font: 500 12px 'DM Mono', ui-monospace, monospace; }
+.verify-table th { text-align: left; color: #68737e; letter-spacing: .1em; font-weight: 500; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.12); }
+.verify-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.06); color: #aab4be; }
+.verify-table__hit td { color: #c6ef6d; background: rgba(198,239,109,.06); }
+
+/* ------------------------------------------------------------- draft */
+.draft-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 18px 0; }
+
+/* ------------------------------------------------------------- cheer */
+.cheer-amount { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+.cheer-amount .field { min-width: 220px; }
+.cheer-wallet { display: grid; gap: 6px; margin: 12px 0; }
+.cheer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin: 18px 0; }
+.cheer-lane { display: grid; gap: 8px; padding: 16px; border-radius: 16px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); }
+.cheer-log { display: grid; gap: 6px; margin: 12px 0; }
+
+@media (max-width: 1024px) {
+  .podium-grid, .podium-winner { grid-template-columns: 1fr; }
+  .draft-grid { grid-template-columns: 1fr; }
+}
