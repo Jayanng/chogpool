@@ -10,7 +10,7 @@ via_ir = false
 fs_permissions = [
   { access = "read", path = "./" },
   { access = "read", path = "../infra" },
-  { access = "write", path = "../infra/deployments.json" }
+  { access = "write", path = "deployments.json" }
 ]
 
 [profile.default.fuzz]

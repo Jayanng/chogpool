@@ -26,6 +26,10 @@ const ALLOW_FILES = [
 const SCAN_DIRS = ["contracts", "web", "packages", "infra", "docs", ".github"];
 const SKIP = (p) =>
   p.includes("node_modules") || p.includes("/out/") || p.includes("/cache/") ||
+  // Forge broadcast receipts contain every deployed address and every tx hash by
+  // design — they are a record of a real run, not source. They are gitignored
+  // build artifacts; without this skip the deploy would look like 380 violations.
+  p.includes("/broadcast/") ||
   p.startsWith("contracts/lib/") || // vendored submodules (OpenZeppelin, forge-std) — NOT first-party code
   p.endsWith(".lock") || p.includes(".git/") || p.includes("/dist/");
 const IS_GENERATED = (p) => p.includes("generated") || p.includes(".gen.");

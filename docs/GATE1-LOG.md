@@ -178,3 +178,108 @@ there, and reveals in the frame's own block — both are real mined blocks and t
 reveal is strictly after the close. Self-transfers do **not** advance
 `block.number` inside a forge script (verified directly), so they cannot be used to
 reach a mined block.
+
+---
+
+# Gate 1 — live Monad testnet run (chainId 10143)
+
+Deployed with `contracts/script/Deploy.s.sol`, then exercised end-to-end with
+`contracts/script/Gate1.s.sol`. Every number below was read from chain state
+during the run. No value was simulated.
+
+## Deployed addresses
+
+| Contract | Address |
+| --- | --- |
+| ChogMirror | `0xD26d708fdC03113B13ED47fC468E4B2E6538c440` |
+| ChogPool | `0x50E326283BbF7eeC51dB4f1552945a75457e331b` |
+| PuddleLpAdapter | `0xAB952e448d1A041Ee33602E1676a4309253Ce6Fc` |
+| CareerStore | `0x2d60CA5A9975c7d8A87e247CE20A7DF396B9656D` |
+| DrawEngine | `0x5Ca9781057215edCe19D335A9eFDD7f45e8aBbFc` |
+| TestChogToken | `0x8d95C0A0A4bC24F16E2eB7682e21390229922C70` |
+
+Deployer/operator: `0x6297D796f5BBD8224293d6fA12d10C1F4b986291`
+
+Wiring was re-read from chain after deploy and every pointer matched:
+`pool.yieldAdapter`, `pool.drawEngine`, `engine.pool`, `engine.careerStore`,
+`careers.drawEngine`, `adapter.pool`. A wiring that does not read back is the
+silent failure mode — the stack deploys, every address is valid, and the draw
+never runs — so the deploy reverts instead of shipping a broken app.
+
+## The run
+
+- **step 1** — both racers claimed 1,000 USDT from the real `StableFaucet`
+  (`0x50959dd2a4ef310f9aa2df9498cE9aC0aB956276`) and swapped it through the real
+  Puddle router. Player received 326,577,421 USDC (6dp); rival received
+  245,039,133. The honest funding path is what set the deposit sizes.
+- **step 2** — two Test Drive mirror Chogs minted (tokenIds 1462 and 954), both
+  reporting `badge == 1`.
+- **step 3** — 250,000,000 + 245,000,000 deposited. `totalPrincipal` 495,000,000;
+  the adapter bought 481,151,699 LP units for 480,465,160 principal and its
+  position was worth 483,553,136 — real LP, held by the adapter.
+- **step 4** — 100,000,000 USDC of real volume traded through the pair, both legs.
+  The position value read identically before and after, which is the honest
+  result: 100 USDC of volume on a pool this size generates fees far below the
+  position's own noise. `positionValue` is read live, not assumed to move.
+- **step 5** — harvest realized 3,254,227 USDC into the pot, and the pool's asset
+  balance exactly equalled `potBalance` afterwards. That assertion is the point of
+  step 5: the earlier bug booked a pot the pool did not hold, so `payPot()`
+  reverted for every winner.
+- **step 6** — commit-reveal draw 1. Final randomness
+  `0x7a64d230663881672704e49bed3f555269bce9ed859497a2025441c984c4d77d`, revealed
+  at block 71,178,934. 495,000,000 tickets frozen. The off-chain re-derivation
+  picked tokenId **1462** and the on-chain `winnersOf()` returned **1462**:
+  `re-derivation: MATCH`.
+- **step 7** — the winner's balance was 79,831,648 USDC after the pot was paid.
+- **step 8** — the player withdrew all 250,000,000 shares and received exactly
+  250,000,000 USDC. Principal came back whole and instantly, with no cooldown and
+  no lockup.
+
+## Bugs this run surfaced
+
+1. **`_wireAll()` used `vm.startPrank` inside `vm.startBroadcast`.** Foundry cannot
+   change `msg.sender` for a broadcasted transaction, so the whole deploy script
+   aborted with *"cannot prank for a broadcasted transaction"*. Since the
+   broadcast sender is the deployer and the deployer owns every contract, no prank
+   is needed at all — the calls are already authorized. The prank was removed and
+   every setter is followed by a re-read that reverts if the write did not take.
+
+2. **`fs_permissions` could not write outside the project root.** `../infra/
+   deployments.json` was refused even with the permission declared, while reads
+   from `../infra` work fine — the asymmetry is write-specific and paths resolve
+   relative to `contracts/`. The script now writes `deployments.json` inside
+   `contracts/` and the deploy step moves it to `infra/`, where the address
+   generator reads it.
+
+3. **`Gate1.s.sol` aliased the volume trader to the rival depositor.** The rival
+   claimed from `StableFaucet` as a depositor in step 1, then claimed again as the
+   trader in step 4 and hit the faucet's 24h cooldown: `ClaimTooSoon(1792131190)`.
+   The demo died before it could trade any volume. The trader is now its own
+   address with an assertion that it differs from both depositors. Keeping them
+   distinct is also what makes step 4 honest — the fees come from a third party
+   rather than a depositor moving its own principal around.
+
+4. **`check-addresses.mjs` did not skip `contracts/broadcast/`.** Forge's
+   broadcast receipts contain every deployed address and tx hash by design, and
+   they are gitignored build artifacts, so a successful deploy reported 380
+   "hardcoded address" violations. Added `/broadcast/` to the skip list and
+   negative-tested the checker with a real literal in `web/src/` — it still fails,
+   which is the Gate protocol requirement after any allowlist change.
+
+## Reproducing
+
+```bash
+export PATH="$PATH:/home/ubuntu/.hermes/bot-desktop/xdg/.foundry/bin"
+cd contracts
+# deploy
+forge script script/Deploy.s.sol --rpc-url monad_testnet --broadcast \
+  --private-key "$CHOGPOOL_DEPLOYER_PRIVATE_KEY"
+mv deployments.json ../infra/deployments.json
+# exercise
+forge script script/Gate1.s.sol --rpc-url monad_testnet --broadcast \
+  --private-key "$CHOGPOOL_DEPLOYER_PRIVATE_KEY"
+```
+
+The deployer key lives at `/home/ubuntu/.chogpool-deploy/deployer.env` (chmod 600,
+outside the repo) and is passed per-command so it never reaches `.git/config`, the
+remote URL, or git history.

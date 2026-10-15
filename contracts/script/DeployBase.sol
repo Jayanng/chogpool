@@ -121,9 +121,12 @@ abstract contract DeployBase is Script {
     ///      a silent failure mode: the stack deploys, every address is valid, and the
     ///      draw never runs. Reverting here is the difference between a failed deploy
     ///      and a broken live app.
+    /// @dev No vm.prank/startPrank here. This runs inside vm.startBroadcast(), where
+    ///      the cheatcodes cannot change msg.sender — the broadcast sender IS the
+    ///      deployer, and the deployer is the owner of every contract, so the calls
+    ///      are already authorized. (Pranking inside a broadcast aborts the whole
+    ///      script with "cannot prank for a broadcasted transaction".)
     function _wireAll() internal {
-        vm.startPrank(pool.owner());
-
         pool.setYieldAdapter(address(adapter));
         require(pool.yieldAdapter() == address(adapter), "pool.yieldAdapter did not wire");
 
@@ -139,8 +142,6 @@ abstract contract DeployBase is Script {
         careers.setDrawEngine(address(engine));
         require(careers.drawEngine() == address(engine), "careers.drawEngine did not wire");
 
-        vm.stopPrank();
-
         // The adapter's asset and pair must be the registry ones — a mismatch here
         // would silently route yield into the wrong venue.
         require(address(adapter.asset()) == reg.asset, "adapter.asset is not the registry asset");
@@ -150,6 +151,13 @@ abstract contract DeployBase is Script {
         require(pool.asset() == reg.asset, "pool.asset is not the registry asset");
     }
 
+    /// @dev Writes the deployment record. The path is INSIDE contracts/ on purpose:
+    ///      forge's fs_permissions only grants writes within the project root that
+    ///      foundry.toml lives in, and a `../infra/...` write is refused even when
+    ///      the permission is declared. Reads from ../infra work fine (the fork
+    ///      tests and the Gate 1 script rely on that), so the asymmetry is
+    ///      write-specific. The file is moved to infra/ by the deploy step in the
+    ///      shell, which is where the registry generator expects it.
     function _writeDeployments() internal {
         string memory obj = "deployment";
         vm.serializeUint(obj, "chainId", block.chainid);
@@ -165,7 +173,7 @@ abstract contract DeployBase is Script {
         vm.serializeAddress(obj, "pair", reg.pair);
         vm.serializeUint(obj, "deployedAt", block.timestamp);
         string memory json = vm.serializeAddress(obj, "deployer", msg.sender);
-        vm.writeJson(json, "../infra/deployments.json");
-        console2.log("wrote ../infra/deployments.json");
+        vm.writeJson(json, "deployments.json");
+        console2.log("wrote contracts/deployments.json (move to infra/ after deploy)");
     }
 }

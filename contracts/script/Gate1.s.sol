@@ -136,7 +136,22 @@ contract Gate1 is DeployBase {
         if (rival == address(0)) {
             rival = address(uint160(uint256(keccak256("chogpool-gate1-rival"))));
         }
-        trader = vm.envOr("GATE1_TRADER", rival);
+        // The trader MUST NOT be an address that already claimed from StableFaucet.
+        // Every actor funds itself with an honest faucet.claim(), and the faucet
+        // enforces a 24h cooldown per claimant. Aliasing trader to rival made the
+        // step-4 claim revert with ClaimTooSoon, because rival had already claimed
+        // as a depositor in step 1 — so the demo died before it could trade any
+        // volume. A distinct trader address also keeps the volume source honest:
+        // the fees come from a third party, not from a depositor moving its own
+        // principal around.
+        trader = vm.envOr("GATE1_TRADER", address(0));
+        if (trader == address(0)) {
+            trader = address(uint160(uint256(keccak256("chogpool-gate1-trader"))));
+        }
+        require(
+            trader != rival && trader != player,
+            "Gate1 trader must be a distinct address: it claims from StableFaucet again"
+        );
     }
 
     function _deployStackOnFork() internal {

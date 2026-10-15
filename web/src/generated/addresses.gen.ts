@@ -1,5 +1,6 @@
-// GENERATED from infra/verified.json — do not edit by hand.
+// GENERATED from infra/verified.json + infra/deployments.json — do not edit by hand.
 // Source of truth: infra/verified.json (verified live 2026-10-14).
+// DEPLOYED is our own testnet deployment; null when nothing is deployed yet.
 export const CHAIN = {
   monad: { id: 143, name: "Monad Mainnet", rpc: "https://rpc.monad.xyz" },
   monadTestnet: { id: 10143, name: "Monad Testnet", rpc: "https://testnet-rpc.monad.xyz" },
@@ -29,4 +30,15 @@ export const TESTNET = {
 export const IPFS = {
   metadataBase: "bafybeid4ybujnscdipkno7ps5utqelp5ry5ryreqhay3zhgk3a6x4jruqu",
   gateway: "https://gateway.pinata.cloud/ipfs/",
+} as const;
+
+export const DEPLOYED = {
+  chainId: 10143,
+  mirror: "0xD26d708fdC03113B13ED47fC468E4B2E6538c440",
+  pool: "0x50E326283BbF7eeC51dB4f1552945a75457e331b",
+  yieldAdapter: "0xAB952e448d1A041Ee33602E1676a4309253Ce6Fc",
+  drawEngine: "0x5Ca9781057215edCe19D335A9eFDD7f45e8aBbFc",
+  careerStore: "0x2d60CA5A9975c7d8A87e247CE20E7DF396B9656D",
+  testChogToken: "0x8d95C0A0A4bC24F16E2eB7682e21390229922C70",
+  deployedAt: 1792044082,
 } as const;
