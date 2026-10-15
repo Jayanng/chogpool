@@ -41,7 +41,6 @@ export default function Landing() {
             <Button onClick={() => navigate("/deposit")}>Enter the track</Button>
             <Button variant="quiet" onClick={() => navigate("/spectator")}>Watch the next race <span>↗</span></Button>
           </div>
-          <div className="network-note"><span className="status-dot" /> Read: {CHAIN.monad.name} · Play: {CHAIN.monadTestnet.name}</div>
         </div>
 
         <Panel className="track-card">

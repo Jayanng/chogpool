@@ -77,7 +77,6 @@ function App() {
       <footer className="footer">
         <Panel className="footer-panel">
           <Badge tone="neutral">MONAD TESTNET BUILD</Badge>
-          <span>Read: {CHAIN.monad.name} · Play: {CHAIN.monadTestnet.name}</span>
           <span className="footer-note">Deposits are principal-safe by design, not by guarantee. Yield sources carry their own risks.</span>
         </Panel>
       </footer>
