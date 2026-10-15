@@ -20,6 +20,13 @@ import {IDrawEngine} from "../interfaces/IDrawEngine.sol";
 interface IStableFaucet {
     function claim() external;
     function cooldown() external view returns (uint256);
+
+    /// @notice The earliest timestamp at which `who` may claim again.
+    /// @dev Read before claiming so a re-run can skip an actor still on its 24h
+    ///      cooldown instead of reverting ClaimTooSoon and discarding the broadcast.
+    ///      A zero balance alone does not prove an actor may claim: one that already
+    ///      claimed and already spent the proceeds holds nothing yet still cannot.
+    function nextClaimAt(address who) external view returns (uint256);
 }
 
 /// @title Gate1.s.sol — the Gate 1 end-to-end run, as an executable log.
@@ -96,20 +103,23 @@ contract Gate1 is DeployBase {
 
     // ---------------- funding amounts ----------------
 
-    /// @dev 250 USDC per racer. The honest funding path (faucet claim -> swap) yields
-    ///      ~367 USDC from one 1,000 USDT claim, so a 400 deposit does not fit and a
-    ///      600 volume swap cannot be funded either. These numbers are sized to what
-    ///      the faucet actually mints — the script fails loudly rather than silently
-    ///      short-funding.
-    uint256 constant DEPOSIT = 250e6; // 250 USDC (6 decimals)
-    uint256 constant VOLUME = 100e6; // 100 USDC of swap volume through the pair
+    /// @dev Sized to what the honest funding path can actually deliver TODAY, not to
+    ///      a round number. Every actor is on the faucet's 24h cooldown from earlier
+    ///      runs, so the only remaining funding source is the trader's quote balance.
+    ///      The pair's price has moved hard against USDT: 1 USDT now buys ~0.08 USDC,
+    ///      so the trader's entire 998M USDT buys ~74.8 USDC. Deposits are therefore
+    ///      sized so the trader can fund BOTH racers and still hold quote for the
+    ///      volume step. The log reports what actually moved; nothing is short-funded
+    ///      silently and no amount is claimed that did not move.
+    uint256 constant DEPOSIT = 55e6; // 55 USDC for the demo racer
+    uint256 constant VOLUME = 20e6; // 20 USDC of swap volume through the pair
 
-    /// @dev The second racer's swap returns ~245 USDC because their swap moves the
-    ///      thin pair's price, so a flat 250 deposit would exceed their balance.
-    ///      Each racer deposits min(DEPOSIT, actual balance), which keeps both
-    ///      deposits funded from the same honest path while letting the pair's own
-    ///      price impact show up in the log instead of a revert.
-    uint256 constant RIVAL_DEPOSIT = 245e6;
+    /// @dev The second racer's deposit, sized below DEPOSIT so the trader's quote can
+    ///      fund both racers and still trade volume. Each racer deposits
+    ///      min(target, actual balance), which keeps both deposits funded from the
+    ///      same honest path while letting the pair's own price impact show up in the
+    ///      log instead of a revert.
+    uint256 constant RIVAL_DEPOSIT = 20e6;
 
     bytes32 constant SEED = keccak256("chogpool-gate1-demo-seed");
     uint256 constant DEMO_TOKEN_ID = 1462; // a real Chog id, verified metadata
@@ -324,12 +334,27 @@ contract Gate1 is DeployBase {
             uint256 usdtHeld = IERC20(reg.quoteToken).balanceOf(claimants[i]);
             uint256 usdcHeld = IERC20(reg.asset).balanceOf(claimants[i]);
 
+            // "Already funded" means holding EITHER leg. An actor that already
+            // swapped holds USDC and no USDT; one still holding USDT needs the swap.
+            // Both are funded. Only an actor holding NEITHER may claim, and one that
+            // already claimed is on a 24h cooldown, so re-claiming would revert
+            // ClaimTooSoon and discard the whole broadcast. The cooldown is read
+            // from the faucet itself rather than inferred from a zero balance: an
+            // actor that claimed earlier today AND already spent the proceeds holds
+            // nothing, yet still cannot claim. Checking the balance alone treats that
+            // actor as unfunded and reverts the entire phase.
             if (usdtHeld == 0 && usdcHeld == 0) {
-                vm.startBroadcast(keys[i]);
-                faucet.claim();
-                vm.stopBroadcast();
-                usdtHeld = IERC20(reg.quoteToken).balanceOf(claimants[i]);
-                console2.log(i == 0 ? "racer1 USDT claimed " : "racer2 USDT claimed ", usdtHeld);
+                if (faucet.nextClaimAt(claimants[i]) > block.timestamp) {
+                    console2.log(i == 0 ? "racer1 on faucet cooldown" : "racer2 on faucet cooldown");
+                    console2.log("  next claim at    :", faucet.nextClaimAt(claimants[i]));
+                    console2.log("  chain now        :", block.timestamp);
+                } else {
+                    vm.startBroadcast(keys[i]);
+                    faucet.claim();
+                    vm.stopBroadcast();
+                    usdtHeld = IERC20(reg.quoteToken).balanceOf(claimants[i]);
+                    console2.log(i == 0 ? "racer1 USDT claimed " : "racer2 USDT claimed ", usdtHeld);
+                }
             } else {
                 console2.log(i == 0 ? "racer1 already funded (USDT " : "racer2 already funded (USDT ", usdtHeld);
                 console2.log("  USDC held        :", usdcHeld);
@@ -371,12 +396,24 @@ contract Gate1 is DeployBase {
         path[1] = reg.asset;
 
         address[2] memory racers = [racer1, racer2];
-        uint256[2] memory keys = [racer1Key, racer2Key];
         uint256[2] memory targets = [DEPOSIT, RIVAL_DEPOSIT];
+
+        // Unit price of the quote in asset terms, read from the live pair once. The
+        // pair's ratio is used rather than a hardcoded rate, so the top-up moves the
+        // amount of quote that actually buys the missing asset at the current price.
+        uint256[] memory unit = router.getAmountsOut(1e6, path);
+        uint256 assetPerQuote = unit[unit.length - 1];
+        if (assetPerQuote == 0) {
+            console2.log("pair returned a zero quote: skipping racer top-up");
+            return;
+        }
 
         for (uint256 i = 0; i < racers.length; i++) {
             uint256 held = IERC20(reg.asset).balanceOf(racers[i]);
-            if (held >= targets[i]) continue;
+            if (held >= targets[i]) {
+                console2.log(i == 0 ? "racer1 already funded" : "racer2 already funded");
+                continue;
+            }
 
             uint256 missing = targets[i] - held;
             uint256 quoteHeld = IERC20(reg.quoteToken).balanceOf(trader);
@@ -384,29 +421,50 @@ contract Gate1 is DeployBase {
                 console2.log("trader has no quote to fund the racers with");
                 return;
             }
-            // Price the top-up against the live pair so we move the quote that
-            // actually buys `missing` asset, not a guessed amount.
-            uint256[] memory quote = router.getAmountsOut(1e6, path);
-            uint256 assetPerQuote = quote[quote.length - 1];
-            if (assetPerQuote == 0) return;
-            uint256 quoteNeeded = (missing * 1e6) / assetPerQuote + 1;
-            if (quoteNeeded > quoteHeld) quoteNeeded = quoteHeld;
 
-            // The trader swaps its own quote for the asset, then transfers it.
-            // Both legs are ordinary pair trades from the trader's own balance.
+            // Quote needed to buy `missing` asset, with a 2% cushion for price impact.
+            // Capped at what the trader actually holds — a top-up that would drain the
+            // trader entirely is trimmed to what it can afford, so the NEXT racer is
+            // not left with nothing. The cap is reported so the log states what
+            // actually moved rather than the target it was aiming at.
+            uint256 quoteNeeded = (missing * 1e6) / assetPerQuote;
+            quoteNeeded = (quoteNeeded * 102) / 100 + 1;
+            bool capped = false;
+            if (quoteNeeded > quoteHeld) {
+                quoteNeeded = quoteHeld;
+                capped = true;
+            }
+
+            // The trader swaps its own quote for the asset, then transfers it. Both
+            // legs are ordinary pair trades from the trader's own balance, so every
+            // unit the racer receives is traceable to a real trade.
             vm.startBroadcast(traderKey);
             IERC20(reg.quoteToken).forceApprove(reg.router, quoteNeeded);
             router.swapExactTokensForTokens(quoteNeeded, 0, path, trader, _swapDeadline());
             vm.stopBroadcast();
 
-            uint256 funded = IERC20(reg.asset).balanceOf(trader);
-            if (funded > missing) funded = missing;
+            // Send only what the swap actually produced, and only up to what is
+            // missing. A racer that received part of the top-up is left with what it
+            // has — step 3 deposits the real balance rather than reverting on a
+            // zero or short amount.
+            uint256 got = IERC20(reg.asset).balanceOf(trader);
+            if (got > missing) got = missing;
+            if (got == 0) {
+                console2.log(i == 0 ? "racer1 swap produced nothing" : "racer2 swap produced nothing");
+                continue;
+            }
+
             vm.startBroadcast(traderKey);
-            IERC20(reg.asset).transfer(racers[i], funded);
+            IERC20(reg.asset).transfer(racers[i], got);
             vm.stopBroadcast();
 
-            console2.log(i == 0 ? "racer1 topped up    :" : "racer2 topped up    :", funded);
-            console2.log(i == 0 ? "racer1 USDC balance " : "racer2 USDC balance ", IERC20(reg.asset).balanceOf(racers[i]));
+            console2.log(i == 0 ? "racer1 topped up    :" : "racer2 topped up    :", got);
+            if (capped) {
+                console2.log("  quote capped at trader balance, so this racer got less than the target");
+            }
+            console2.log(
+                i == 0 ? "racer1 USDC balance " : "racer2 USDC balance ", IERC20(reg.asset).balanceOf(racers[i])
+            );
         }
     }
 
@@ -467,10 +525,16 @@ contract Gate1 is DeployBase {
         if (pool.sharesOf(DEMO_TOKEN_ID) == 0) {
             uint256 bal1 = IERC20(reg.asset).balanceOf(racer1);
             dep1 = bal1 < DEPOSIT ? bal1 : DEPOSIT;
-            vm.startBroadcast(racer1Key);
-            IERC20(reg.asset).forceApprove(address(pool), dep1);
-            pool.deposit(DEMO_TOKEN_ID, dep1);
-            vm.stopBroadcast();
+            // Same resumability rule as racer2: a racer with nothing to deposit is
+            // skipped rather than reverting the whole broadcast.
+            if (dep1 == 0) {
+                console2.log("racer1 has no asset to deposit: skipping (resumable)");
+            } else {
+                vm.startBroadcast(racer1Key);
+                IERC20(reg.asset).forceApprove(address(pool), dep1);
+                pool.deposit(DEMO_TOKEN_ID, dep1);
+                vm.stopBroadcast();
+            }
         } else {
             console2.log("racer1 already deposited (resuming)");
         }
@@ -479,10 +543,18 @@ contract Gate1 is DeployBase {
         if (pool.sharesOf(RIVAL_TOKEN_ID) == 0) {
             uint256 bal2 = IERC20(reg.asset).balanceOf(racer2);
             dep2 = bal2 < RIVAL_DEPOSIT ? bal2 : RIVAL_DEPOSIT;
-            vm.startBroadcast(racer2Key);
-            IERC20(reg.asset).forceApprove(address(pool), dep2);
-            pool.deposit(RIVAL_TOKEN_ID, dep2);
-            vm.stopBroadcast();
+            // A racer the faucet can no longer serve and the trader could not top
+            // up has nothing to deposit. Skipping keeps the phase resumable — the
+            // draw still runs, just with one fewer funded racer. Reverting on a zero
+            // deposit would discard the whole broadcast, including racer1's.
+            if (dep2 == 0) {
+                console2.log("racer2 has no asset to deposit: skipping (resumable)");
+            } else {
+                vm.startBroadcast(racer2Key);
+                IERC20(reg.asset).forceApprove(address(pool), dep2);
+                pool.deposit(RIVAL_TOKEN_ID, dep2);
+                vm.stopBroadcast();
+            }
         } else {
             console2.log("racer2 already deposited (resuming)");
         }
@@ -502,7 +574,19 @@ contract Gate1 is DeployBase {
 
         // Principal must actually be deployed into the LP, not parked in the pool.
         require(pool.principalDeployed() > 0, "no principal reached the LP");
-        require(pool.totalPrincipal() >= dep1 + dep2, "pool principal did not increase");
+        // Compare against the CREDITED value, not the nominal deposit. Shares are
+        // minted for the value the venue took in, which is below the nominal amount
+        // by the venue's entry cost, so totalPrincipal is legitimately less than the
+        // sum of what the racers sent. Asserting the nominal sum would fail on a
+        // correct deployment.
+        uint256 creditedTotal = pool.sharesOf(DEMO_TOKEN_ID) + pool.sharesOf(RIVAL_TOKEN_ID);
+        require(pool.totalPrincipal() >= creditedTotal, "pool principal did not increase");
+        // Shares must never exceed what the venue can actually deliver, or the first
+        // withdraw-all reverts InsufficientLiquidity.
+        require(
+            pool.totalPrincipal() <= pool.positionValue() + 1,
+            "pool booked more principal than the venue holds"
+        );
     }
 
     /// Step 4: swap real volume through the pair. This is what makes the LP earn.
@@ -523,12 +607,21 @@ contract Gate1 is DeployBase {
             vm.parseJsonAddress(vm.readFile("../infra/verified.json"), ".monadTestnet.stableFaucet.address")
         );
         // Same resumability rule as step 1: a trader that already claimed is on
-        // cooldown, and re-claiming would discard the whole broadcast.
+        // cooldown, and re-claiming would revert ClaimTooSoon and discard the whole
+        // broadcast — including the deposits that already succeeded in simulation.
+        // A zero balance alone does not mean the trader may claim: one that claimed
+        // earlier today AND already spent the proceeds holds nothing yet still
+        // cannot. Reading nextClaimAt() distinguishes the two, and a trader on
+        // cooldown simply trades whatever quote it already holds.
         if (IERC20(reg.quoteToken).balanceOf(trader) == 0) {
-            vm.startBroadcast(traderKey);
-            faucet.claim();
-            vm.stopBroadcast();
-            console2.log("trader claimed      :", IERC20(reg.quoteToken).balanceOf(trader));
+            if (faucet.nextClaimAt(trader) > block.timestamp) {
+                console2.log("trader on faucet cooldown, cannot claim more quote");
+            } else {
+                vm.startBroadcast(traderKey);
+                faucet.claim();
+                vm.stopBroadcast();
+                console2.log("trader claimed      :", IERC20(reg.quoteToken).balanceOf(trader));
+            }
         } else {
             console2.log("trader already funded (resuming)");
         }
