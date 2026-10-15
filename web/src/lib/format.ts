@@ -39,3 +39,15 @@ export function formatTime(unixSeconds: number): string {
     timeZoneName: "short",
   });
 }
+
+/** Turn tooling errors into something a reader can act on. */
+export function friendlyError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/failed to fetch|networkerror|load failed/i.test(message)) {
+    return "The Monad testnet RPC did not answer. Check the connection and try again.";
+  }
+  if (/does not support contract/i.test(message)) {
+    return "The read layer could not reach the chain's helper contracts. Try again in a moment.";
+  }
+  return message;
+}

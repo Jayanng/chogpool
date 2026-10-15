@@ -47,10 +47,11 @@ export const poolAbi = parseAbi([
   "function ticketsOfFrozen(uint256 drawId, uint256 tokenId) view returns (uint256)",
   "function totalTicketsOfFrozen(uint256 drawId) view returns (uint256)",
   "function ticketsFrozen(uint256 drawId) view returns (bool)",
+  "function withdrawAll(uint256 tokenId)",
 ]);
 
 export const careerStoreAbi = parseAbi([
-  "function getCareer(uint256 tokenId) view returns (tuple(uint32 gold, uint32 silver, uint32 bronze, uint32 races, uint32 wins, uint32 lastRaceAt, uint256 fatigue))",
+  "function getCareer(uint256 tokenId) view returns ((uint32 gold, uint32 silver, uint32 bronze, uint32 races, uint32 wins, uint32 lastRaceAt, uint256 fatigue))",
   "function trophiesOf(uint256 tokenId) view returns (uint32 gold, uint32 silver, uint32 bronze)",
   "function fatigueOf(uint256 tokenId) view returns (uint256)",
   "function currentFatigueOf(uint256 tokenId) view returns (uint256)",

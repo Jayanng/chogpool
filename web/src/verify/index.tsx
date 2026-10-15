@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge, Button, Card, Panel, Skeleton } from "@chogpool/ui";
 import { navigate } from "../lib/router";
 import { readCurrentRaceId } from "../lib/game";
-import { formatTickets } from "../lib/format";
+import { formatTickets, friendlyError } from "../lib/format";
 import { buildVerification, type Check, type Verification } from "./verifyDraw";
 
 /**
@@ -24,7 +24,7 @@ export default function Verify() {
       setReport(await buildVerification(drawId));
     } catch (e) {
       setReport(null);
-      setError(e instanceof Error ? e.message : "The chain did not answer.");
+      setError(friendlyError(e));
     } finally {
       setBusy(false);
     }
@@ -152,7 +152,13 @@ function CheckCard({ check }: { check: Check }) {
       <Card
         title={check.title}
         aside={<Badge tone={tone}>{label}</Badge>}
-        footer={check.status === "fail" ? "THIS STEP DISAGREES WITH THE CHAIN" : "REAL CONTRACT READS AND REAL KECCAK256"}
+        footer={
+          check.status === "fail"
+            ? "THIS STEP DISAGREES WITH THE CHAIN"
+            : check.status === "unavailable"
+              ? "STATED PLAINLY WHERE THIS ANSWER COMES FROM"
+              : "REAL CONTRACT READS AND REAL KECCAK256"
+        }
       >
         <ul className={`verify-lines verify-lines--${check.status}`}>
           {check.lines.map((line, i) => (

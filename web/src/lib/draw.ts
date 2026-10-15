@@ -51,35 +51,34 @@ export async function readRevealDeadline(): Promise<number> {
 /** Full record for one draw: the draw engine's own stored fields plus the
  *  frozen racer book. Returns null when the draw does not exist. */
 export async function readDraw(drawId: bigint): Promise<DrawRecord | null> {
-  const reads = await testnetReadClient.multicall({
-    contracts: [
-      { address: drawEngine, abi: drawEngineAbi, functionName: "stateOf", args: [drawId] },
-      { address: drawEngine, abi: drawEngineAbi, functionName: "drawCloseAt", args: [drawId] },
-      { address: drawEngine, abi: drawEngineAbi, functionName: "commitOf", args: [drawId] },
-      { address: drawEngine, abi: drawEngineAbi, functionName: "seedOf", args: [drawId] },
-      { address: drawEngine, abi: drawEngineAbi, functionName: "finalRandomnessOf", args: [drawId] },
-      { address: drawEngine, abi: drawEngineAbi, functionName: "revealBlockOf", args: [drawId] },
-      { address: drawEngine, abi: drawEngineAbi, functionName: "totalTicketsOf", args: [drawId] },
-      { address: drawEngine, abi: drawEngineAbi, functionName: "potPerWinnerOf", args: [drawId] },
-      { address: drawEngine, abi: drawEngineAbi, functionName: "winnersOf", args: [drawId] },
-      { address: pool, abi: poolAbi, functionName: "frozenRacers", args: [drawId] },
-    ],
-  });
-  const values = reads.map((r) => r.result);
+  // Parallel single reads, not multicall: the app must work against plain RPC
+  // endpoints with no extra chain configuration.
+  const values = await Promise.all([
+    call(drawEngine, drawEngineAbi, "stateOf", [drawId]),
+    call(drawEngine, drawEngineAbi, "drawCloseAt", [drawId]),
+    call(drawEngine, drawEngineAbi, "commitOf", [drawId]),
+    call(drawEngine, drawEngineAbi, "seedOf", [drawId]),
+    call(drawEngine, drawEngineAbi, "finalRandomnessOf", [drawId]),
+    call(drawEngine, drawEngineAbi, "revealBlockOf", [drawId]),
+    call(drawEngine, drawEngineAbi, "totalTicketsOf", [drawId]),
+    call(drawEngine, drawEngineAbi, "potPerWinnerOf", [drawId]),
+    call(drawEngine, drawEngineAbi, "winnersOf", [drawId]),
+    call(pool, poolAbi, "frozenRacers", [drawId]),
+  ]);
   const state = values[0] as number | undefined;
   if (state === undefined) return null;
   if (state === 0) return null; // DrawState.None: no draw with this id
 
   const racerIds = (values[9] as bigint[] | undefined) ?? [];
-  const racerReads = await testnetReadClient.multicall({
-    contracts: racerIds.flatMap((tokenId) => [
-      { address: drawEngine, abi: drawEngineAbi, functionName: "ticketsOf", args: [drawId, tokenId] },
-      { address: drawEngine, abi: drawEngineAbi, functionName: "boostOf", args: [tokenId] },
+  const racerReads = await Promise.all(
+    racerIds.flatMap((tokenId) => [
+      call(drawEngine, drawEngineAbi, "ticketsOf", [drawId, tokenId]),
+      call(drawEngine, drawEngineAbi, "boostOf", [tokenId]),
     ]),
-  });
+  );
   const racers: RacerRecord[] = racerIds.map((tokenId, i) => {
-    const tickets = (racerReads[i * 2]?.result as bigint | undefined) ?? 0n;
-    const boost = (racerReads[i * 2 + 1]?.result as [number, bigint] | undefined) ?? [0, 0n];
+    const tickets = (racerReads[i * 2] as bigint | undefined) ?? 0n;
+    const boost = (racerReads[i * 2 + 1] as [number, bigint] | undefined) ?? [0, 0n];
     return { tokenId, tickets, tier: boost[0], boost: boost[1] };
   });
 
@@ -208,13 +207,11 @@ export type CareerRecord = {
 };
 
 export async function readCareer(tokenId: bigint, raceId: bigint): Promise<CareerRecord> {
-  const [career, placement] = await testnetReadClient.multicall({
-    contracts: [
-      { address: careerStore, abi: careerStoreAbi, functionName: "getCareer", args: [tokenId] },
-      { address: careerStore, abi: careerStoreAbi, functionName: "placementOf", args: [tokenId, raceId] },
-    ],
-  });
-  const c = career.result as
+  const [career, placement] = await Promise.all([
+    call(careerStore, careerStoreAbi, "getCareer", [tokenId]),
+    call(careerStore, careerStoreAbi, "placementOf", [tokenId, raceId]),
+  ]);
+  const c = career as
     | { gold: number; silver: number; bronze: number; races: number; wins: number; fatigue: bigint }
     | undefined;
   return {
@@ -224,7 +221,7 @@ export async function readCareer(tokenId: bigint, raceId: bigint): Promise<Caree
     races: c?.races ?? 0,
     wins: c?.wins ?? 0,
     fatigue: c?.fatigue ?? 0n,
-    placementInRace: Number(placement.result ?? 0),
+    placementInRace: Number(placement ?? 0),
   };
 }
 
@@ -241,14 +238,12 @@ export type MirrorBadge = {
 };
 
 export async function readMirrorBadge(tokenId: bigint): Promise<MirrorBadge> {
-  const [badge, isTestDrive, storedUri, mainnetOwner] = await testnetReadClient.multicall({
-    contracts: [
-      { address: mirror, abi: mirrorAbi, functionName: "badgeOf", args: [tokenId] },
-      { address: mirror, abi: mirrorAbi, functionName: "isTestDrive", args: [tokenId] },
-      { address: mirror, abi: mirrorAbi, functionName: "tokenURI", args: [tokenId] },
-      { address: mirror, abi: mirrorAbi, functionName: "mainnetOwnerOf", args: [tokenId] },
-    ],
-  });
+  const [badge, isTestDrive, storedUri, mainnetOwner] = await Promise.all([
+    call(mirror, mirrorAbi, "badgeOf", [tokenId]),
+    call(mirror, mirrorAbi, "isTestDrive", [tokenId]),
+    call(mirror, mirrorAbi, "tokenURI", [tokenId]),
+    call(mirror, mirrorAbi, "mainnetOwnerOf", [tokenId]),
+  ]);
   let recordedUriHash: Hex | null = null;
   try {
     recordedUriHash = await testnetReadClient.readContract({
@@ -260,14 +255,14 @@ export async function readMirrorBadge(tokenId: bigint): Promise<MirrorBadge> {
   } catch {
     recordedUriHash = null; // deployed mirror predates the URI binding
   }
-  const badgeValue = Number(badge.result ?? 0);
+  const badgeValue = Number(badge ?? 0);
   return {
     badge: badgeValue,
     badgeLabel: badgeValue === 1 ? "Test Drive" : badgeValue === 2 ? "Verified Holder" : "No badge recorded",
-    isTestDrive: Boolean(isTestDrive.result),
-    storedUri: (storedUri.result as string | undefined) ?? "",
+    isTestDrive: Boolean(isTestDrive),
+    storedUri: (storedUri as string | undefined) ?? "",
     recordedUriHash,
-    mainnetOwner: (mainnetOwner.result as Address | undefined) ?? "0x",
+    mainnetOwner: (mainnetOwner as Address | undefined) ?? "0x",
   };
 }
 
@@ -295,6 +290,21 @@ export async function readPoolNextDrawAt(): Promise<number | null> {
     functionName: "nextDrawAt",
   });
   return at === 0n ? null : Number(at);
+}
+
+/** One view call, typed loosely: the read layer values honesty over ceremony. */
+function call<T>(
+  address: Address,
+  abi: typeof drawEngineAbi | typeof poolAbi | typeof careerStoreAbi | typeof mirrorAbi,
+  functionName: string,
+  args: readonly unknown[],
+): Promise<T> {
+  return testnetReadClient.readContract({
+    address,
+    abi,
+    functionName,
+    args,
+  } as never) as Promise<T>;
 }
 
 export const liveRaceSource: RaceSource = {

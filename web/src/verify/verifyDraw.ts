@@ -241,26 +241,26 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
     });
   } else {
   try {
-    const crossReads = await testnetReadClient.multicall({
-      contracts: draw.racers.flatMap((r) => [
-        {
+    const crossReads = await Promise.all(
+      draw.racers.flatMap((r) => [
+        testnetReadClient.readContract({
           address: DEPLOYED.drawEngine as Address,
           abi: drawEngineAbi,
           functionName: "ticketsOf",
           args: [draw.drawId, r.tokenId],
-        },
-        {
+        }),
+        testnetReadClient.readContract({
           address: DEPLOYED.pool as Address,
           abi: poolAbi,
           functionName: "ticketsOfFrozen",
           args: [draw.drawId, r.tokenId],
-        },
+        }),
       ]),
-    });
+    );
     const disagreements: string[] = [];
     draw.racers.forEach((r, i) => {
-      const engine = crossReads[i * 2]?.result as bigint | undefined;
-      const pool = crossReads[i * 2 + 1]?.result as bigint | undefined;
+      const engine = crossReads[i * 2] as bigint | undefined;
+      const pool = crossReads[i * 2 + 1] as bigint | undefined;
       if (engine !== pool) {
         disagreements.push(`CHOG #${r.tokenId.toString()}: draw engine ${engine?.toString() ?? "?"} vs pool ${pool?.toString() ?? "?"}`);
       }

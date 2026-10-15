@@ -15,6 +15,7 @@ import {
 } from "../lib/draw";
 import { getRaceSource } from "../lib/game";
 import { traitsOf, tierOf } from "../lib/traits";
+import { friendlyError } from "../lib/format";
 import type { DrawEventRecord, DrawRecord } from "../types/race";
 
 export type RacerDisplay = {
@@ -69,7 +70,7 @@ async function loadRacer(tokenId: bigint, draw: DrawRecord): Promise<RacerDispla
     imageUrl: record && record.metadata.image ? ipfsToGateway(record.metadata.image) : null,
     metadataMissing: record === null,
     badge,
-    team,
+    team: team && BigInt(team) !== 0n ? team : null, // a zero address means nothing is bound on chain
     career,
   };
 }
@@ -105,7 +106,7 @@ export function useRaceBundle(drawId: bigint | null): RaceBundleState {
         setLoading(false);
       } catch (e) {
         if (cancelled) return;
-        setError(e instanceof Error ? e.message : "The chain did not answer.");
+        setError(friendlyError(e));
         setBundle(null);
         setLoading(false);
       }
