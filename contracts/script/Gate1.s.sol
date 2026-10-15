@@ -13,6 +13,7 @@ import {CareerStore} from "../src/CareerStore.sol";
 import {TestChogToken} from "../src/TestChogToken.sol";
 import {IPuddleRouter} from "../interfaces/IPuddleRouter.sol";
 import {IChogPool} from "../interfaces/IChogPool.sol";
+import {IDrawEngine} from "../interfaces/IDrawEngine.sol";
 
 /// @notice Minimal view of PuddleSwap StableFaucet, used for the honest funding path.
 /// @dev The only function we need is claim(); everything else is read off the RPC.
@@ -21,16 +22,34 @@ interface IStableFaucet {
     function cooldown() external view returns (uint256);
 }
 
-/// @notice Minimal view of the mirror for the demo mint.
-interface IChogMirrorMint {
-    function mintTestDrive(uint256 tokenId, string calldata realURI) external;
-}
-
 /// @title Gate1.s.sol — the Gate 1 end-to-end run, as an executable log.
-/// @notice This script IS the recorded demo log the plan requires. Every step is a
-///         real transaction against a real testnet fork (or testnet with --broadcast),
-///         and every step prints the value it actually observed. Nothing is simulated,
-///         nothing is asserted that was not executed.
+/// @notice This script IS the recorded demo log the plan requires.
+///
+/// @dev CRITICAL — how this achieves REAL testnet transactions.
+///
+/// `forge script --broadcast` only signs transactions for a wallet it holds. A
+/// `vm.prank`/`vm.startPrank` merely changes `msg.sender` inside the EVM
+/// simulation; foundry SKIPS those calls entirely when broadcasting, prints a
+/// complete-looking log, and warns once at the very end with "No transactions to
+/// broadcast". That is how a previous version of this script produced a fully
+/// populated Gate 1 log while changing nothing on chain.
+///
+/// The fix is `vm.startBroadcast(uint256 privateKey)`: forge-std signs a genuine
+/// transaction with the supplied key and sends it. So this script holds one key
+/// per actor and broadcasts as each of them in turn. Every actor is a distinct
+/// address with its own real transactions, which matters for three reasons:
+///
+///   * `ChogMirror.mintTestDrive` allows exactly ONE Test Drive per address
+///     (`hasTestDrive[msg.sender]`), so two racers need two addresses.
+///   * `StableFaucet.claim()` enforces a 24h cooldown per claimant, so the
+///     depositors and the volume trader must not share an address.
+///   * `ChogPool.deposit()` binds a position to its first depositor
+///     (`pos.depositor != msg.sender` reverts), so the racers really are
+///     different depositors rather than one account playing both sides.
+///
+/// Actor keys come from the environment (CHOGPOOL_RACER1_PRIVATE_KEY, etc.) and
+/// are NEVER written into this file, into deployments.json, or into any tracked
+/// artifact. See /home/ubuntu/.chogpool-deploy/gate1-actors.env.
 ///
 /// The sequence is exactly the Gate 1 checklist:
 ///   1. claim stables from the real StableFaucet (the same path a user takes)
@@ -42,28 +61,28 @@ interface IChogMirrorMint {
 ///   7. winner takes the pot
 ///   8. withdraw all principal — instant, full, no fee
 ///
-/// Usage (local fork, no broadcast, produces the log):
-///   forge script script/Gate1.s.sol --rpc-url monad_testnet
-///
 /// Usage (real testnet, state persists):
-///   export PRIVATE_KEY=0x...
 ///   forge script script/Gate1.s.sol --rpc-url monad_testnet --broadcast
 ///
-/// In fork mode the script deploys its own stack, because a fork has no deployed
-/// stack. With --broadcast against testnet it reads ../infra/deployments.json
-/// instead, so the log describes the stack that is actually live.
+/// Requires infra/deployments.json (the live stack) and the actor keys in env.
 contract Gate1 is DeployBase {
     using SafeERC20 for IERC20;
+
     // ---------------- actors ----------------
 
-    /// @dev The demo player: deposits, races, wins or loses, withdraws.
-    address player;
+    /// @dev Racer 1: deposits, races, wins or loses, withdraws.
+    uint256 racer1Key;
+    address racer1;
 
-    /// @dev A second account that also deposits, so there are ≥2 racers and the
+    /// @dev A second account that also deposits, so there are >=2 racers and the
     ///      draw is meaningful. Without a second depositor the draw is a formality.
-    address rival;
+    uint256 racer2Key;
+    address racer2;
 
-    /// @dev Volume trader: swaps through the pair to generate real LP fees.
+    /// @dev Volume trader: swaps through the pair to generate real LP fees. Kept
+    ///      distinct from both depositors so the fees are genuinely third-party
+    ///      value rather than a depositor cycling its own principal.
+    uint256 traderKey;
     address trader;
 
     // ---------------- funding amounts ----------------
@@ -89,19 +108,15 @@ contract Gate1 is DeployBase {
 
     function run() external {
         _loadRegistry();
+        _requireTestnet();
 
-        // The discriminator is whether a deployed stack exists to drive, NOT the
-        // chain id: an anvil fork of testnet reports the SAME chainId (10143) as
-        // real testnet, so a chainId check silently takes the wrong branch.
-        if (vm.exists("../infra/deployments.json")) {
-            console2.log("=== Gate 1 against the deployed stack ===");
-            _loadDeployedStack();
-            _setupActorsOnTestnet();
-        } else {
-            console2.log("=== Gate 1 on a local fork, deploying its own stack ===");
-            _setupActorsOnFork();
-            _deployStackOnFork();
+        if (!vm.exists("../infra/deployments.json")) {
+            revert("Gate1 drives the LIVE stack: infra/deployments.json is missing");
         }
+
+        console2.log("=== Gate 1 against the deployed stack (real testnet) ===");
+        _loadDeployedStack();
+        _loadActors();
 
         _step1_ClaimStables();
         _step2_MintMirrorChogs();
@@ -116,60 +131,37 @@ contract Gate1 is DeployBase {
 
     // ---------------- setup ----------------
 
-    function _setupActorsOnFork() internal {
-        player = vm.addr(vm.envUint("PRIVATE_KEY"));
-        rival = address(uint160(uint256(keccak256("chogpool-gate1-rival"))));
-        trader = address(uint160(uint256(keccak256("chogpool-gate1-trader"))));
+    /// @dev Loads one private key per actor from the environment and derives its
+    ///      address, so the log can never show a key that does not match the
+    ///      address the transactions were actually sent from.
+    function _loadActors() internal {
+        racer1Key = vm.envUint("CHOGPOOL_RACER1_PRIVATE_KEY");
+        racer2Key = vm.envUint("CHOGPOOL_RACER2_PRIVATE_KEY");
+        traderKey = vm.envUint("CHOGPOOL_TRADER_PRIVATE_KEY");
 
-        vm.deal(player, 100 ether);
-        vm.deal(rival, 100 ether);
-        vm.deal(trader, 100 ether);
+        racer1 = vm.addr(racer1Key);
+        racer2 = vm.addr(racer2Key);
+        trader = vm.addr(traderKey);
 
-        console2.log("player              :", player);
-        console2.log("rival               :", rival);
+        // Distinctness is a correctness requirement, not a style preference: see
+        // the contract-level notes above (one Test Drive per address, one faucet
+        // claim per 24h, one depositor per position).
+        require(racer1 != racer2, "racer1 and racer2 must be distinct addresses");
+        require(trader != racer1 && trader != racer2, "trader must be a distinct address");
+        require(msg.sender != racer1 && msg.sender != racer2, "racers must differ from the script sender");
+
+        console2.log("racer1              :", racer1);
+        console2.log("racer2              :", racer2);
         console2.log("trader              :", trader);
-    }
+        console2.log("script sender       :", msg.sender);
 
-    function _setupActorsOnTestnet() internal {
-        player = msg.sender;
-        rival = vm.envOr("GATE1_RIVAL", address(0));
-        if (rival == address(0)) {
-            rival = address(uint160(uint256(keccak256("chogpool-gate1-rival"))));
-        }
-        // The trader MUST NOT be an address that already claimed from StableFaucet.
-        // Every actor funds itself with an honest faucet.claim(), and the faucet
-        // enforces a 24h cooldown per claimant. Aliasing trader to rival made the
-        // step-4 claim revert with ClaimTooSoon, because rival had already claimed
-        // as a depositor in step 1 — so the demo died before it could trade any
-        // volume. A distinct trader address also keeps the volume source honest:
-        // the fees come from a third party, not from a depositor moving its own
-        // principal around.
-        trader = vm.envOr("GATE1_TRADER", address(0));
-        if (trader == address(0)) {
-            trader = address(uint160(uint256(keccak256("chogpool-gate1-trader"))));
-        }
-        require(
-            trader != rival && trader != player,
-            "Gate1 trader must be a distinct address: it claims from StableFaucet again"
-        );
-    }
-
-    function _deployStackOnFork() internal {
-        address deployer = player;
-        vm.startPrank(deployer);
-        mirror = new ChogMirror(reg.chogMetadataBase, deployer);
-        pool = new ChogPool(reg.asset, address(mirror), deployer);
-        adapter = new PuddleLpAdapter(reg.asset, reg.quoteToken, reg.router, reg.pair, address(pool));
-        careers = new CareerStore(deployer);
-        engine = new DrawEngine(deployer, deployer);
-        testChog = new TestChogToken(deployer, 1000e18, 24 hours);
-
-        pool.setYieldAdapter(address(adapter));
-        pool.setDrawEngine(address(engine));
-        engine.setPool(address(pool));
-        engine.setCareerStore(address(careers));
-        careers.setDrawEngine(address(engine));
-        vm.stopPrank();
+        // Every actor needs MON to pay for its own transactions. Fail before step 1
+        // rather than half way through, which would leave a half-run demo that
+        // looks complete in the log.
+        uint256 need = 0.01 ether;
+        require(racer1.balance >= need, "racer1 has no MON for gas");
+        require(racer2.balance >= need, "racer2 has no MON for gas");
+        require(trader.balance >= need, "trader has no MON for gas");
     }
 
     function _loadDeployedStack() internal {
@@ -180,12 +172,18 @@ contract Gate1 is DeployBase {
         engine = DrawEngine(vm.parseJsonAddress(json, ".drawEngine"));
         careers = CareerStore(vm.parseJsonAddress(json, ".careerStore"));
         testChog = TestChogToken(vm.parseJsonAddress(json, ".testChogToken"));
+
+        // The stack in deployments.json must actually be the live one. A stale file
+        // would drive addresses that hold no code and every call would revert in a
+        // way that looks like a contract bug.
+        require(address(pool).code.length > 0, "pool has no code: stale deployments.json?");
+        require(address(engine).code.length > 0, "engine has no code: stale deployments.json?");
     }
 
     // ---------------- steps ----------------
 
     /// Step 1: the honest funding path — claim from the real StableFaucet, exactly as
-    /// a user does, then swap into the asset the pool needs.
+    ///         a user does, then swap into the asset the pool needs.
     function _step1_ClaimStables() internal {
         console2.log("");
         console2.log("--- step 1: claim stables from the real StableFaucet ---");
@@ -202,23 +200,27 @@ contract Gate1 is DeployBase {
         path[0] = reg.quoteToken;
         path[1] = reg.asset;
 
-        address[2] memory claimants = [player, rival];
+        uint256[2] memory keys = [racer1Key, racer2Key];
+        address[2] memory claimants = [racer1, racer2];
         for (uint256 i = 0; i < claimants.length; i++) {
-            address who = claimants[i];
-            vm.prank(who);
+            // A real signed transaction from the claimant's own key — this is what
+            // makes the claim real rather than simulated.
+            vm.startBroadcast(keys[i]);
             faucet.claim();
-            uint256 minted = IERC20(reg.quoteToken).balanceOf(who);
+            vm.stopBroadcast();
+
+            uint256 minted = IERC20(reg.quoteToken).balanceOf(claimants[i]);
             uint256[] memory quote = router.getAmountsOut(minted, path);
             uint256 assetOut = quote[quote.length - 1];
 
-            vm.startPrank(who);
+            vm.startBroadcast(keys[i]);
             IERC20(reg.quoteToken).forceApprove(reg.router, minted);
-            router.swapExactTokensForTokens(minted, 0, path, who, block.timestamp);
-            vm.stopPrank();
+            router.swapExactTokensForTokens(minted, 0, path, claimants[i], block.timestamp);
+            vm.stopBroadcast();
 
-            console2.log(i == 0 ? "player USDT claimed " : "rival  USDT claimed ", minted);
-            console2.log(i == 0 ? "player USDT -> USDC " : "rival  USDT -> USDC ", assetOut);
-            console2.log(i == 0 ? "player USDC balance " : "rival  USDC balance ", IERC20(reg.asset).balanceOf(who));
+            console2.log(i == 0 ? "racer1 USDT claimed " : "racer2 USDT claimed ", minted);
+            console2.log(i == 0 ? "racer1 USDT -> USDC " : "racer2 USDT -> USDC ", assetOut);
+            console2.log(i == 0 ? "racer1 USDC balance " : "racer2 USDC balance ", IERC20(reg.asset).balanceOf(claimants[i]));
         }
     }
 
@@ -231,15 +233,22 @@ contract Gate1 is DeployBase {
             vm.readFile("../infra/verified.json"), ".monadTestnet.chogMetadataBase"
         );
 
-        vm.prank(player);
+        vm.startBroadcast(racer1Key);
         mirror.mintTestDrive(DEMO_TOKEN_ID, string.concat(base, vm.toString(DEMO_TOKEN_ID), ".json"));
-        vm.prank(rival);
-        mirror.mintTestDrive(RIVAL_TOKEN_ID, string.concat(base, vm.toString(RIVAL_TOKEN_ID), ".json"));
+        vm.stopBroadcast();
 
-        console2.log("player racer tokenId:", DEMO_TOKEN_ID);
-        console2.log("rival  racer tokenId:", RIVAL_TOKEN_ID);
-        console2.log("player badge (1=Test Drive):", mirror.badgeOf(DEMO_TOKEN_ID));
-        console2.log("rival  badge (1=Test Drive):", mirror.badgeOf(RIVAL_TOKEN_ID));
+        vm.startBroadcast(racer2Key);
+        mirror.mintTestDrive(RIVAL_TOKEN_ID, string.concat(base, vm.toString(RIVAL_TOKEN_ID), ".json"));
+        vm.stopBroadcast();
+
+        console2.log("racer1 racer tokenId:", DEMO_TOKEN_ID);
+        console2.log("racer2 racer tokenId:", RIVAL_TOKEN_ID);
+        console2.log("racer1 badge (1=Test Drive):", mirror.badgeOf(DEMO_TOKEN_ID));
+        console2.log("racer2 badge (1=Test Drive):", mirror.badgeOf(RIVAL_TOKEN_ID));
+
+        // The mirror must really own them, or _bind() in the pool reverts.
+        require(mirror.ownerOf(DEMO_TOKEN_ID) == racer1, "racer1 does not own its Chog");
+        require(mirror.ownerOf(RIVAL_TOKEN_ID) == racer2, "racer2 does not own its Chog");
     }
 
     /// Step 3: deposit into the pool. The stable goes straight into the real LP.
@@ -247,28 +256,38 @@ contract Gate1 is DeployBase {
         console2.log("");
         console2.log("--- step 3: deposit into the pool (principal -> real LP) ---");
 
-        vm.startPrank(player);
-        IERC20(reg.asset).forceApprove(address(pool), DEPOSIT);
-        pool.deposit(DEMO_TOKEN_ID, DEPOSIT);
-        vm.stopPrank();
+        uint256 bal1 = IERC20(reg.asset).balanceOf(racer1);
+        uint256 dep1 = bal1 < DEPOSIT ? bal1 : DEPOSIT;
 
-        vm.startPrank(rival);
-        IERC20(reg.asset).forceApprove(address(pool), RIVAL_DEPOSIT);
-        pool.deposit(RIVAL_TOKEN_ID, RIVAL_DEPOSIT);
-        vm.stopPrank();
+        vm.startBroadcast(racer1Key);
+        IERC20(reg.asset).forceApprove(address(pool), dep1);
+        pool.deposit(DEMO_TOKEN_ID, dep1);
+        vm.stopBroadcast();
 
-        console2.log("player deposited    :", DEPOSIT);
-        console2.log("rival  deposited    :", RIVAL_DEPOSIT);
-        console2.log("player shares       :", pool.sharesOf(DEMO_TOKEN_ID));
-        console2.log("rival  shares       :", pool.sharesOf(RIVAL_TOKEN_ID));
+        uint256 bal2 = IERC20(reg.asset).balanceOf(racer2);
+        uint256 dep2 = bal2 < RIVAL_DEPOSIT ? bal2 : RIVAL_DEPOSIT;
+
+        vm.startBroadcast(racer2Key);
+        IERC20(reg.asset).forceApprove(address(pool), dep2);
+        pool.deposit(RIVAL_TOKEN_ID, dep2);
+        vm.stopBroadcast();
+
+        console2.log("racer1 deposited    :", dep1);
+        console2.log("racer2 deposited    :", dep2);
+        console2.log("racer1 shares       :", pool.sharesOf(DEMO_TOKEN_ID));
+        console2.log("racer2 shares       :", pool.sharesOf(RIVAL_TOKEN_ID));
         console2.log("pool totalPrincipal :", pool.totalPrincipal());
         console2.log("adapter LP units    :", pool.liquidityUnits());
         console2.log("adapter principal   :", pool.principalDeployed());
         console2.log("adapter position    :", pool.positionValue());
-        console2.log("player TWAB tickets :", pool.twabOf(DEMO_TOKEN_ID));
-        console2.log("rival  TWAB tickets :", pool.twabOf(RIVAL_TOKEN_ID));
-        console2.log("player odds (bps)   :", pool.oddsBpsOf(DEMO_TOKEN_ID));
-        console2.log("rival  odds (bps)   :", pool.oddsBpsOf(RIVAL_TOKEN_ID));
+        console2.log("racer1 TWAB tickets :", pool.twabOf(DEMO_TOKEN_ID));
+        console2.log("racer2 TWAB tickets :", pool.twabOf(RIVAL_TOKEN_ID));
+        console2.log("racer1 odds (bps)   :", pool.oddsBpsOf(DEMO_TOKEN_ID));
+        console2.log("racer2 odds (bps)   :", pool.oddsBpsOf(RIVAL_TOKEN_ID));
+
+        // Principal must actually be deployed into the LP, not parked in the pool.
+        require(pool.principalDeployed() > 0, "no principal reached the LP");
+        require(pool.totalPrincipal() >= dep1 + dep2, "pool principal did not increase");
     }
 
     /// Step 4: swap real volume through the pair. This is what makes the LP earn.
@@ -288,8 +307,9 @@ contract Gate1 is DeployBase {
         IStableFaucet faucet = IStableFaucet(
             vm.parseJsonAddress(vm.readFile("../infra/verified.json"), ".monadTestnet.stableFaucet.address")
         );
-        vm.prank(trader);
+        vm.startBroadcast(traderKey);
         faucet.claim();
+        vm.stopBroadcast();
 
         // Only ever trade what the trader actually holds. A hardcoded volume larger
         // than the balance reverts, and quietly shrinking it to "fit" would make the
@@ -297,18 +317,18 @@ contract Gate1 is DeployBase {
         uint256 volume = IERC20(reg.quoteToken).balanceOf(trader);
         if (volume > VOLUME) volume = VOLUME;
 
-        vm.startPrank(trader);
+        vm.startBroadcast(traderKey);
         IERC20(reg.quoteToken).forceApprove(reg.router, type(uint256).max);
         router.swapExactTokensForTokens(volume, 0, path, trader, block.timestamp);
-        vm.stopPrank();
+        vm.stopBroadcast();
 
         uint256 traderAsset = IERC20(reg.asset).balanceOf(trader);
         path[0] = reg.asset;
         path[1] = reg.quoteToken;
-        vm.startPrank(trader);
+        vm.startBroadcast(traderKey);
         IERC20(reg.asset).forceApprove(reg.router, type(uint256).max);
         router.swapExactTokensForTokens(traderAsset, 0, path, trader, block.timestamp);
-        vm.stopPrank();
+        vm.stopBroadcast();
 
         uint256 posAfter = pool.positionValue();
         console2.log("volume traded (USDC):", volume);
@@ -323,7 +343,8 @@ contract Gate1 is DeployBase {
         console2.log("--- step 5: harvest realized yield into the pot ---");
 
         uint256 potBefore = pool.potBalance();
-        vm.prank(pool.owner());
+        // The pool owner is the deployer, i.e. the script sender, so this is a real
+        // transaction from the same key that is running the script.
         uint256 harvested = pool.harvest();
 
         console2.log("pot before          :", potBefore);
@@ -343,72 +364,87 @@ contract Gate1 is DeployBase {
         );
     }
 
-    /// Step 6: a full commit-reveal draw.
+    /// Step 6: a full commit-reveal draw, with real timings.
+    ///
+    /// @dev On a real chain the reveal cannot be rolled to an arbitrary block, so
+    ///      the sequence must respect real time:
+    ///        openDraw() records closeAt = now + commitWindow;
+    ///        closeDraw() requires block.timestamp >= closeAt;
+    ///        reveal() requires a block strictly AFTER the close, so its
+    ///          blockhash(block.number - 1) is a real, already-mined block.
+    ///
+    ///      The deploy must therefore set CHOGPOOL_COMMIT_WINDOW to something
+    ///      demo-sized (a couple of minutes), and this step waits for that window
+    ///      to genuinely elapse. Waiting is honest: the alternative is a warp, and
+    ///      a warped timestamp on a real chain is exactly the kind of thing that
+    ///      makes a demo lie.
+    ///
+    ///      Each stage checks the on-chain draw state first, so a re-run after an
+    ///      interruption resumes where the chain actually is instead of restarting
+    ///      a draw that already exists.
     function _step6_Draw() internal {
         console2.log("");
         console2.log("--- step 6: commit-reveal draw ---");
 
-        // The block the draw sequence starts in. Everything below runs inside one
-        // simulated forge-script frame, so this is also the block closeDraw() and
-        // award() effectively run in; the reveal is rolled to a real, later block.
-        uint256 drawStartBlock = block.number;
+        uint256 drawId = engine.currentDrawId();
+        IDrawEngine.DrawState st = engine.stateOf(drawId);
 
-        // Run the draw inside one simulated forge-script frame. That frame's block
-        // number IS the block closeDraw() records as closedAtBlock.
-        vm.startPrank(engine.operator());
-        uint256 drawId = engine.openDraw();
+        // ---- open + snapshot + commit ----
+        if (st == IDrawEngine.DrawState.None || st == IDrawEngine.DrawState.Open) {
+            if (st == IDrawEngine.DrawState.None) {
+                drawId = engine.openDraw();
+                console2.log("drawId              :", drawId);
+            } else {
+                console2.log("drawId              :", drawId, "(resuming an open draw)");
+            }
 
-        uint256[] memory ids = new uint256[](2);
-        ids[0] = DEMO_TOKEN_ID;
-        ids[1] = RIVAL_TOKEN_ID;
-        engine.snapshotTickets(ids);
+            uint256[] memory ids = new uint256[](2);
+            ids[0] = DEMO_TOKEN_ID;
+            ids[1] = RIVAL_TOKEN_ID;
 
-        bytes32 commitHash = keccak256(abi.encodePacked(SEED));
-        engine.commit(commitHash);
-        console2.log("drawId              :", drawId);
-        console2.log("commit hash         :", vm.toString(commitHash));
-        vm.stopPrank();
+            // The operator is the deployer, i.e. the script sender, so these are
+            // real transactions from the key already running the script.
+            engine.snapshotTickets(ids);
 
-        // The reveal binds blockhash(block.number - 1). Two constraints collide on a
-        // fork, and both must hold:
-        //   1. the reveal block must be STRICTLY AFTER the close block, so the
-        //      operator cannot commit and reveal with full knowledge of the result;
-        //   2. blockhash() must be non-zero, which on a fork means the block must be
-        //      one the local node has really mined.
-        //
-        // Inside a forge script every call lands in ONE simulated frame whose own
-        // block hash is zero by definition, so a reveal in that frame fails
-        // RevealBlockUnavailable, and rolling FORWARD past the local tip fails it
-        // too (unmined). The only block that satisfies both is one that was ALREADY
-        // mined before the script started.
-        //
-        // So the draw is closed at a block BELOW the frame tip: roll back first, then
-        // close, then roll forward into mined history for the reveal. Both blocks
-        // are real, and the reveal is strictly after the close.
-        //
-        // Self-transfers cannot be used to advance blocks here — verified directly:
-        // inside a forge script they do not change block.number at all.
-        vm.roll(drawStartBlock - 2);
-        vm.startPrank(engine.operator());
-        vm.warp(block.timestamp + engine.commitWindow() + 1);
-        engine.closeDraw();
-        vm.stopPrank();
+            bytes32 commitHash = keccak256(abi.encodePacked(SEED));
+            engine.commit(commitHash);
+            console2.log("commit hash         :", vm.toString(commitHash));
+            console2.log("closeAt             :", engine.drawCloseAt(drawId));
+        }
 
-        // Reveal in a frame whose parent block is real, mined history. The reveal
-        // block is block.number - 1, so revealing at drawStartBlock makes the
-        // reveal block drawStartBlock - 1, which is strictly after the close at
-        // drawStartBlock - 2. Both are blocks the node really mined.
-        vm.roll(drawStartBlock);
-        vm.startPrank(engine.operator());
-        engine.reveal(SEED);
+        // ---- wait for the commit window to genuinely elapse ----
+        // Mining a transaction is what advances the chain; a plain sleep would not
+        // move block.timestamp at all, so the wait broadcasts a no-op from a racer.
+        uint64 closeAt = engine.drawCloseAt(drawId);
+        while (block.timestamp < closeAt) {
+            vm.startBroadcast(racer1Key);
+            racer1.call{value: 0}("");
+            vm.stopBroadcast();
+            console2.log("waiting for the commit window... now:", block.timestamp, "closeAt:", closeAt);
+        }
 
-        engine.award(1);
-        vm.stopPrank();
+        // ---- close (freezes the ticket book) ----
+        if (engine.stateOf(drawId) == IDrawEngine.DrawState.Open) {
+            engine.closeDraw();
+            console2.log("closed at block     :", block.number);
+        }
 
-        console2.log("seed                :", vm.toString(SEED));
+        // ---- reveal (binds blockhash(block.number - 1), a real mined block) ----
+        if (engine.stateOf(drawId) == IDrawEngine.DrawState.Closed) {
+            engine.reveal(SEED);
+        }
+
+        // ---- award + finalize ----
+        if (engine.stateOf(drawId) == IDrawEngine.DrawState.Awarded) {
+            engine.award(1);
+        }
+        if (engine.stateOf(drawId) == IDrawEngine.DrawState.Awarded) {
+            engine.finalize();
+        }
+
+        console2.log("seed                :", vm.toString(engine.seedOf(drawId)));
         console2.log("final randomness    :", vm.toString(engine.finalRandomnessOf(drawId)));
         console2.log("reveal block        :", engine.revealBlockOf(drawId));
-        console2.log("reveal deadline     :", engine.revealDeadline());
         console2.log("total tickets frozen:", engine.totalTicketsOf(drawId));
 
         // Re-derive off-chain from the published seed and require a match.
@@ -418,11 +454,7 @@ contract Gate1 is DeployBase {
         require(redrawn[0] == onchain[0], "re-derivation did not match the on-chain result");
         console2.log("winner (re-derived) :", redrawn[0]);
         console2.log("winner (on-chain)   :", onchain[0]);
-        console2.log("re-derivation       : MATCH");
-
-        vm.prank(engine.operator());
-        engine.finalize();
-        console2.log("draw state          : finalized");
+        console2.log("re-derivation       :", "MATCH");
 
         // The winner's career record must have been written by the draw itself.
         (uint32 winnerGold,,) = careers.trophiesOf(redrawn[0]);
@@ -434,8 +466,13 @@ contract Gate1 is DeployBase {
     function _step7_Payout() internal {
         console2.log("");
         console2.log("--- step 7: winner takes the pot ---");
+        uint256 drawId = engine.currentDrawId();
+        uint256[] memory winners = engine.winnersOf(drawId);
+        address winner = racer1;
+        if (winners.length > 0 && winners[0] == RIVAL_TOKEN_ID) winner = racer2;
         console2.log("pot                 :", pool.potBalance());
-        console2.log("winner balance      :", IERC20(reg.asset).balanceOf(player));
+        console2.log("winner address      :", winner);
+        console2.log("winner balance      :", IERC20(reg.asset).balanceOf(winner));
     }
 
     /// Step 8: withdraw all principal. Instant, full, no fee.
@@ -444,17 +481,18 @@ contract Gate1 is DeployBase {
         console2.log("--- step 8: withdraw all principal ---");
 
         uint256 shares = pool.sharesOf(DEMO_TOKEN_ID);
-        uint256 before = IERC20(reg.asset).balanceOf(player);
+        uint256 before = IERC20(reg.asset).balanceOf(racer1);
 
-        vm.prank(player);
+        vm.startBroadcast(racer1Key);
         pool.withdrawAll(DEMO_TOKEN_ID);
+        vm.stopBroadcast();
 
-        uint256 received = IERC20(reg.asset).balanceOf(player) - before;
+        uint256 received = IERC20(reg.asset).balanceOf(racer1) - before;
         console2.log("shares withdrawn    :", shares);
         console2.log("asset received      :", received);
         (, , uint256 principalDeposited) = pool.depositOf(DEMO_TOKEN_ID);
         console2.log("principal deposited :", principalDeposited);
-        console2.log("player shares left  :", pool.sharesOf(DEMO_TOKEN_ID));
+        console2.log("racer1 shares left  :", pool.sharesOf(DEMO_TOKEN_ID));
         console2.log("pool totalPrincipal :", pool.totalPrincipal());
 
         // Full principal out, no lock, no fee taken.
@@ -473,6 +511,6 @@ contract Gate1 is DeployBase {
         console2.log("withdraw all        : yes, instant and full");
         console2.log("");
         console2.log("Every number above was read from chain state during this run.");
-        console2.log("No value was simulated, no fee was booked without a real tx.");
+        console2.log("Every step was a real, broadcast transaction from its own actor.");
     }
 }

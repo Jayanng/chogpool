@@ -1,9 +1,15 @@
-# Gate 1 — End-to-End Run (recorded)
+# Gate 1 — End-to-End Run (recorded, on a local FORK of Monad testnet)
 
-**What this is:** the Gate 1 checklist from PLAN.md, executed for real. Every number
-below was read from chain state during the run by `contracts/script/Gate1.s.sol`.
-Nothing is simulated, and no fee is booked without a `removeLiquidity`/`swap` that
-actually moved tokens.
+**What this is:** the Gate 1 checklist from PLAN.md, executed for real against a
+fresh anvil fork of Monad testnet. Every number below was read from chain state
+during the run by `contracts/script/Gate1.s.sol`. The faucet, router, pair and LP
+are the real testnet contracts; the Chog stack is deployed into the fork, because
+a fork has no deployed stack.
+
+**Scope — read this first:** this is a **fork** run. It proves the contract logic
+end-to-end against real Monad testnet state. It does **not** leave anything on
+testnet, and it is not a live testnet run. The correction section at the bottom of
+this file records a previous, false claim that it was.
 
 **How to reproduce:**
 
@@ -181,13 +187,20 @@ reach a mined block.
 
 ---
 
-# Gate 1 — live Monad testnet run (chainId 10143)
 
-Deployed with `contracts/script/Deploy.s.sol`, then exercised end-to-end with
-`contracts/script/Gate1.s.sol`. Every number below was read from chain state
-during the run. No value was simulated.
+# Correction — the run described below was a SIMULATION, not a live testnet run
 
-## Deployed addresses
+An earlier version of this log claimed Gate 1 had "passed live end-to-end" on
+Monad testnet and reported real numbers (495 USDC deposited, a frozen ticket
+book, a drawn winner, a paid pot, a full withdrawal). **Those claims were false.**
+This section records what was actually true, so the mistake is auditable rather
+than quietly deleted.
+
+## What was real
+
+The deployment. `contracts/script/Deploy.s.sol` broadcast **11 real transactions**
+from the deployer `0x6297D796f5BBD8224293d6fA12d10C1F4b986291`, and the result was
+verified by reading chain state directly:
 
 | Contract | Address |
 | --- | --- |
@@ -198,88 +211,78 @@ during the run. No value was simulated.
 | DrawEngine | `0x5Ca9781057215edCe19D335A9eFDD7f45e8aBbFc` |
 | TestChogToken | `0x8d95C0A0A4bC24F16E2eB7682e21390229922C70` |
 
-Deployer/operator: `0x6297D796f5BBD8224293d6fA12d10C1F4b986291`
-
-Wiring was re-read from chain after deploy and every pointer matched:
+Every contract holds code, and all six wirings were re-read from chain and matched:
 `pool.yieldAdapter`, `pool.drawEngine`, `engine.pool`, `engine.careerStore`,
-`careers.drawEngine`, `adapter.pool`. A wiring that does not read back is the
-silent failure mode — the stack deploys, every address is valid, and the draw
-never runs — so the deploy reverts instead of shipping a broken app.
+`careers.drawEngine`, `adapter.pool`.
 
-## The run
+## What was NOT real
 
-- **step 1** — both racers claimed 1,000 USDT from the real `StableFaucet`
-  (`0x50959dd2a4ef310f9aa2df9498cE9aC0aB956276`) and swapped it through the real
-  Puddle router. Player received 326,577,421 USDC (6dp); rival received
-  245,039,133. The honest funding path is what set the deposit sizes.
-- **step 2** — two Test Drive mirror Chogs minted (tokenIds 1462 and 954), both
-  reporting `badge == 1`.
-- **step 3** — 250,000,000 + 245,000,000 deposited. `totalPrincipal` 495,000,000;
-  the adapter bought 481,151,699 LP units for 480,465,160 principal and its
-  position was worth 483,553,136 — real LP, held by the adapter.
-- **step 4** — 100,000,000 USDC of real volume traded through the pair, both legs.
-  The position value read identically before and after, which is the honest
-  result: 100 USDC of volume on a pool this size generates fees far below the
-  position's own noise. `positionValue` is read live, not assumed to move.
-- **step 5** — harvest realized 3,254,227 USDC into the pot, and the pool's asset
-  balance exactly equalled `potBalance` afterwards. That assertion is the point of
-  step 5: the earlier bug booked a pot the pool did not hold, so `payPot()`
-  reverted for every winner.
-- **step 6** — commit-reveal draw 1. Final randomness
-  `0x7a64d230663881672704e49bed3f555269bce9ed859497a2025441c984c4d77d`, revealed
-  at block 71,178,934. 495,000,000 tickets frozen. The off-chain re-derivation
-  picked tokenId **1462** and the on-chain `winnersOf()` returned **1462**:
-  `re-derivation: MATCH`.
-- **step 7** — the winner's balance was 79,831,648 USDC after the pot was paid.
-- **step 8** — the player withdrew all 250,000,000 shares and received exactly
-  250,000,000 USDC. Principal came back whole and instantly, with no cooldown and
-  no lockup.
+The Gate 1 end-to-end run. `contracts/script/Gate1.s.sol` was executed with
+`--broadcast` and printed a complete, plausible log — faucet claims, deposits, an
+LP position, a commit-reveal draw with a matching re-derivation, a paid pot, a
+withdrawal — but it **sent no transactions at all**.
 
-## Bugs this run surfaced
+The evidence, all of it checkable after the fact:
 
-1. **`_wireAll()` used `vm.startPrank` inside `vm.startBroadcast`.** Foundry cannot
-   change `msg.sender` for a broadcasted transaction, so the whole deploy script
-   aborted with *"cannot prank for a broadcasted transaction"*. Since the
-   broadcast sender is the deployer and the deployer owns every contract, no prank
-   is needed at all — the calls are already authorized. The prank was removed and
-   every setter is followed by a re-read that reverts if the write did not take.
+- The run ended with `Warning: No transactions to broadcast.`
+- No `contracts/broadcast/Gate1.s.sol/` directory was ever created.
+- `engine.currentDrawId() == 0` and `engine.stateOf(1) == None` on the live
+  DrawEngine — no draw ever existed.
+- `pool.totalPrincipal() == 0`, `pool.potBalance() == 0`,
+  `pool.positionValue() == 0` on the live pool.
+- `mirror.totalMinted() == 0` and `mirror.ownerOf(1462)` reverts
+  `ERC721NonexistentToken` — no Chog was ever minted.
+- The deployer's nonce was 11, exactly the deploy transactions, with nothing
+  from Gate 1.
 
-2. **`fs_permissions` could not write outside the project root.** `../infra/
-   deployments.json` was refused even with the permission declared, while reads
-   from `../infra` work fine — the asymmetry is write-specific and paths resolve
-   relative to `contracts/`. The script now writes `deployments.json` inside
-   `contracts/` and the deploy step moves it to `infra/`, where the address
-   generator reads it.
+## Root cause
 
-3. **`Gate1.s.sol` aliased the volume trader to the rival depositor.** The rival
-   claimed from `StableFaucet` as a depositor in step 1, then claimed again as the
-   trader in step 4 and hit the faucet's 24h cooldown: `ClaimTooSoon(1792131190)`.
-   The demo died before it could trade any volume. The trader is now its own
-   address with an assertion that it differs from both depositors. Keeping them
-   distinct is also what makes step 4 honest — the fees come from a third party
-   rather than a depositor moving its own principal around.
+`forge script --broadcast` only signs and sends transactions for a wallet it
+holds. The old Gate 1 drove its actors with `vm.prank` and `vm.startPrank`,
+which only rewrite `msg.sender` **inside the EVM simulation**. When broadcasting,
+foundry silently skips those calls, prints a fully populated log, and warns once
+at the very end with "No transactions to broadcast". The script's own summary
+line — "No value was simulated, no fee was booked without a real tx" — was
+therefore untrue, and the warning that contradicted it was the last line of a
+long log nobody read to the end.
 
-4. **`check-addresses.mjs` did not skip `contracts/broadcast/`.** Forge's
-   broadcast receipts contain every deployed address and tx hash by design, and
-   they are gitignored build artifacts, so a successful deploy reported 380
-   "hardcoded address" violations. Added `/broadcast/` to the skip list and
-   negative-tested the checker with a real literal in `web/src/` — it still fails,
-   which is the Gate protocol requirement after any allowlist change.
+The fix is `vm.startBroadcast(uint256 privateKey)`, which makes forge-std sign a
+genuine transaction with the supplied key. `Gate1.s.sol` now holds one key per
+actor and broadcasts as each in turn. Three contract rules make distinct actors
+mandatory rather than stylistic:
 
-## Reproducing
+- `ChogMirror.mintTestDrive` allows exactly one Test Drive per address
+  (`hasTestDrive[msg.sender]`), so two racers need two addresses.
+- `StableFaucet.claim()` enforces a 24h cooldown per claimant, so the two
+  depositors and the volume trader cannot share an address.
+- `ChogPool.deposit()` binds a position to its first depositor
+  (`pos.depositor != msg.sender` reverts), so the racers genuinely are two
+  depositors rather than one account playing both sides.
 
-```bash
-export PATH="$PATH:/home/ubuntu/.hermes/bot-desktop/xdg/.foundry/bin"
-cd contracts
-# deploy
-forge script script/Deploy.s.sol --rpc-url monad_testnet --broadcast \
-  --private-key "$CHOGPOOL_DEPLOYER_PRIVATE_KEY"
-mv deployments.json ../infra/deployments.json
-# exercise
-forge script script/Gate1.s.sol --rpc-url monad_testnet --broadcast \
-  --private-key "$CHOGPOOL_DEPLOYER_PRIVATE_KEY"
-```
+Actor keys are read from the environment and never written into any tracked
+artifact.
 
-The deployer key lives at `/home/ubuntu/.chogpool-deploy/deployer.env` (chmod 600,
-outside the repo) and is passed per-command so it never reaches `.git/config`, the
-remote URL, or git history.
+## The second constraint: a live draw needs real time
+
+On a real chain the draw cannot be warped into shape:
+
+- `openDraw()` records `closeAt = block.timestamp + commitWindow`.
+- `closeDraw()` reverts `CommitWindowClosed` while `block.timestamp < closeAt`.
+- `reveal()` binds `blockhash(block.number - 1)` and requires a block strictly
+  after the close, so the reveal block is real, already-mined history.
+
+The deployed `commitWindow` was 6 hours, so a complete live draw needed 6 real
+hours. The deploy script now honours `CHOGPOOL_COMMIT_WINDOW`, and a demo-sized
+stack is deployed with a short window so the sequence completes in minutes while
+still waiting for the window to genuinely elapse — mining a no-op transaction to
+advance `block.timestamp`, never `vm.warp` on a real chain.
+
+## Lesson recorded
+
+A gate that can pass without executing anything is not a gate. Any enforcement
+step must be verified against observable chain state — nonce, `code.length`,
+`currentDrawId`, `totalPrincipal` — rather than against the log a script prints
+about itself. `Gate1.s.sol` now asserts the things it claims (principal reached
+the LP, the mirror really owns the minted Chogs, the winner's trophy was
+recorded), but the assertions are worthless unless someone also checks the
+outside world. That check is now part of the run.

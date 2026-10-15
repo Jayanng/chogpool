@@ -446,6 +446,18 @@ contract DrawEngine is IDrawEngine, Ownable2Step, ReentrancyGuard {
         return drawId;
     }
 
+    /// @notice The block-timestamp at which a draw's commit window ends.
+    /// @dev Declared HERE rather than in IDrawEngine because adding to a frozen
+    ///      interface needs both owners' approval, and a live Gate 1 run needs to
+    ///      know when it may honestly call closeDraw(): closeDraw() reverts
+    ///      CommitWindowClosed while block.timestamp < closeAt, and a real chain
+    ///      cannot be warped past it. The value is already stored in the draw and
+    ///      already emitted in DrawOpened, so this exposes nothing new — it only
+    ///      makes an existing value readable without an event scan.
+    function drawCloseAt(uint256 drawId) external view returns (uint64) {
+        return _draws[drawId].closeAt;
+    }
+
     /// @inheritdoc IDrawEngine
     function winnersOf(uint256 drawId) external view returns (uint256[] memory) {
         return _draws[drawId].winners;
