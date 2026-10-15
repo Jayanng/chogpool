@@ -98,9 +98,14 @@ contract PuddleLpAdapterForkTest is Test {
     /// @dev Claims USDT from the real StableFaucet and swaps it for real PuddleSwap
     ///      USDC through the real router. This is exactly what the Gate 1 script does,
     ///      and it is why the faucet USDC (not mintable core USDC) is in the registry.
-    /// @dev The faucet mints 1,000 USDT and the live pair prices 1 USDT ≈ 0.37 USDC,
-    ///      so we swap the whole claim and check it covers `amount`. If it does not,
-    ///      the test fails loudly rather than silently running on a thin position.
+    /// @dev The faucet mints 1,000 USDT. What that buys in USDC depends entirely on
+    ///      the live pair's price, which moves: when this suite was written 1 USDT
+    ///      bought ~0.37 USDC, and it now buys ~0.068, so the same claim yields ~67
+    ///      USDC instead of ~370. Hardcoding a test amount above what the pair can
+    ///      deliver makes the suite fail for a reason that has nothing to do with the
+    ///      adapter, so the assertion below states the live yield and the tests are
+    ///      sized to work with it. If the price moves again the suite still runs; it
+    ///      just works with a smaller real position, which is the honest outcome.
     function _fundAsset(uint256 amount) internal {
         // The faucet enforces a 24h cooldown per address, and _fundAsset may be
         // called more than once in a single test. Derive a FRESH funder each time so
@@ -122,18 +127,39 @@ contract PuddleLpAdapterForkTest is Test {
         vm.stopPrank();
 
         uint256 have = IERC20(asset).balanceOf(who);
-        assertGe(have, amount, "faucet claim must cover the test's asset amount");
+        // Clamp to what the faucet actually delivered rather than failing on a price
+        // the test does not control. The clamp is asserted so a zero-yield pair is
+        // still a loud failure instead of a silent no-op.
+        uint256 usable = have < amount ? have : amount;
+        assertGt(usable, 0, "faucet claim bought no asset at the live price");
+        amount = usable;
 
         // Route it the way production does: the depositor approves the pool and the
         // pool approves the adapter. The asset therefore sits in the POOL, and
         // supply() pulls it from there — which is what the real ChogPool does.
         vm.startPrank(who);
-        IERC20(asset).approve(pool, amount);
+        IERC20(asset).approve(pool, usable);
         vm.stopPrank();
 
         vm.prank(pool);
-        IERC20(asset).transferFrom(who, pool, amount);
-        assertEq(IERC20(asset).balanceOf(pool), amount, "pool holds the asset");
+        IERC20(asset).transferFrom(who, pool, usable);
+        assertEq(IERC20(asset).balanceOf(pool), usable, "pool holds the asset");
+
+        lastFunded = usable;
+    }
+
+    /// @dev What the last _fundAsset call actually moved, which is the live pair's
+    ///      yield for one faucet claim rather than a hardcoded target. Tests must
+    ///      size their deposits from this, because a deposit larger than what the
+    ///      faucet delivered reverts and discards the whole test.
+    uint256 public lastFunded;
+
+    /// @dev The asset the pool currently holds, which is exactly what the last
+    ///      _fundAsset call delivered. Deposits are sized from this rather than a
+    ///      constant, so the suite tracks the live pair instead of failing when the
+    ///      price moves and one claim buys less than it used to.
+    function _poolAsset() internal view returns (uint256) {
+        return IERC20(asset).balanceOf(pool);
     }
 
     // ---------- supply ----------
@@ -142,7 +168,7 @@ contract PuddleLpAdapterForkTest is Test {
         uint256 pairLpBefore = IPuddlePair(pair).balanceOf(address(adapter));
 
         vm.prank(pool);
-        adapter.supply(START);
+        adapter.supply(_poolAsset());
 
         assertGt(adapter.lpHeld(), 0, "adapter must hold real LP tokens");
         assertEq(
@@ -157,14 +183,17 @@ contract PuddleLpAdapterForkTest is Test {
     function test_Fork_Supply_OnlyPool() public needsFork {
         vm.prank(address(0xdead));
         vm.expectRevert(IYieldAdapter.NotPool.selector);
-        adapter.supply(START);
+        // A non-zero amount so the call reaches the onlyPool check. The caller is
+        // rejected before the amount is ever read, so the exact value is irrelevant;
+        // what matters is that a stranger cannot drive the adapter at all.
+        adapter.supply(1e6);
     }
 
     // ---------- redeem: full principal, instantly ----------
 
     function test_Fork_Redeem_ReturnsFullPrincipal() public needsFork {
         vm.prank(pool);
-        adapter.supply(START);
+        adapter.supply(_poolAsset());
 
         address to = address(0xbabe);
 
@@ -192,7 +221,7 @@ contract PuddleLpAdapterForkTest is Test {
     /// when nothing has traded against it, and the adapter never books yield that
     /// did not really accrue.
     function test_Fork_Redeem_RoundTrip_NoTrades_ReturnsDeposit() public needsFork {
-        uint256 deposited = START;
+        uint256 deposited = _poolAsset();
         vm.prank(pool);
         adapter.supply(deposited);
 
@@ -218,7 +247,7 @@ contract PuddleLpAdapterForkTest is Test {
     /// Proves against the real pair that (a) the entry cost is measurable through
     /// positionValue(), and (b) redeeming exactly what was taken in always succeeds.
     function test_Fork_EntryCost_IsReal_AndFullyRedeemable() public needsFork {
-        uint256 deposited = START;
+        uint256 deposited = _poolAsset();
 
         uint256 valueBefore = adapter.positionValue();
         vm.prank(pool);
@@ -241,10 +270,11 @@ contract PuddleLpAdapterForkTest is Test {
 
     /// A partial withdraw must leave a healthy, still-withdrawable position behind.
     function test_Fork_Redeem_Partial_KeepsPosition() public needsFork {
+        uint256 deposited = _poolAsset();
         vm.prank(pool);
-        adapter.supply(START);
+        adapter.supply(deposited);
 
-        uint256 half = START / 2;
+        uint256 half = deposited / 2;
         vm.prank(pool);
         adapter.redeem(half, address(0xbabe));
 
@@ -264,25 +294,26 @@ contract PuddleLpAdapterForkTest is Test {
     }
 
     function test_Fork_Redeem_RevertsWhenAskingForTooMuch() public needsFork {
+        uint256 deposited = _poolAsset();
         vm.prank(pool);
-        adapter.supply(START);
+        adapter.supply(deposited);
 
         vm.prank(pool);
         vm.expectRevert(
             abi.encodeWithSelector(
                 IYieldAdapter.InsufficientLiquidity.selector,
-                START * 2,
+                deposited * 2,
                 adapter.positionValue()
             )
         );
-        adapter.redeem(START * 2, address(0xbabe));
+        adapter.redeem(deposited * 2, address(0xbabe));
     }
 
     // ---------- harvest: only realized value ----------
 
     function test_Fork_Harvest_MovesOnlyRealizedValue() public needsFork {
         vm.prank(pool);
-        adapter.supply(START);
+        adapter.supply(_poolAsset());
 
         // No trading yet: there is nothing realized, so harvest must move nothing.
         vm.prank(pool);
@@ -320,7 +351,7 @@ contract PuddleLpAdapterForkTest is Test {
     /// The transfer is now a single exit covering both branches.
     function test_Fork_Harvest_LeavesThePoolHoldingThePot() public needsFork {
         vm.prank(pool);
-        adapter.supply(START);
+        adapter.supply(_poolAsset());
 
         // Drive enough volume that the fee is above 6-decimal print resolution. The
         // existing suite's 20-USDC round trip realizes 0 here (100 USDC of volume
@@ -350,23 +381,25 @@ contract PuddleLpAdapterForkTest is Test {
     /// `positionValue` — after which every harvest looked like a loss and no yield
     /// could ever reach the pot.
     function test_Fork_SecondSupply_BooksOnlyTheNewSlice() public needsFork {
+        uint256 deposited = _poolAsset();
         vm.prank(pool);
-        adapter.supply(START);
+        adapter.supply(deposited);
 
         uint256 principalAfterFirst = adapter.principalDeployed();
         uint256 lpHeldAfterFirst = adapter.liquidityUnits();
 
         // The first supply must book roughly what it deployed, never more.
-        assertLe(principalAfterFirst, START, "first supply books at most the deposit");
+        assertLe(principalAfterFirst, deposited, "first supply books at most the deposit");
         assertGt(principalAfterFirst, 0);
 
         // Fund a second deposit the same honest way setUp() funds the first, then
         // approve it through the pool (the test stands in for ChogPool, which
         // approves the adapter on the depositor's behalf).
         _fundAsset(START);
+        uint256 secondFunded = _poolAsset();
         IERC20(asset).approve(address(adapter), type(uint256).max);
         vm.prank(pool);
-        adapter.supply(START);
+        adapter.supply(secondFunded);
 
         uint256 principalAdded = adapter.principalDeployed() - principalAfterFirst;
         uint256 lpAdded = adapter.liquidityUnits() - lpHeldAfterFirst;
@@ -375,8 +408,8 @@ contract PuddleLpAdapterForkTest is Test {
         // it was the ENTIRE position value (~2x the deposit), because the new
         // lpHeld was divided against a pair whose reserves still reflected the old
         // position.
-        assertLe(principalAdded, START, "second supply books at most its own deposit");
-        assertGt(principalAdded, START / 2, "second supply books at least half its deposit");
+        assertLe(principalAdded, secondFunded, "second supply books at most its own deposit");
+        assertGt(principalAdded, secondFunded / 2, "second supply books at least half its deposit");
         assertGt(lpAdded, 0, "LP was actually minted");
 
         // The books must stay in the right RELATIONSHIP: principal per LP unit must
@@ -407,7 +440,7 @@ contract PuddleLpAdapterForkTest is Test {
     /// actual removeLiquidity/swap transactions, never from a paper calculation.
     function test_Fork_NoPaperYield_ValueTracksRealReserves() public needsFork {
         vm.prank(pool);
-        adapter.supply(START);
+        adapter.supply(_poolAsset());
 
         (uint112 r0Before, uint112 r1Before,) = IPuddlePair(pair).getReserves();
 
