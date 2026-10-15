@@ -44,6 +44,14 @@ interface IChogMirror {
     /// @param mainnetOwner the claimed mainnet owner; MUST equal the recovered signer
     /// @param realURI      the token's real mainnet IPFS URI (resolved off-chain)
     /// @param v,r,s        EIP-712 signature by the MAINNET owner
+    /// @notice Mint a Verified Holder mirror token, signed by the real mainnet owner.
+    /// @dev The EIP-712 message is
+    ///      Mirror(uint256 tokenId,address mainnetOwner,address minter,uint256 nonce,bytes32 uriHash)
+    ///      over the "ChogMirror"/"1" domain. `uriHash` is keccak256(bytes(realURI)),
+    ///      so the metadata the contract stores is bound to the signature: a caller
+    ///      cannot submit a valid signature alongside a different URI. Verify a stored
+    ///      token by recomputing the digest from tokenURI() and comparing with
+    ///      uriHashOf(tokenId).
     function mintWithSig(
         uint256 tokenId,
         address mainnetOwner,
@@ -70,6 +78,10 @@ interface IChogMirror {
 
     /// @notice tokenId => true if minted via Test Drive (no ownership proof).
     function isTestDrive(uint256 tokenId) external view returns (bool);
+
+    /// @notice keccak256(bytes(realURI)) recorded at mint, so the stored URI can be
+    ///         checked against the digest the owner signed.
+    function uriHashOf(uint256 tokenId) external view returns (bytes32);
 
     /// @notice One Test Drive per wallet: has this address already claimed one?
     function hasTestDrive(address account) external view returns (bool);

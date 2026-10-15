@@ -66,7 +66,7 @@ export default function Landing() {
           <p className="muted">The track only competes with yield. Withdraw your principal at any time. Rewards scale with the pool.</p>
         </div>
         <Panel className="proof-panel">
-          <Stat label="NEXT DRAW" value={nextDrawAt ? "Counting down" : "Not scheduled yet"} note="Cadence comes from the pool contract (nextDrawAt), never from copy." />
+          <Stat label="NEXT DRAW" value={nextDrawAt ? "Counting down" : "Not scheduled yet"} note="Draws are opened on chain by the operator — no timer, no promised cadence." />
           <Stat label="FAIRNESS" value="Published seed" note="Winner re-derivable from the published seed on the verifier page." tone="lime" />
         </Panel>
         <Panel className="proof-panel">

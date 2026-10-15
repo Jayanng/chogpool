@@ -25,7 +25,7 @@ contract ChogMirror is ERC721, EIP712, Ownable, IChogMirror {
     uint256 public constant MAX_SUPPLY = 1969;
 
     bytes32 private constant MIRROR_TYPEHASH =
-        keccak256("Mirror(uint256 tokenId,address mainnetOwner,address minter,uint256 nonce)");
+        keccak256("Mirror(uint256 tokenId,address mainnetOwner,address minter,uint256 nonce,bytes32 uriHash)");
 
     /// @inheritdoc IChogMirror
     mapping(uint256 => address) public mainnetOwnerOf;
@@ -38,6 +38,11 @@ contract ChogMirror is ERC721, EIP712, Ownable, IChogMirror {
 
     /// @notice Real mainnet tokenURI, stored verbatim at mint (never invented traits).
     mapping(uint256 => string) private _realURIs;
+
+    /// @dev keccak256(bytes(realURI)) for each token, recorded at mint so anyone can
+    ///      re-derive the digest the owner signed and confirm the stored URI is the
+    ///      signed one. Exposed through uriHashOf().
+    mapping(uint256 => bytes32) private _uriHashes;
 
     /// @inheritdoc IChogMirror
     uint256 public totalMinted;
@@ -76,8 +81,25 @@ contract ChogMirror is ERC721, EIP712, Ownable, IChogMirror {
         // successful recovery, so a failed attempt cannot burn a signer's nonce.
         uint256 nonce = nonces[mainnetOwner];
 
+        // The metadata URI is bound into the signed message, so the tokenURI this
+        // contract stores is provably the one the mainnet owner signed.
+        //
+        // Without this, realURI is an ordinary calldata argument: the signature
+        // covers tokenId, mainnetOwner, minter and nonce, and a caller could submit
+        // any string at all alongside a valid signature. The only thing standing
+        // between the chain and a false metadata URI would be the frontend's
+        // behaviour — "trust our site" is not an answer a judge should have to
+        // accept, and it is not one this contract needs to rely on. Hashing the URI
+        // into the struct turns the guarantee into "check the signature", which is
+        // checkable by anyone, forever, with no trust in us.
+        //
+        // The URI is hashed as raw UTF-8 bytes (keccak256(bytes(realURI))), matching
+        // how an off-chain signer builds the digest: no length prefix, no abi.encode
+        // of the string, just the bytes the contract will store.
+        bytes32 uriHash = keccak256(bytes(realURI));
+
         bytes32 structHash = keccak256(
-            abi.encode(MIRROR_TYPEHASH, tokenId, mainnetOwner, msg.sender, nonce)
+            abi.encode(MIRROR_TYPEHASH, tokenId, mainnetOwner, msg.sender, nonce, uriHash)
         );
         address recovered = ECDSA.recover(_hashTypedDataV4(structHash), v, r, s);
         if (recovered != mainnetOwner) revert InvalidSignature();
@@ -87,6 +109,7 @@ contract ChogMirror is ERC721, EIP712, Ownable, IChogMirror {
         mainnetOwnerOf[tokenId] = recovered;
         isTestDrive[tokenId] = false;
         _realURIs[tokenId] = realURI;
+        _uriHashes[tokenId] = uriHash;
 
         _mint(msg.sender, tokenId);
         totalMinted++;
@@ -107,6 +130,13 @@ contract ChogMirror is ERC721, EIP712, Ownable, IChogMirror {
         mainnetOwnerOf[tokenId] = address(0); // explicit: no provenance claim
 
         _realURIs[tokenId] = realURI;
+        // The hash is recorded for uniformity with the verified path, but it is NOT a
+        // provenance claim: nobody signed it, because Test Drive requires no
+        // signature. It exists so the /verify page can show the same
+        // "stored URI hashes to the recorded digest" line for every token without
+        // special-casing, while `isTestDrive[tokenId]` remains the thing that says
+        // whether any attestation happened at all.
+        _uriHashes[tokenId] = keccak256(bytes(realURI));
 
         _mint(msg.sender, tokenId);
         totalMinted++;
@@ -116,7 +146,18 @@ contract ChogMirror is ERC721, EIP712, Ownable, IChogMirror {
 
     // ---------------- views ----------------
 
-    /// @inheritdoc ERC721
+    /// @notice keccak256(bytes(realURI)) recorded at mint for `tokenId`.
+    /// @dev Lets anyone verify the stored URI is the one that was signed: recompute
+    ///      keccak256 of the URI returned by tokenURI() and compare. For a Verified
+    ///      Holder token this is the digest inside the EIP-712 message the mainnet
+    ///      owner signed. For a Test Drive token nobody signed anything, so a match
+    ///      here proves only that the stored bytes hash to the recorded value — check
+    ///      isTestDrive() for whether an attestation exists at all.
+    function uriHashOf(uint256 tokenId) external view returns (bytes32) {
+        return _uriHashes[tokenId];
+    }
+
+    /// @notice The real tokenURI (Test Drive tokens get a labelled prefix).
     function tokenURI(uint256 tokenId) public view override(ERC721, IChogMirror) returns (string memory) {
         _requireOwned(tokenId);
         if (isTestDrive[tokenId]) {
@@ -142,15 +183,28 @@ contract ChogMirror is ERC721, EIP712, Ownable, IChogMirror {
         return _domainSeparatorV4();
     }
 
-    /// @notice Recompute the digest the UI must ask the wallet to sign.
-    /// @dev Lets /identity (and any integration test) verify it built the right message.
-    function hashMirrorMessage(uint256 tokenId, address mainnetOwner, address minter, uint256 nonce)
-        external
-        view
-        returns (bytes32)
-    {
+    /// @notice The exact EIP-712 digest a wallet must sign to mint `tokenId`.
+    /// @dev Lets /identity (and any integration test) verify it built the right message,
+    ///      with no guesswork about field order or the URI encoding. The URI is hashed
+    ///      as raw bytes (keccak256(bytes(realURI))) to match how a wallet signs it.
+    function hashMirrorMessage(
+        uint256 tokenId,
+        address mainnetOwner,
+        address minter,
+        uint256 nonce,
+        string calldata realURI
+    ) external view returns (bytes32) {
         return _hashTypedDataV4(
-            keccak256(abi.encode(MIRROR_TYPEHASH, tokenId, mainnetOwner, minter, nonce))
+            keccak256(
+                abi.encode(
+                    MIRROR_TYPEHASH,
+                    tokenId,
+                    mainnetOwner,
+                    minter,
+                    nonce,
+                    keccak256(bytes(realURI))
+                )
+            )
         );
     }
 

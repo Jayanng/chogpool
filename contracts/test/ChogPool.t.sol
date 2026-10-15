@@ -231,6 +231,34 @@ contract ChogPoolTwabTest is Test {
         assertEq(adapter.principalDeployed(), 0, "venue fully drained");
     }
 
+    /// totalPrincipal must be CURRENT holdings, not lifetime deposits. Before this it
+    /// was monotonic, so after a withdraw it disagreed with totalShares by exactly
+    /// the withdrawn amount — two fields with different semantics but names that
+    /// imply the same thing, which a UI cannot disambiguate.
+    function test_TotalPrincipal_IsCurrentNotLifetime() public {
+        _deposit(alice, TOKEN_A, 100 * ONE);
+        // The default mock venue is lossless, so the credited value equals the deposit.
+        assertEq(pool.totalPrincipal(), 100 * ONE, "current principal after deposit");
+        assertEq(pool.totalShares(), 100 * ONE, "the two must agree");
+
+        vm.prank(alice);
+        pool.withdrawAll(TOKEN_A);
+
+        assertEq(pool.totalPrincipal(), 0, "current principal drops to zero on full withdraw");
+        assertEq(pool.totalShares(), 0, "still agrees with totalShares");
+        assertEq(pool.lifetimePrincipal(), 100 * ONE, "lifetime figure survives, monotonic");
+    }
+
+    /// Partial withdrawal must reduce both figures by the same amount.
+    function test_TotalPrincipal_TracksPartialWithdraw() public {
+        _deposit(alice, TOKEN_A, 100 * ONE);
+        vm.prank(alice);
+        pool.withdraw(TOKEN_A, 40 * ONE);
+
+        assertEq(pool.totalPrincipal(), pool.totalShares(), "current principal still equals shares");
+        assertEq(pool.lifetimePrincipal(), 100 * ONE, "lifetime unaffected by withdrawal");
+    }
+
     // ---------- TWAB math vs closed form ----------
 
     /// Constant balance over a window: TWAB must equal that balance exactly.

@@ -76,7 +76,10 @@ interface IChogPool {
     /// @notice Total shares issued across all tokenIds.
     function totalShares() external view returns (uint256);
 
-    /// @notice Total principal deposited (asset units) — excludes pot.
+    /// @notice Total principal currently held by the pool (asset units) — excludes pot.
+    /// @dev CURRENT holdings, not lifetime deposits. Increases on deposit and
+    ///      decreases on withdraw, so it always equals `totalShares()`. Lifetime
+    ///      deposits are a separate question and live in `lifetimePrincipal()`.
     function totalPrincipal() external view returns (uint256);
 
     /// @notice Current prize pot (asset units). Grew only from realized yield.

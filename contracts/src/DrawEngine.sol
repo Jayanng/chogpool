@@ -321,6 +321,18 @@ contract DrawEngine is IDrawEngine, Ownable2Step, ReentrancyGuard {
         Draw storage d = _draws[currentDrawId];
         if (d.state != DrawState.Awarded) revert WrongState(DrawState.Awarded, d.state);
         d.state = DrawState.Finalized;
+
+        // Clearing nextDrawAt is what keeps the countdown honest. Draws are opened
+        // by the operator, not by a schedule, so after a finalize there is genuinely
+        // no next draw yet. Leaving the closed draw's closeAt in place makes the
+        // landing-page countdown read as expired forever, which invites the reader
+        // to believe a cadence exists that does not. Zero is the truthful value and
+        // the UI renders it as "not scheduled yet".
+        nextDrawAt = 0;
+        if (pool != address(0)) {
+            IChogPool(pool).setNextDrawAt(0);
+        }
+
         emit DrawFinalized(currentDrawId);
     }
 

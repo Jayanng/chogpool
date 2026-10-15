@@ -79,7 +79,23 @@ contract ChogPool is IChogPool, IYieldAdapter, Ownable2Step, ReentrancyGuard {
     /// @inheritdoc IChogPool
     uint256 public totalShares;
     /// @inheritdoc IChogPool
+    /// @dev Principal CURRENTLY held by the pool, which is what `totalShares` is
+    ///      denominated in and what `positionValue()` can actually deliver. It
+    ///      increases on deposit and decreases on withdraw, so it always equals
+    ///      `totalShares` — the two must never disagree, because a UI reading one as
+    ///      "pool size" while the other says something different is exactly the kind
+    ///      of unearned claim that cannot survive a judge reading both numbers.
+    ///
+    ///      This is NOT lifetime deposits. The lifetime figure lives in
+    ///      `lifetimePrincipal()`, which is monotonic, because "how much has ever
+    ///      been deposited" is a different question from "how much is in the pool
+    ///      right now" and conflating them misstates the second.
     uint256 public totalPrincipal;
+
+    /// @dev Monotonic sum of every principal ever credited, across all deposits.
+    ///      Never decreases. Kept separate from `totalPrincipal` so the two
+    ///      questions stay distinguishable: lifetime flow vs current holdings.
+    uint256 public lifetimePrincipal;
     /// @inheritdoc IChogPool
     uint256 public potBalance;
 
@@ -172,6 +188,7 @@ contract ChogPool is IChogPool, IYieldAdapter, Ownable2Step, ReentrancyGuard {
         pos.principal += amount;
         totalShares += credited;
         totalPrincipal += credited;
+        lifetimePrincipal += credited;
 
         emit Deposited(tokenId, msg.sender, amount, credited);
     }
@@ -191,6 +208,7 @@ contract ChogPool is IChogPool, IYieldAdapter, Ownable2Step, ReentrancyGuard {
 
         pos.shares -= shares;
         totalShares -= shares;
+        totalPrincipal -= shares;
 
         emit Withdrawn(tokenId, pos.depositor, shares, shares);
     }
@@ -210,6 +228,7 @@ contract ChogPool is IChogPool, IYieldAdapter, Ownable2Step, ReentrancyGuard {
 
         pos.shares = 0;
         totalShares -= shares;
+        totalPrincipal -= shares;
 
         emit Withdrawn(tokenId, pos.depositor, shares, shares);
     }

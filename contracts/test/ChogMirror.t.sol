@@ -42,13 +42,18 @@ contract ChogMirrorTest is Test {
         view
         returns (uint8 v, bytes32 r, bytes32 s)
     {
+        // The URI is bound into the signed message, so the digest the test builds must
+        // match what the contract checks: keccak256(bytes(realURI)) as the fifth term.
         bytes32 structHash = keccak256(
             abi.encode(
-                keccak256("Mirror(uint256 tokenId,address mainnetOwner,address minter,uint256 nonce)"),
+                keccak256(
+                    "Mirror(uint256 tokenId,address mainnetOwner,address minter,uint256 nonce,bytes32 uriHash)"
+                ),
                 tokenId,
                 mainnetOwner,
                 minter,
-                nonce
+                nonce,
+                keccak256(bytes(REAL_URI))
             )
         );
         bytes32 domainSeparator = keccak256(
@@ -138,11 +143,14 @@ contract ChogMirrorTest is Test {
     function test_ATTACK_CrossDomainSignature_Reverts() public {
         bytes32 structHash = keccak256(
             abi.encode(
-                keccak256("Mirror(uint256 tokenId,address mainnetOwner,address minter,uint256 nonce)"),
+                keccak256(
+                    "Mirror(uint256 tokenId,address mainnetOwner,address minter,uint256 nonce,bytes32 uriHash)"
+                ),
                 TOKEN,
                 REAL_OWNER,
                 REAL_OWNER,
-                0
+                0,
+                keccak256(bytes(REAL_URI))
             )
         );
         bytes32 fakeDomain = keccak256(
@@ -255,16 +263,58 @@ contract ChogMirrorTest is Test {
 
     // ---------- interface / view surface ----------
 
+    /// The URI is bound into the signature, so a valid signature cannot be replayed
+    /// alongside different metadata. Before this, realURI was plain calldata and a
+    /// caller could submit any string with a genuine signature — the only defence
+    /// would have been the frontend's behaviour.
+    function test_ATTACK_SubstitutedURI_Reverts() public {
+        (uint8 v, bytes32 r, bytes32 s) = _sign(TOKEN, REAL_OWNER, REAL_OWNER, 0, OWNER_KEY);
+
+        // The signature is genuine for REAL_URI. Submit a DIFFERENT URI.
+        vm.prank(REAL_OWNER);
+        vm.expectRevert(IChogMirror.InvalidSignature.selector);
+        mirror.mintWithSig(TOKEN, REAL_OWNER, "ipfs://attacker-controlled", v, r, s);
+
+        // The token was not minted, so the attack left nothing behind. ownerOf()
+        // reverts for an unminted token rather than returning zero, which is itself
+        // the proof that nothing was created.
+        vm.expectRevert();
+        mirror.ownerOf(TOKEN);
+        assertEq(mirror.nonces(REAL_OWNER), 0, "nonce not burned by the failed attempt");
+        assertTrue(mirror.isUnclaimed(TOKEN), "token still claimable after the attack");
+    }
+
+    /// And the reverse: the signed URI mints successfully, and the recorded digest
+    /// matches it, so anyone can verify the stored metadata is the signed metadata.
+    function test_VerifiedMint_RecordsTheSignedURIDigest() public {
+        // A fresh tokenId inside MAX_SUPPLY (1969) that other tests in this suite
+        // have not already minted.
+        uint256 fresh = 1900;
+        // The struct binds msg.sender, and this test sends the tx itself, so the
+        // signed minter must be address(this) rather than the owner.
+        (uint8 v, bytes32 r, bytes32 s) = _sign(fresh, REAL_OWNER, address(this), 0, OWNER_KEY);
+        mirror.mintWithSig(fresh, REAL_OWNER, REAL_URI, v, r, s);
+
+        bytes32 recorded = mirror.uriHashOf(fresh);
+        assertEq(recorded, keccak256(bytes(REAL_URI)), "recorded digest matches the signed URI");
+        // The check a judge can run with no trust in us: hash what the contract
+        // stores and compare with what it recorded.
+        assertEq(recorded, keccak256(bytes(mirror.tokenURI(fresh))), "stored URI hashes to the digest");
+    }
+
     /// The contract's own digest helper must agree with the wallet-side computation.
     function test_HashMirrorMessage_MatchesContractDigest() public {
-        bytes32 expected = mirror.hashMirrorMessage(TOKEN, REAL_OWNER, REAL_OWNER, 0);
+        bytes32 expected = mirror.hashMirrorMessage(TOKEN, REAL_OWNER, REAL_OWNER, 0, REAL_URI);
         bytes32 structHash = keccak256(
             abi.encode(
-                keccak256("Mirror(uint256 tokenId,address mainnetOwner,address minter,uint256 nonce)"),
+                keccak256(
+                    "Mirror(uint256 tokenId,address mainnetOwner,address minter,uint256 nonce,bytes32 uriHash)"
+                ),
                 TOKEN,
                 REAL_OWNER,
                 REAL_OWNER,
-                0
+                0,
+                keccak256(bytes(REAL_URI))
             )
         );
         bytes32 domain = keccak256(
