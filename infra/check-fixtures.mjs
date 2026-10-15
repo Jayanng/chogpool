@@ -17,7 +17,7 @@
 //     survives minification whenever fixture code is bundled.
 //
 // R4 (drift guard): every runtime marker must still exist in the fixture
-// sources — if fixtures change wording, the checker demands an update instead
+// sources; if fixtures change wording, the checker demands an update instead
 // of silently losing coverage.
 //
 // This script FAILS (exit 1) if fixture code reached the production build.
@@ -37,7 +37,7 @@ const RUNTIME_MARKERS = ["Simulated deposit of", "(dev fixture)", "fixture-ok"];
 let failures = 0;
 
 if (!existsSync(DIST)) {
-  console.error("check-fixtures: web/dist not found — run `pnpm run build:web` first.");
+  console.error("check-fixtures: web/dist not found, run `pnpm run build:web` first.");
   process.exit(1);
 }
 
@@ -55,7 +55,7 @@ for (const f of fixtureSources) {
 }
 for (const marker of RUNTIME_MARKERS) {
   if (!allFixtureText.includes(marker)) {
-    console.error(`MARKER DRIFT: "${marker}" no longer exists in web/src/fixtures/ — update RUNTIME_MARKERS alongside the fixture copy.`);
+    console.error(`MARKER DRIFT: "${marker}" no longer exists in web/src/fixtures/. Update RUNTIME_MARKERS alongside the fixture copy.`);
     failures++;
   }
 }

@@ -27,7 +27,7 @@ export function Countdown({ nextDrawAt, sourceLabel }: { nextDrawAt: number | nu
       <div className="countdown">
         <div className="countdown-value">-- : -- : -- : --</div>
         <div className="countdown-note">
-          No draw scheduled yet. Draws are opened by the pool operator, not on a timer — the countdown appears
+          No draw scheduled yet. Draws are opened by the pool operator, not on a timer: the countdown appears
           the moment a draw is opened on chain.
         </div>
       </div>
