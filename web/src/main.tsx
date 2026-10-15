@@ -60,8 +60,13 @@ function App() {
               {r.label}
             </a>
           ))}
+          <div className="nav-menu-wallet">
+            <WalletButton />
+          </div>
         </div>
-        <WalletButton />
+        <div className="nav-desktop-wallet">
+          <WalletButton />
+        </div>
       </nav>
       {menuOpen && <div className="nav-scrim" aria-hidden="true" onClick={() => setMenuOpen(false)} />}
 
