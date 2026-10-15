@@ -20,8 +20,15 @@ const ALLOW_FILES = [
                          // It must quote the real addresses and hashes the run
                          // actually produced, or it is not a record of anything.
                          // Source files stay under the strict rule above.
-  "docs/GATE2-LOG.md",   // gate evidence log: same rule as GATE1-LOG — it quotes the
+  "docs/GATE2-LOG.md",   // gate evidence log: same rule as GATE1-LOG, it quotes the
                          // RPC values and addresses the checks actually produced.
+  // Test vectors quote REAL chain values (seeds, blockhashes, commits), the same
+  // way the gate logs do: a re-derivation test that cannot name the seed it
+  // re-derives is not evidence of anything. The 40-hex pattern also matches the
+  // first 40 chars of a 32-byte hash, so these files trip the address scan on
+  // values that were never addresses. Source files stay under the strict rule.
+  "web/src/lib/derive.test.ts",
+  "web/src/lib/race-engine.test.ts",
   "package-lock.json",
   "pnpm-lock.yaml",
 ];
@@ -29,10 +36,10 @@ const SCAN_DIRS = ["contracts", "web", "packages", "infra", "docs", ".github"];
 const SKIP = (p) =>
   p.includes("node_modules") || p.includes("/out/") || p.includes("/cache/") ||
   // Forge broadcast receipts contain every deployed address and every tx hash by
-  // design — they are a record of a real run, not source. They are gitignored
+  // design: they are a record of a real run, not source. They are gitignored
   // build artifacts; without this skip the deploy would look like 380 violations.
   p.includes("/broadcast/") ||
-  p.startsWith("contracts/lib/") || // vendored submodules (OpenZeppelin, forge-std) — NOT first-party code
+  p.startsWith("contracts/lib/") || // vendored submodules (OpenZeppelin, forge-std), NOT first-party code
   p.endsWith(".lock") || p.includes(".git/") || p.includes("/dist/");
 const IS_GENERATED = (p) => p.includes("generated") || p.includes(".gen.");
 
@@ -85,7 +92,7 @@ for (const d of SCAN_DIRS) {
   walk(join(ROOT, d));
 }
 
-// Root-level tracked files sit outside SCAN_DIRS — close that gap with git
+// Root-level tracked files sit outside SCAN_DIRS, so close that gap with git
 // (git ls-files gives identical output locally and in a CI checkout).
 try {
   const tracked = execSync("git ls-files", { cwd: ROOT, encoding: "utf8" }).split("\n").filter(Boolean);
@@ -96,7 +103,7 @@ try {
     scanFile(rel, full);
   }
 } catch {
-  console.warn("check-addresses: git unavailable — root tracked-file scan skipped");
+  console.warn("check-addresses: git unavailable, root tracked-file scan skipped");
 }
 
 if (violations || missing) {
