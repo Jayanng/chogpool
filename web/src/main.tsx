@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ComponentType, type LazyExoticComponent } from "react";
+import { lazy, Suspense, useEffect, useState, type ComponentType, type LazyExoticComponent } from "react";
 import { createRoot } from "react-dom/client";
 import { Badge, Panel, Skeleton } from "@chogpool/ui";
 import "@chogpool/ui/styles.css";
@@ -16,27 +16,41 @@ const Verify = lazy(() => import("./verify"));
 const Spectator = lazy(() => import("./spectator"));
 const StyleGuide = lazy(() => import("./style-guide"));
 
-const routes: Array<{ path: string; label: string; Component: LazyExoticComponent<ComponentType> }> = [
+const routes: Array<{ path: string; label: string; Component: LazyExoticComponent<ComponentType>; hidden?: boolean }> = [
   { path: "/", label: "Track", Component: Landing },
   { path: "/deposit", label: "Deposit", Component: Deposit },
   { path: "/race", label: "Race", Component: Race },
   { path: "/draft", label: "Draft", Component: Draft },
   { path: "/verify", label: "Verify", Component: Verify },
   { path: "/spectator", label: "Spectate", Component: Spectator },
-  { path: "/style", label: "Style", Component: StyleGuide },
+  // Design tool for the team, not user-facing. Reachable only by URL.
+  { path: "/style", label: "Style", Component: StyleGuide, hidden: true },
 ];
+
+const navRoutes = routes.filter((r) => !r.hidden);
 
 function App() {
   const path = usePath();
   const match = routes.find((r) => r.path === path) ?? routes[0];
   const Component = match.Component;
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => setMenuOpen(false), [path]);
 
   return (
     <main className="app-shell">
       <nav className="topbar">
         <a className="brand" href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}>CHOG<span>TRACK</span></a>
-        <div className="nav-links">
-          {routes.map((r) => (
+        <button
+          className={`nav-toggle${menuOpen ? " nav-toggle--open" : ""}`}
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((o) => !o)}
+        >
+          <span /><span /><span />
+        </button>
+        <div className={`nav-links${menuOpen ? " nav-links--open" : ""}`}>
+          {navRoutes.map((r) => (
             <a
               href={r.path}
               key={r.path}
