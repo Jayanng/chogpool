@@ -113,6 +113,23 @@ abstract contract DeployBase is Script {
         engine = new DrawEngine(deployer, operator);
         console2.log("DrawEngine          :", address(engine));
 
+        // The default commit window is 6 hours, which is right for a live product:
+        // it gives depositors a real window to enter before tickets freeze. It makes
+        // a complete Gate 1 demo impossible in one sitting, because closeDraw()
+        // requires block.timestamp >= closeAt and a real chain cannot be warped.
+        //
+        // A deploy meant to be demoed end-to-end therefore overrides the window via
+        // CHOGPOOL_COMMIT_WINDOW. The override is only applied when the env var is
+        // set, and it is recorded in the deploy log so the deployed timing is never
+        // a surprise. The contract logic is identical — only the timing constant
+        // differs — so a demo-window stack proves exactly what a 6h stack proves,
+        // just without the wait.
+        if (vm.envOr("CHOGPOOL_COMMIT_WINDOW", uint256(0)) != 0) {
+            uint64 w = uint64(vm.envUint("CHOGPOOL_COMMIT_WINDOW"));
+            engine.setCommitWindow(w);
+            console2.log("commitWindow override:", w, "seconds");
+        }
+
         testChog = new TestChogToken(deployer, 1000e18, 24 hours);
         console2.log("TestChogToken       :", address(testChog));
     }
