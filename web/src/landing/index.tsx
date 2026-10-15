@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react";
+import { formatUnits } from "viem";
 import { Badge, Button, Card, Marquee, Panel, Stat, tokens } from "@chogpool/ui";
 import { ChogViewer } from "../components/ChogViewer";
 import { Countdown } from "../components/Countdown";
 import { ShareCard } from "../components/ShareCard";
 import { getGameSource } from "../lib/game";
 import { CHAIN } from "../generated/addresses.gen";
+import { POT_DECIMALS } from "../types/game";
 import { ipfsToGateway, type ChogRecord } from "../lib/chog";
 import { navigate } from "../lib/router";
 
 export default function Landing() {
   const [nextDrawAt, setNextDrawAt] = useState<number | null>(null);
-  const [sourceLabel, setSourceLabel] = useState("Schedule announced when the pool contract goes live (Phase 1).");
+  const [pot, setPot] = useState<bigint | null>(null);
+  const [sourceLabel, setSourceLabel] = useState("FROM THE GAME SOURCE (nextDrawAt)");
   const [lookedUp, setLookedUp] = useState<ChogRecord | null>(null);
   const fixturesOn = import.meta.env.VITE_FIXTURES === "1";
 
@@ -23,6 +26,7 @@ export default function Landing() {
         : "LIVE FROM THE POOL CONTRACT (nextDrawAt)",
     );
     void source.nextDrawAt().then(setNextDrawAt);
+    void source.potBalance().then(setPot);
   }, []);
 
   return (
@@ -49,7 +53,7 @@ export default function Landing() {
           <div className="lane lane-one"><div className="lane-label">01 <span>CHOG #1462</span></div><div className="runner runner-one">◉</div></div>
           <div className="lane lane-two"><div className="lane-label">02 <span>CHOG #1</span></div><div className="runner runner-two">◉</div></div>
           <div className="lane lane-three"><div className="lane-label">03 <span>CHOG #954</span></div><div className="runner runner-three">◉</div></div>
-          <div className="track-footer"><span>PRIZE POT</span><strong>Yield accumulates live</strong><span>↗</span></div>
+          <div className="track-footer"><span>PRIZE POT</span><strong>{pot === null ? "Yield accumulates live" : `${formatUnits(pot, POT_DECIMALS)} USDC${fixturesOn ? " (fixture)" : ""}`}</strong><span>↗</span></div>
           <p className="track-note">Design preview of the race UI (Phase 3). Lanes are illustrative — no race is running.</p>
         </Panel>
       </section>

@@ -26,7 +26,7 @@ export function Countdown({ nextDrawAt, sourceLabel }: { nextDrawAt: number | nu
     return (
       <div className="countdown">
         <div className="countdown-value">— — : — — : — — : — —</div>
-        <div className="countdown-note">Schedule announced when the pool contract goes live (Phase 1).</div>
+        <div className="countdown-note">No draw scheduled yet — the countdown starts when the pool contract sets nextDrawAt.</div>
       </div>
     );
   }
