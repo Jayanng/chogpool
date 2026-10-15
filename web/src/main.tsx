@@ -63,6 +63,7 @@ function App() {
         </div>
         <WalletButton />
       </nav>
+      {menuOpen && <div className="nav-scrim" aria-hidden="true" onClick={() => setMenuOpen(false)} />}
 
       <Suspense fallback={<div className="page-loading"><Skeleton variant="block" /><Skeleton variant="text" /><Skeleton variant="text" width={220} /></div>}>
         <Component />

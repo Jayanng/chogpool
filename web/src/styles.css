@@ -129,9 +129,11 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 @media (max-width: 860px) {
   .topbar { height: 64px; flex-wrap: wrap; }
   .nav-toggle { display: block; }
-  .nav-links { display: none; order: 4; width: 100%; flex-direction: column; gap: 0; padding: 8px 0 14px; }
-  .nav-links--open { display: flex; }
-  .nav-links a { padding: 11px 2px; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,.07); }
+  .nav-scrim { position: fixed; inset: 64px 0 0 0; background: rgba(4,6,8,.66); backdrop-filter: blur(3px); z-index: 9; }
+  .nav-links { display: none; order: 4; width: 100%; flex-direction: column; gap: 0; padding: 6px 0 10px; }
+  .nav-links--open { display: flex; position: relative; z-index: 11; background: #0d1014; border: 1px solid rgba(255,255,255,.12); border-radius: 16px; padding: 10px 16px; margin: 0 0 12px; box-shadow: 0 24px 48px rgba(0,0,0,.5); }
+  .nav-links a { padding: 13px 6px; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,.07); }
+  .nav-links a:last-child { border-bottom: 0; }
   .nav-links a.nav-active { border-bottom-color: #ff8a3d; }
   .wallet-slot { margin-left: auto; }
 }
