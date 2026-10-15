@@ -11,7 +11,10 @@ import { execSync } from "node:child_process";
 import { join, relative } from "node:path";
 
 const ROOT = new URL("..", import.meta.url).pathname;
-const ADDR_RE = /0x[a-fA-F0-9]{40}/g;
+// A hardcoded ADDRESS is exactly 40 hex digits: the trailing lookahead keeps a
+// 32-byte chain value (seed, blockhash, commit: 64 hex digits) from matching on
+// its first 40 characters. The rule targets addresses, so the matcher must too.
+const ADDR_RE = /0x[a-fA-F0-9]{40}(?![a-fA-F0-9])/g;
 const ALLOW_FILES = [
   "infra/verified.json",
   "infra/deployments.json",
@@ -29,6 +32,7 @@ const ALLOW_FILES = [
   // values that were never addresses. Source files stay under the strict rule.
   "web/src/lib/derive.test.ts",
   "web/src/lib/race-engine.test.ts",
+  "web/src/fixtures/index.ts", // dev fixture quoting the recorded Draw 1 values, same rule as above
   "package-lock.json",
   "pnpm-lock.yaml",
 ];
