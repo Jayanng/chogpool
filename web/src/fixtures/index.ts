@@ -4,6 +4,7 @@
 // any fixture code reaches web/dist). Never import from here directly.
 
 import type { GameSource } from "../types/game";
+import type { RaceSource } from "../types/race";
 
 type MockRace = {
   nextDrawAt: number | null;
@@ -59,6 +60,38 @@ export const fixtureGameSource: GameSource = {
     return {
       status: "fixture-ok",
       detail: `Simulated withdraw-all of ${v} USDC for Chog #${tokenId.toString()}. No real funds moved (dev fixture).`,
+    };
+  },
+};
+
+// A recorded draw, so the show and the verifier can be exercised in dev before
+// the live stack has draws of its own. Every number below is REAL: it is Draw 1
+// as the first testnet stack recorded it (revealed at block 71255613, winner
+// 1462 out of a 71,186,086-ticket book). The values are quoted, never invented,
+// and the verifier recomputes them exactly the way it recomputes live draws.
+export const fixtureRaceSource: RaceSource = {
+  kind: "fixture",
+  sentinel: "CHOGPOOL_FIXTURE_BUNDLE_SENTINEL",
+  async currentDrawId() {
+    return 1n;
+  },
+  async getDraw(drawId) {
+    if (drawId !== 1n) return null;
+    return {
+      drawId: 1n,
+      state: "finalized",
+      closeAt: 1792068183,
+      commitHash: "0x81fec32ffe3e8af0f2181dbc5d29761eba8849b05da20b34dd996d489e5c06a7",
+      seed: "0x147a012d4a7e433805ac5d04b5c1f19335d3c4dae4f2cf388b11c9b970acf703",
+      finalRandomness: "0xafb6d2d3faab8959a6dc32ef1d4eaa589d90bc8c6a736ddf967dcc3990c26c09",
+      revealBlock: 71255613n,
+      totalTickets: 71186086n,
+      potPerWinner: 22941n,
+      winners: [1462n],
+      racers: [
+        { tokenId: 1462n, tickets: 52934966n, tier: 0, boost: 0n },
+        { tokenId: 954n, tickets: 18251120n, tier: 0, boost: 0n },
+      ],
     };
   },
 };
