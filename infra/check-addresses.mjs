@@ -20,6 +20,8 @@ const ALLOW_FILES = [
                          // It must quote the real addresses and hashes the run
                          // actually produced, or it is not a record of anything.
                          // Source files stay under the strict rule above.
+  "docs/GATE2-LOG.md",   // gate evidence log: same rule as GATE1-LOG — it quotes the
+                         // RPC values and addresses the checks actually produced.
   "package-lock.json",
   "pnpm-lock.yaml",
 ];
