@@ -1,4 +1,4 @@
-// GENERATED from infra/verified.json + infra/deployments.json — do not edit by hand.
+// GENERATED from infra/verified.json + infra/deployments.json. Do not edit by hand.
 // Source of truth: infra/verified.json (verified live 2026-10-14).
 // DEPLOYED is our own testnet deployment; null when nothing is deployed yet.
 export const CHAIN = {

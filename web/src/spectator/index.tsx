@@ -11,11 +11,11 @@ export default function Spectator() {
           Every race is viewable with no wallet and no deposit. Cheer with Test $CHOG tips that feed the
           bonus pot. Not a holder? A clearly-labeled Test Drive gets you in the experience today.
         </p>
-        <Badge tone="neutral">PHASE 3 · UNDER CONSTRUCTION</Badge>
+        <Badge tone="neutral">COMING SOON</Badge>
       </section>
 
       <Panel className="feature-panel">
-        <Card title="What lands here" footer="TEST DRIVE IS TESTNET-ONLY AND CLEARLY LABELED">
+        <Card title="What's coming" footer="TEST DRIVE IS TESTNET-ONLY AND CLEARLY LABELED">
           <ul className="rules-list">
             <li>Live race view with no wallet connection required.</li>
             <li>Cheer with Test $CHOG tips feeding the bonus pot.</li>

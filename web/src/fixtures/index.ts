@@ -1,4 +1,4 @@
-// CHOGPOOL_FIXTURE — DEV-ONLY MOCK. This entire directory is excluded from
+// CHOGPOOL_FIXTURE: DEV-ONLY MOCK. This entire directory is excluded from
 // production builds (vite.config.ts resolves "web:fixtures" to disabled.ts when
 // VITE_FIXTURES is unset; infra/check-fixtures.mjs fails CI if this marker or
 // any fixture code reaches web/dist). Never import from here directly.

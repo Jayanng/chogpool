@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react";
+import { formatUnits } from "viem";
 import { Badge, Button, Card, Marquee, Panel, Stat, tokens } from "@chogpool/ui";
 import { ChogViewer } from "../components/ChogViewer";
 import { Countdown } from "../components/Countdown";
 import { ShareCard } from "../components/ShareCard";
 import { getGameSource } from "../lib/game";
 import { CHAIN } from "../generated/addresses.gen";
+import { POT_DECIMALS } from "../types/game";
 import { ipfsToGateway, type ChogRecord } from "../lib/chog";
 import { navigate } from "../lib/router";
 
 export default function Landing() {
   const [nextDrawAt, setNextDrawAt] = useState<number | null>(null);
-  const [sourceLabel, setSourceLabel] = useState("Schedule announced when the pool contract goes live (Phase 1).");
+  const [pot, setPot] = useState<bigint | null>(null);
+  const [sourceLabel, setSourceLabel] = useState("FROM THE GAME SOURCE (nextDrawAt)");
   const [lookedUp, setLookedUp] = useState<ChogRecord | null>(null);
   const fixturesOn = import.meta.env.VITE_FIXTURES === "1";
 
@@ -23,6 +26,7 @@ export default function Landing() {
         : "LIVE FROM THE POOL CONTRACT (nextDrawAt)",
     );
     void source.nextDrawAt().then(setNextDrawAt);
+    void source.potBalance().then(setPot);
   }, []);
 
   return (
@@ -37,7 +41,6 @@ export default function Landing() {
             <Button onClick={() => navigate("/deposit")}>Enter the track</Button>
             <Button variant="quiet" onClick={() => navigate("/spectator")}>Watch the next race <span>↗</span></Button>
           </div>
-          <div className="network-note"><span className="status-dot" /> Read: {CHAIN.monad.name} · Play: {CHAIN.monadTestnet.name}</div>
         </div>
 
         <Panel className="track-card">
@@ -49,8 +52,8 @@ export default function Landing() {
           <div className="lane lane-one"><div className="lane-label">01 <span>CHOG #1462</span></div><div className="runner runner-one">◉</div></div>
           <div className="lane lane-two"><div className="lane-label">02 <span>CHOG #1</span></div><div className="runner runner-two">◉</div></div>
           <div className="lane lane-three"><div className="lane-label">03 <span>CHOG #954</span></div><div className="runner runner-three">◉</div></div>
-          <div className="track-footer"><span>PRIZE POT</span><strong>Yield accumulates live</strong><span>↗</span></div>
-          <p className="track-note">Design preview of the race UI (Phase 3). Lanes are illustrative — no race is running.</p>
+          <div className="track-footer"><span>PRIZE POT</span><strong>{pot === null ? "Yield accumulates live" : `${formatUnits(pot, POT_DECIMALS)} USDC${fixturesOn ? " (fixture)" : ""}`}</strong><span>↗</span></div>
+          <p className="track-note">A preview of the race experience. Lanes are illustrative. No race is running.</p>
         </Panel>
       </section>
 
@@ -88,24 +91,17 @@ export default function Landing() {
       </section>
 
       <section className="style-panel">
-        <p className="kicker">PHASE 2 · DESIGN BASE</p>
+        <p className="kicker">BUILT FOR PROOF</p>
         <h2>Built for proof, designed for play.</h2>
-        <div className="token-row">
-          <span style={{ background: tokens.color.accent }} />
-          <span style={{ background: tokens.color.lime }} />
-          <span style={{ background: tokens.color.raised }} />
-          <span style={{ background: tokens.color.ink }} />
-        </div>
         <p className="muted">Every race is a deterministic replay of an on-chain result. The verifier is part of the experience, not a footnote.</p>
-        <Button variant="outline" onClick={() => navigate("/style")}>Open the style guide</Button>
-        {fixturesOn && <Badge tone="danger">DEV FIXTURE MODE ACTIVE (VITE_FIXTURES=1)</Badge>}
+        {fixturesOn && <Badge tone="danger">DEV FIXTURE MODE · SIMULATED DATA</Badge>}
       </section>
 
-      <Card title="Honest boundaries" footer="LABEL DISCIPLINE IS A RULES.md CLAUSE">
+      <Card title="Honest boundaries" footer="CLEAR LABELS, ALWAYS">
         <ul className="rules-list">
           <li>Test Drive Chogs are clearly labeled everywhere. They never blur into Verified Holder status.</li>
           <li>Traits are real off-chain IPFS metadata. Any boost mapping is our design, derived from real traits.</li>
-          <li>Deposits are principal-safe by design, not by guarantee — yield sources carry their own risks.</li>
+          <li>Deposits are principal-safe by design, not by guarantee. Yield sources carry their own risks.</li>
         </ul>
       </Card>
     </>

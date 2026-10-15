@@ -22,3 +22,7 @@ export const GAME_LABELS = {
   readNetwork: "Read: Monad Mainnet",
   playNetwork: "Play: Monad Testnet",
 } as const;
+
+// Prize-token decimals for display only: PuddleSwap core USDC on testnet has
+// 6 decimals (infra/verified.json, verified live 2026-10-14).
+export const POT_DECIMALS = 6;

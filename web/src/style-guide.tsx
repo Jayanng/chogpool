@@ -30,7 +30,7 @@ export default function StyleGuide() {
       <section className="page-head">
         <p className="kicker">CHOG TRACK · DESIGN SYSTEM v{UI_VERSION}</p>
         <h1>Style guide</h1>
-        <p className="lede">Every component and token of packages/ui, rendered with real values. Graphite ground, track-orange signal, lane-lime confirm.</p>
+        <p className="lede">Every component and token of the design system, rendered with real values. Graphite ground, track-orange signal, lane-lime confirm.</p>
         <Button variant="outline" onClick={() => navigate("/")}>Back to the track</Button>
       </section>
 
@@ -133,8 +133,8 @@ export default function StyleGuide() {
 
       <Panel className="guide-section">
         <h2>Typography</h2>
-        <p className="type-sans">Plus Jakarta Sans — the voice of the product. Fallback: Manrope, system-ui.</p>
-        <p className="type-mono">DM Mono — kickers, labels, addresses, countdowns.</p>
+        <p className="type-sans">Plus Jakarta Sans is the voice of the product. Fallback: Manrope, system-ui.</p>
+        <p className="type-mono">DM Mono for kickers, labels, addresses, countdowns.</p>
         <p style={{ fontSize: tokens.type.scale.h2, fontWeight: 700, letterSpacing: "-.03em", margin: "8px 0" }}>Heading scale {tokens.type.scale.h2}</p>
         <p style={{ fontSize: tokens.type.scale.body, color: tokens.color.muted }}>Body {tokens.type.scale.body} · muted ink</p>
         <p className="kicker" style={{ margin: "8px 0" }}>KICKER {tokens.type.scale.kicker}</p>

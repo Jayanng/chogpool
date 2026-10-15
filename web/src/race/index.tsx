@@ -8,17 +8,17 @@ export default function Race() {
         <p className="kicker">THE RACE</p>
         <h1>One seed.<br /><em>One result. One show.</em></h1>
         <p className="lede">
-          The race animation is a deterministic replay of the on-chain draw result — never a source of it.
+          The race animation is a deterministic replay of the on-chain draw result, never a source of it.
           Same seed, same result, same animation, every time.
         </p>
-        <Badge tone="neutral">PHASE 3 · UNDER CONSTRUCTION</Badge>
+        <Badge tone="neutral">COMING SOON</Badge>
       </section>
 
       <Panel className="feature-panel">
-        <Card title="What lands here" footer="SEE docs/PLAN.md PHASE 3">
+        <Card title="What's coming" footer="THE ON-CHAIN DRAW IS THE ONLY TRUTH">
           <ul className="rules-list">
             <li>Countdown → gates open → lanes with real Chog images → photo finish → podium.</li>
-            <li>Trait-driven pace presentation with the boost capped — presentation only.</li>
+            <li>Trait-driven pace presentation with the boost capped, presentation only.</li>
             <li>The on-chain draw result is the single source of truth for the winner.</li>
             <li>Share card with the real winner and pot after each draw.</li>
           </ul>

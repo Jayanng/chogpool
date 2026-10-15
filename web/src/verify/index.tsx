@@ -11,7 +11,7 @@ export default function Verify() {
           Paste a race ID and the verifier re-derives the winner from the published seed using the exact
           on-chain formula. Green check when it matches the on-chain record.
         </p>
-        <Badge tone="neutral">PHASE 3 · UNDER CONSTRUCTION</Badge>
+        <Badge tone="neutral">COMING SOON</Badge>
       </section>
 
       <Panel className="feature-panel">
@@ -22,8 +22,8 @@ export default function Verify() {
           </label>
           <Button disabled>Recompute winner</Button>
           <p className="muted">
-            The verifier lands with the draw engine (Phase 3). The formula above is the frozen one from
-            the plan — the page recomputes exactly this, step by step, from the published seed.
+            The verifier goes live with the first draw. The formula above is the exact one used
+            on-chain. The page recomputes it, step by step, from the published seed.
           </p>
           <Button variant="outline" onClick={() => navigate("/")}>Back to the track</Button>
         </Card>

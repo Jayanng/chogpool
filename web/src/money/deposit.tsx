@@ -1,15 +1,26 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { formatUnits } from "viem";
 import { Badge, Button, Card, Stat, Toast } from "@chogpool/ui";
 import { getGameSource } from "../lib/game";
+import { POT_DECIMALS } from "../types/game";
 import { navigate } from "../lib/router";
 
 export default function Deposit() {
   const source = getGameSource();
   const fixturesOn = source?.kind === "fixture";
+  const liveOn = source?.kind === "live";
   const [amount, setAmount] = useState("");
   const [tokenId, setTokenId] = useState("");
   const [toast, setToast] = useState<{ tone: "info" | "success" | "danger"; message: string } | null>(null);
   const [bound, setBound] = useState<string | null>(null);
+  const [pot, setPot] = useState<bigint | null>(null);
+  const [nextDrawAt, setNextDrawAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!source) return;
+    void source.potBalance().then(setPot);
+    void source.nextDrawAt().then(setNextDrawAt);
+  }, [source]);
 
   async function deposit() {
     if (!source) return;
@@ -40,16 +51,20 @@ export default function Deposit() {
       </section>
 
       {fixturesOn && (
-        <Toast tone="info" message="DEV FIXTURE MODE (VITE_FIXTURES=1): this flow is simulated. No real funds move." />
+        <Toast tone="info" message="DEV FIXTURE MODE: this flow is simulated. No real funds move." />
       )}
 
       <div className="deposit-grid">
         <Card
           title="Deposit flow"
-          aside={<Badge tone={fixturesOn ? "accent" : "neutral"}>{fixturesOn ? "FIXTURE · SIMULATED" : "AWAITING PHASE 1 CONTRACTS"}</Badge>}
-          footer="INTERFACES FROZEN: deposit(usdc) · withdraw(shares) · withdrawAll() · depositOf(tokenId)"
+          aside={
+            <Badge tone={fixturesOn ? "accent" : "neutral"}>
+              {fixturesOn ? "FIXTURE · SIMULATED" : liveOn ? "LIVE POOL · READ-ONLY" : "NOT LIVE YET"}
+            </Badge>
+          }
+          footer="DEPOSIT, WITHDRAW AND PER-CHOG BOOKS, READ FROM THE POOL CONTRACT"
         >
-          {source ? (
+          {fixturesOn ? (
             <>
               <label className="field">
                 <span>AMOUNT (TEST USDC)</span>
@@ -61,21 +76,41 @@ export default function Deposit() {
               </label>
               <Button onClick={() => void deposit()}>Deposit</Button>
             </>
+          ) : liveOn ? (
+            <p className="muted">
+              The pool contract is live on Monad Testnet and this page reads it (pot, schedule,
+              per-Chog books). Wallet deposits and withdrawals (faucet claim → approve → deposit → withdraw)
+              are coming soon. Today, walk the full visual flow in the demo build.
+            </p>
           ) : (
             <p className="muted">
-              The deposit flow goes live with the pool contract (Phase 1). The interface is frozen
-              (IChogPool), so this page wires straight in when the teammate's contracts deploy.
-              Run the dev build with <code>VITE_FIXTURES=1</code> to walk the flow visually today.
+              The pool contract is not connected in this build, so nothing here is simulated or
+              guessed. The page is wired to the pool and fills in the moment it connects. Try the
+              full visual flow in the demo build.
             </p>
           )}
           {toast && <div className="toast-row"><Toast tone={toast.tone} message={toast.message} /></div>}
         </Card>
 
         <Card title="Your position" footer="READ-ONLY PREVIEW · VALUES COME FROM THE GAME SOURCE">
-          {source ? (
+          {fixturesOn ? (
             <>
-              <Stat label="BOUND CHOG" value={bound ? `#${bound}` : "—"} note="One wallet may bind several Chogs; each has its own book." />
-              <Stat label="DEPOSIT" value={bound ? (source.kind === "fixture" ? "Recorded (fixture)" : "Recorded") : "—"} note="TWAB odds favor time in the pool, not last-second size." tone="lime" />
+              <Stat label="BOUND CHOG" value={bound ? `#${bound}` : "N/A"} note="One wallet may bind several Chogs; each has its own book." />
+              <Stat label="DEPOSIT" value={bound ? "Recorded (fixture)" : "N/A"} note="TWAB odds favor time in the pool, not last-second size." tone="lime" />
+            </>
+          ) : liveOn ? (
+            <>
+              <Stat
+                label="PRIZE POT"
+                value={pot === null ? "…" : `${formatUnits(pot, POT_DECIMALS)} USDC`}
+                note="Live from the pool contract (potBalance). Grows only from realized yield."
+                tone="accent"
+              />
+              <Stat
+                label="NEXT DRAW"
+                value={nextDrawAt === null ? "Not scheduled yet" : new Date(nextDrawAt * 1000).toUTCString()}
+                note="Live from the pool contract (nextDrawAt)."
+              />
             </>
           ) : (
             <p className="muted">No game source connected yet. Nothing here is simulated in production builds.</p>

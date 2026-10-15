@@ -10,7 +10,6 @@ import {
   type WalletState,
 } from "../lib/wallet";
 import { CHAIN } from "../generated/addresses.gen";
-import { GAME_LABELS } from "../types/game";
 
 type Phase = "idle" | "connecting" | "connected" | "error";
 
@@ -42,8 +41,10 @@ export function WalletButton() {
   if (!detected.present) {
     return (
       <div className="wallet-slot">
-        <Badge tone="danger">NO WALLET</Badge>
-        <span className="wallet-note">{detected.label}</span>
+        <Button variant="outline" onClick={() => { setPhase("error"); setError("No browser wallet detected. Install MetaMask or Rabby to connect."); }}>
+          Connect wallet
+        </Button>
+        {phase === "error" && <span className="wallet-note wallet-note--error">{error}</span>}
       </div>
     );
   }
@@ -70,7 +71,6 @@ export function WalletButton() {
         {phase === "connecting" ? "Connecting…" : "Connect wallet"}
       </Button>
       {phase === "error" && <span className="wallet-note wallet-note--error">{error}</span>}
-      {!error && <span className="wallet-note">{GAME_LABELS.readNetwork} · {GAME_LABELS.playNetwork}</span>}
     </div>
   );
 }

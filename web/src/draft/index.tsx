@@ -8,12 +8,12 @@ export default function Draft() {
         <h1>Pick your perk.</h1>
         <p className="lede">
           Before each race, pick 1-of-3 trait-derived perks. Perks are cosmetic pace flavor within the
-          capped boost and side prizes only — they never change the on-chain winner.
+          capped boost and side prizes only. They never change the on-chain winner.
         </p>
-        <Badge tone="neutral">PHASE 3 · UNDER CONSTRUCTION</Badge>
+        <Badge tone="neutral">COMING SOON</Badge>
       </section>
       <Panel className="feature-panel">
-        <Card title="What lands here" footer="ON-CHAIN TRUTH VS SHOW LAYER IS DOCUMENTED IN RULES.md">
+        <Card title="What's coming" footer="THE ON-CHAIN DRAW ALWAYS DECIDES THE WINNER">
           <ul className="rules-list">
             <li>Three real trait-derived perks per Chog, presented pre-race.</li>
             <li>Perks never touch the draw math: the winner is fixed on-chain.</li>

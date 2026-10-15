@@ -97,7 +97,7 @@ export function ChogViewer({ onRecord }: { onRecord?: (record: ChogRecord) => vo
                 ))}
               </div>
             )}
-            <p className="viewer-note">Traits are real off-chain IPFS metadata. Any pace or boost mapping in the game is our design, derived from real traits — not an on-chain stat.</p>
+            <p className="viewer-note">Traits are real off-chain IPFS metadata. Any pace or boost mapping in the game is our design, derived from real traits, not an on-chain stat.</p>
           </div>
         </div>
       )}
