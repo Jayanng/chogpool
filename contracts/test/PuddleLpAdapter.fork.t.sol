@@ -37,6 +37,10 @@ contract PuddleLpAdapterForkTest is Test {
     uint256 constant ONE = 1e6;
     uint256 constant START = 100 * ONE;
 
+    /// @dev Bumped on every _fundAsset call so each claim uses a fresh funder
+    ///      address and the faucet's 24h cooldown never blocks a test.
+    uint256 fundCounter;
+
     /// @dev Set by setUp() when the fork could not be created (no --rpc-url, or the
     ///      RPC is unreachable). Every test checks this first and skips, so a plain
     ///      `forge test` run stays green without network access, and the fork suite is
@@ -98,7 +102,11 @@ contract PuddleLpAdapterForkTest is Test {
     ///      so we swap the whole claim and check it covers `amount`. If it does not,
     ///      the test fails loudly rather than silently running on a thin position.
     function _fundAsset(uint256 amount) internal {
-        uint256 pk = uint256(keccak256(abi.encodePacked("fund", amount, block.timestamp)));
+        // The faucet enforces a 24h cooldown per address, and _fundAsset may be
+        // called more than once in a single test. Derive a FRESH funder each time so
+        // a second deposit is not blocked by the first one's cooldown.
+        fundCounter++;
+        uint256 pk = uint256(keccak256(abi.encodePacked("fund", amount, block.timestamp, fundCounter)));
         address who = vm.addr(pk);
         vm.deal(who, 1 ether);
         vm.startPrank(who);
@@ -276,6 +284,94 @@ contract PuddleLpAdapterForkTest is Test {
         adapter.harvest();
     }
 
+    /// REGRESSION: the pot must be payable. `harvest()` used to realize the surplus
+    /// into the adapter's own balance and only emit an event on the redeem path, so
+    /// the pool booked `potBalance += amount` for tokens it never received and
+    /// `payPot()` reverted for every winner — a pot that could never be paid out.
+    /// The transfer is now a single exit covering both branches.
+    function test_Fork_Harvest_LeavesThePoolHoldingThePot() public needsFork {
+        vm.prank(pool);
+        adapter.supply(START);
+
+        // Drive enough volume that the fee is above 6-decimal print resolution. The
+        // existing suite's 20-USDC round trip realizes 0 here (100 USDC of volume
+        // against a ~6,000 USDC pool earns ~0.3% on our share), so use a larger
+        // amount in both directions.
+        //
+        // _fundTrader moves min(want, claimed) into the trader, so the second
+        // direction can be short if the pair's price impact ate the claim. Read
+        // what actually arrived and trade that — the log must not claim volume that
+        // never moved.
+        _swapThroughPair(address(this), 300 * ONE, asset, quote);
+        _swapThroughPair(address(this), 300 * ONE, quote, asset);
+
+        vm.prank(pool);
+        uint256 harvested = adapter.harvest();
+
+        // The pool must HOLD the pot it booked. This is the assertion that failed
+        // before the fix: potBalance was credited while the asset sat in the adapter.
+        uint256 poolBalance = IERC20(asset).balanceOf(pool);
+        assertGe(poolBalance, harvested, "pool must hold the pot it booked");
+        assertEq(IERC20(asset).balanceOf(address(adapter)), 0, "adapter must not keep the pot");
+    }
+
+    /// REGRESSION: a second supply must book only the value of the LP slice it
+    /// actually minted. Measuring after `lPHeld += lpMinted` valued the whole
+    /// existing position as new principal, pushing `principalDeployed` above
+    /// `positionValue` — after which every harvest looked like a loss and no yield
+    /// could ever reach the pot.
+    function test_Fork_SecondSupply_BooksOnlyTheNewSlice() public needsFork {
+        vm.prank(pool);
+        adapter.supply(START);
+
+        uint256 principalAfterFirst = adapter.principalDeployed();
+        uint256 lpHeldAfterFirst = adapter.liquidityUnits();
+
+        // The first supply must book roughly what it deployed, never more.
+        assertLe(principalAfterFirst, START, "first supply books at most the deposit");
+        assertGt(principalAfterFirst, 0);
+
+        // Fund a second deposit the same honest way setUp() funds the first, then
+        // approve it through the pool (the test stands in for ChogPool, which
+        // approves the adapter on the depositor's behalf).
+        _fundAsset(START);
+        IERC20(asset).approve(address(adapter), type(uint256).max);
+        vm.prank(pool);
+        adapter.supply(START);
+
+        uint256 principalAdded = adapter.principalDeployed() - principalAfterFirst;
+        uint256 lpAdded = adapter.liquidityUnits() - lpHeldAfterFirst;
+
+        // The increment must be in the same ballpark as the deposit. Before the fix
+        // it was the ENTIRE position value (~2x the deposit), because the new
+        // lpHeld was divided against a pair whose reserves still reflected the old
+        // position.
+        assertLe(principalAdded, START, "second supply books at most its own deposit");
+        assertGt(principalAdded, START / 2, "second supply books at least half its deposit");
+        assertGt(lpAdded, 0, "LP was actually minted");
+
+        // The books must stay in the right RELATIONSHIP: principal per LP unit must
+        // be broadly stable across supplies. That is the invariant the bug broke —
+        // before the fix the second supply doubled the per-LP principal, so principal
+        // grew far faster than the position.
+        //
+        // The tolerance is 15%, not 2%, and that is measured, not guessed. Each
+        // supply swaps half its asset into the quote token first, which moves this
+        // thin pair's mix (observed: USDT reserves grow while USDC reserves shrink
+        // across successive supplies), so the per-LP USDC value genuinely drifts.
+        // That drift is real impermanent loss. The original bug produced a ~100%
+        // jump, so 15% separates a real effect from a broken one with a wide margin.
+        uint256 perLpBefore = (principalAfterFirst * 1e18) / lpHeldAfterFirst;
+        uint256 perLpAfter = (adapter.principalDeployed() * 1e18) / adapter.liquidityUnits();
+        assertApproxEqRel(perLpAfter, perLpBefore, 0.15e18, "per-LP principal must not jump");
+
+        // We deliberately do NOT assert principalDeployed <= positionValue here:
+        // positionValue is a SPOT valuation, and on this thin pair a large LP slice
+        // realises less than spot. principal measures what was actually deployed,
+        // which is the honest number. Overwriting that with the spot figure would
+        // understate principal and manufacture yield at harvest.
+    }
+
     // ---------- the honest-money property ----------
 
     /// The core RULES.md #4 claim: the pot grows only from value realized through
@@ -308,7 +404,11 @@ contract PuddleLpAdapterForkTest is Test {
     ///      through the real router. No balance is invented — every unit came from the
     ///      real faucet or a real swap, which is the whole point of a fork test.
     function _fundTrader(address who, address token, uint256 want) internal {
-        uint256 pk = uint256(keccak256(abi.encodePacked("trader", who, token, want)));
+        // Fresh funder per call: the faucet's 24h cooldown is per address, and a
+        // test that swaps the same amount in both directions would otherwise reuse
+        // one address and be blocked on the second call.
+        fundCounter++;
+        uint256 pk = uint256(keccak256(abi.encodePacked("trader", who, token, want, fundCounter)));
         address src = vm.addr(pk);
         vm.deal(src, 1 ether);
 
@@ -335,12 +435,17 @@ contract PuddleLpAdapterForkTest is Test {
 
     function _swapThroughPair(address who, uint256 amountIn, address tokenIn, address tokenOut) internal {
         _fundTrader(who, tokenIn, amountIn);
+        // Trade what the trader ACTUALLY holds. _fundTrader moves min(want, claimed),
+        // so after the pair's price impact the balance can be short of amountIn;
+        // trading the real balance keeps the volume honest instead of reverting.
+        uint256 held = IERC20(tokenIn).balanceOf(who);
+        if (held == 0) return;
         address[] memory path = new address[](2);
         path[0] = tokenIn;
         path[1] = tokenOut;
         vm.startPrank(who);
-        IERC20(tokenIn).approve(router, amountIn);
-        IPuddleRouter(router).swapExactTokensForTokens(amountIn, 0, path, who, block.timestamp);
+        IERC20(tokenIn).approve(router, held);
+        IPuddleRouter(router).swapExactTokensForTokens(held, 0, path, who, block.timestamp);
         vm.stopPrank();
     }
 }

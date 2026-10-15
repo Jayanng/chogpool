@@ -122,13 +122,23 @@ contract PuddleLpAdapter is IYieldAdapter, ReentrancyGuard {
             asset, quoteToken, assetIn, quoteOut, 0, 0, address(this), block.timestamp
         );
 
+        // Measure the value of the LP slice we JUST minted, BEFORE adding it to
+        // lpHeld. Measuring after would divide the new lpHeld by a pair whose
+        // reserves still reflect the old position, so a second and later supply
+        // would value the ENTIRE existing position as if it were new principal —
+        // which inflates principalDeployed, makes every subsequent harvest look
+        // like a loss, and permanently blocks yield from reaching the pot.
+        uint256 newValue = _lpValueOfSlice(lpMinted);
+        lpHeld += lpMinted;
+
         // Refund whatever the router did not consume (dust / rounding) to the pool.
+        // Refunded dust is NOT principal: it never entered the pair, so the adapter
+        // never has to redeem it. Sending it to the pool keeps the adapter's books
+        // matching what is actually deployed.
         uint256 assetLeft = IERC20(asset).balanceOf(address(this));
         if (assetLeft > 0) IERC20(asset).safeTransfer(pool, assetLeft);
         uint256 quoteLeft = IERC20(quoteToken).balanceOf(address(this));
         if (quoteLeft > 0) IERC20(quoteToken).safeTransfer(pool, quoteLeft);
-
-        lpHeld += lpMinted;
 
         // Principal = the LP's redemption value at this instant, measured the SAME
         // way redeem() measures what it can deliver: value the quote side at the
@@ -137,7 +147,7 @@ contract PuddleLpAdapter is IYieldAdapter, ReentrancyGuard {
         // trade, so the deployed LP is worth a little less than the nominal input.
         // Recording the nominal input would understate principal; recording the raw
         // reserve ratio would overstate it and manufacture phantom yield at harvest.
-        principalDeployed += _lpValueInAsset();
+        principalDeployed += newValue;
 
         emit Supplied(amount);
     }
@@ -204,9 +214,9 @@ contract PuddleLpAdapter is IYieldAdapter, ReentrancyGuard {
         uint256 loose = _assetBalance();
 
         if (loose >= surplus) {
-            // Surplus already realized (dust from a previous redeem). Just hand it over.
+            // Surplus already realized (dust from a previous redeem). The transfer to
+            // the pool happens once, after this branch, so both paths behave the same.
             amount = surplus;
-            IERC20(asset).safeTransfer(pool, amount);
         } else {
             // Realize it: remove the LP slice that carries the surplus.
             uint256 needed = surplus - loose;
@@ -216,6 +226,12 @@ contract PuddleLpAdapter is IYieldAdapter, ReentrancyGuard {
             // If the removal over-delivered (price moved in our favour), the excess
             // stays loose in the adapter and is harvested next time.
         }
+
+        // Hand the realized surplus to the pool. This MUST happen on every path:
+        // the pool credits potBalance with this exact number, so if the tokens stay
+        // here the pool has booked a pot it does not hold and payPot() reverts for
+        // every winner — the pot becomes permanently unpayable.
+        IERC20(asset).safeTransfer(pool, amount);
 
         emit Harvested(amount);
     }
@@ -252,14 +268,17 @@ contract PuddleLpAdapter is IYieldAdapter, ReentrancyGuard {
     ///      the raw ratio would overstate the position by roughly that fee on every
     ///      call, which shows up as phantom yield at harvest time — exactly the paper
     ///      profit RULES.md #4 forbids.
-    function _lpValueInAsset() internal view returns (uint256) {
-        if (lpHeld == 0) return 0;
+    /// @dev LP redemption value of a SPECIFIC slice, in asset units. Both sides of the
+    ///      pair are valued at the live reserves, with the quote side converted through
+    ///      the router's own quote function — no simulated swaps, no paper accounting.
+    function _lpValueOfSlice(uint256 lpSlice) internal view returns (uint256) {
+        if (lpSlice == 0) return 0;
         uint256 totalSupply = pair.totalSupply();
         if (totalSupply == 0) return 0;
 
         (uint112 r0, uint112 r1,) = pair.getReserves();
-        uint256 assetOut = assetIsToken0 ? (uint256(r0) * lpHeld) / totalSupply : (uint256(r1) * lpHeld) / totalSupply;
-        uint256 quoteOut = assetIsToken0 ? (uint256(r1) * lpHeld) / totalSupply : (uint256(r0) * lpHeld) / totalSupply;
+        uint256 assetOut = assetIsToken0 ? (uint256(r0) * lpSlice) / totalSupply : (uint256(r1) * lpSlice) / totalSupply;
+        uint256 quoteOut = assetIsToken0 ? (uint256(r1) * lpSlice) / totalSupply : (uint256(r0) * lpSlice) / totalSupply;
 
         if (quoteOut == 0) return assetOut;
         // Convert the quote side at the router's own (fee-charging) price.
@@ -268,6 +287,10 @@ contract PuddleLpAdapter is IYieldAdapter, ReentrancyGuard {
         path[1] = asset;
         uint256[] memory quoted = router.getAmountsOut(quoteOut, path);
         return assetOut + quoted[quoted.length - 1];
+    }
+
+    function _lpValueInAsset() internal view returns (uint256) {
+        return _lpValueOfSlice(lpHeld);
     }
 
     /// @dev Swaps `amountIn` of asset into the quote token through the router, honouring
