@@ -32,7 +32,7 @@ const ENTRY_ALLOWED = "web/src/lib/game.ts"; // the only file importing "web:fix
 
 const SENTINEL = "CHOGPOOL_FIXTURE_BUNDLE_SENTINEL";
 // Strings produced ONLY by web/src/fixtures/ runtime code (never by honest UI copy).
-const RUNTIME_MARKERS = ["Simulated deposit of", "(dev fixture)", "fixture-ok"];
+const RUNTIME_MARKERS = ["Simulated deposit of", "Simulated withdraw-all of", "(dev fixture)", "fixture-ok"];
 
 let failures = 0;
 

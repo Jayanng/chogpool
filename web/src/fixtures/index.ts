@@ -32,6 +32,18 @@ export const fixtureGameSource: GameSource = {
     const v = mock.deposits.get(tokenId.toString());
     return v === undefined ? 0n : BigInt(Math.round(parseFloat(v) * 1e6));
   },
+  async twabOf(tokenId) {
+    // Fixture book: the mock position stands still, so its TWAB is its balance.
+    const v = mock.deposits.get(tokenId.toString());
+    return v === undefined ? 0n : BigInt(Math.round(parseFloat(v) * 1e6));
+  },
+  async oddsBpsOf(tokenId) {
+    const v = mock.deposits.get(tokenId.toString());
+    const mine = v === undefined ? 0 : parseFloat(v);
+    let total = 0;
+    for (const d of mock.deposits.values()) total += parseFloat(d);
+    return total === 0 ? 0n : BigInt(Math.floor((mine / total) * 10000));
+  },
   async deposit(usdcAmount, tokenId) {
     const amount = parseFloat(usdcAmount);
     if (!Number.isFinite(amount) || amount <= 0) return { status: "error", detail: "Enter a USDC amount above zero." };
@@ -39,6 +51,14 @@ export const fixtureGameSource: GameSource = {
     return {
       status: "fixture-ok",
       detail: `Simulated deposit of ${amount} USDC bound to Chog #${tokenId.toString()}. No real funds moved (dev fixture).`,
+    };
+  },
+  async withdrawAll(tokenId) {
+    const v = mock.deposits.get(tokenId.toString()) ?? "0";
+    mock.deposits.set(tokenId.toString(), "0");
+    return {
+      status: "fixture-ok",
+      detail: `Simulated withdraw-all of ${v} USDC for Chog #${tokenId.toString()}. No real funds moved (dev fixture).`,
     };
   },
 };

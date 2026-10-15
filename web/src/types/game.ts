@@ -1,6 +1,8 @@
-// Frozen frontend-facing shapes for contracts that land in Phase 1.
-// Mirrors IChogPool (docs/PLAN.md Phase 1): nextDrawAt(), potBalance(), depositOf(tokenId).
-// When the real contracts deploy, a live viem GameSource implements this same interface.
+// Frozen frontend-facing shapes for the deployed ChogPool.
+// Mirrors IChogPool exactly: nextDrawAt(), potBalance(), depositOf(tokenId),
+// twabOf(tokenId), oddsBpsOf(tokenId), withdrawAll(tokenId). When a method is
+// added here, the live viem GameSource implements it against the deployed
+// contract with the same name, arguments and meaning.
 
 export type GameSourceKind = "fixture" | "live";
 
@@ -14,8 +16,14 @@ export interface GameSource {
   potBalance(): Promise<bigint | null>;
   /** Deposit bound to a Chog tokenId (shares), or null when unknown. */
   depositOf(tokenId: bigint): Promise<bigint | null>;
+  /** Time-weighted average balance of a Chog position (IChogPool.twabOf). */
+  twabOf(tokenId: bigint): Promise<bigint | null>;
+  /** Win probability out of the live book, in basis points 0..10000 (IChogPool.oddsBpsOf). */
+  oddsBpsOf(tokenId: bigint): Promise<bigint | null>;
   /** Visual-only deposit step. Fixture implementations simulate; live ones write to chain. */
   deposit(usdcAmount: string, tokenId: bigint): Promise<{ status: string; detail: string }>;
+  /** Withdraw the full position for a Chog, instantly (IChogPool.withdrawAll). Wallet-driven. */
+  withdrawAll(tokenId: bigint): Promise<{ status: string; detail: string }>;
 }
 
 export const GAME_LABELS = {
