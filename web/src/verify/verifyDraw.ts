@@ -1,0 +1,424 @@
+// The fairness verifier's evidence builder.
+//
+// Given a race id it reads the deployed contracts, recomputes the result with
+// the exact DrawEngine formula (lib/derive.ts), and returns a step-by-step
+// report. Every step carries its real inputs and outputs so the page can show
+// the derivation, not just a verdict. A mismatch is reported loudly and
+// exactly: this module never smooths over a disagreement with the chain.
+
+import { keccak256, toBytes, type Hex } from "viem";
+import { testnetReadClient } from "../lib/wallet";
+import { drawEngineAbi, poolAbi } from "../lib/abi";
+import { DEPLOYED } from "../generated/addresses.gen";
+import type { Address } from "viem";
+import {
+  commitHashOf,
+  cumulativeWalk,
+  deriveWinners,
+  finalRandomnessOf,
+  type DerivedWinner,
+  type RacerTickets,
+  type WalkRow,
+} from "../lib/derive";
+import { readDrawEvents, readMirrorBadge, type CareerRecord, readCareer } from "../lib/draw";
+import { getRaceSource } from "../lib/game";
+import { readChog } from "../lib/chog";
+import type { DrawRecord } from "../types/race";
+import { formatAsset, formatTickets, shortHex } from "../lib/format";
+
+export type CheckStatus = "pass" | "fail" | "info" | "unavailable";
+
+export type Check = {
+  key: string;
+  title: string;
+  status: CheckStatus;
+  lines: string[];
+};
+
+export type MirrorUriCheck = {
+  tokenId: bigint;
+  badgeLabel: string;
+  storedUri: string;
+  recordedHash: Hex | null;
+  computedHash: Hex;
+  hashMatch: boolean | null;
+  mainnetUri: string | null;
+  mainnetMatch: boolean | null;
+  metadataName: string | null;
+};
+
+export type Verification = {
+  draw: DrawRecord;
+  checks: Check[];
+  walk: WalkRow[];
+  steps: DerivedWinner[];
+  racerTable: RacerTickets[];
+  mirror: MirrorUriCheck | null;
+  career: CareerRecord | null;
+  inscriptionLine: string | null;
+  scanNote: string | null;
+  verdict: "verified" | "mismatch" | "incomplete";
+  verdictLine: string;
+};
+
+export async function buildVerification(drawId: bigint): Promise<Verification> {
+  const source = getRaceSource();
+  const draw = source ? await source.getDraw(drawId) : null;
+  if (!draw) throw new Error(`Race ${drawId.toString()} is not recorded on chain.`);
+  const live = source?.kind === "live";
+
+  const checks: Check[] = [];
+
+  // ---- 1. what the chain records -------------------------------------
+  checks.push({
+    key: "record",
+    title: "What the chain records for this race",
+    status: "info",
+    lines: [
+      live
+        ? "Source: the deployed contracts (live reads)."
+        : "Source: a recorded draw from the first real testnet run, used in this dev build so the derivation can be walked before the live stack has draws of its own.",
+      `Draw state: ${draw.state}`,
+      `Commit window closed at: unix ${draw.closeAt}`,
+      `Operator commit: ${draw.commitHash}`,
+      `Published seed: ${draw.seed}`,
+      `Reveal block: ${draw.revealBlock.toString()}`,
+      `Final randomness: ${draw.finalRandomness}`,
+      `Frozen tickets: ${formatTickets(draw.totalTickets)} across ${draw.racers.length} racer(s)`,
+      `Winners on chain (winnersOf): ${draw.winners.map((w) => w.toString()).join(", ") || "none yet"}`,
+      `Prize per winner (potPerWinnerOf): ${formatAsset(draw.potPerWinner)}`,
+    ],
+  });
+
+  const revealed = BigInt(draw.seed) !== 0n;
+  const awarded = draw.winners.length > 0;
+
+  // ---- 2. the commit binds the seed ---------------------------------
+  if (!revealed) {
+    checks.push({
+      key: "commit",
+      title: "The commit binds the seed",
+      status: "unavailable",
+      lines: ["No seed has been revealed for this race yet, so there is nothing to check here."],
+    });
+  } else {
+    const recomputed = commitHashOf(draw.seed);
+    const match = recomputed.toLowerCase() === draw.commitHash.toLowerCase();
+    checks.push({
+      key: "commit",
+      title: "The commit binds the seed",
+      status: match ? "pass" : "fail",
+      lines: [
+        `keccak256(published seed) = ${recomputed}`,
+        `commit recorded before the close   = ${draw.commitHash}`,
+        match
+          ? "The revealed seed hashes to the commit the operator posted while the draw was open."
+          : "MISMATCH: the published seed does NOT hash to the recorded commit. The reveal should have been rejected on chain; treat this draw as suspect.",
+      ],
+    });
+  }
+
+  // ---- 3. the randomness binds the reveal block ---------------------
+  let blockHash: Hex | null = null;
+  if (revealed && draw.revealBlock > 0n) {
+    try {
+      const block = await testnetReadClient.getBlock({ blockNumber: draw.revealBlock });
+      blockHash = (block.hash as Hex) ?? null;
+    } catch {
+      blockHash = null;
+    }
+    if (blockHash === null) {
+      checks.push({
+        key: "randomness",
+        title: "The randomness binds the reveal block",
+        status: "unavailable",
+        lines: [
+          `Block ${draw.revealBlock.toString()} could not be read back from the RPC, so the blockhash term cannot be recomputed here.`,
+        ],
+      });
+    } else {
+      const recomputed = finalRandomnessOf(draw.seed, blockHash, draw.drawId);
+      const match = recomputed.toLowerCase() === draw.finalRandomness.toLowerCase();
+      checks.push({
+        key: "randomness",
+        title: "The randomness binds the reveal block",
+        status: match ? "pass" : "fail",
+        lines: [
+          `finalRandomness = keccak256(seed ++ blockhash(revealBlock) ++ uint256(drawId))`,
+          `seed           = ${draw.seed}`,
+          `blockhash(block ${draw.revealBlock.toString()}) = ${blockHash}`,
+          `drawId         = ${draw.drawId.toString()}`,
+          `recomputed     = ${recomputed}`,
+          `on chain       = ${draw.finalRandomness}`,
+          match
+            ? "Exact match. The reveal block's hash is folded in, so the operator could not have chosen this randomness at commit time."
+            : "MISMATCH: the recomputed randomness differs from the chain's. Either the inputs shown here differ from what the contract used, or the record has been tampered with.",
+        ],
+      });
+    }
+  } else {
+    checks.push({
+      key: "randomness",
+      title: "The randomness binds the reveal block",
+      status: "unavailable",
+      lines: ["This race has no reveal yet, so no randomness exists to recompute."],
+    });
+  }
+
+  // ---- 4 + 5. winner derivation and match ---------------------------
+  const racerTable: RacerTickets[] = draw.racers.map((r) => ({ tokenId: r.tokenId, tickets: r.tickets }));
+  const walk = cumulativeWalk(racerTable);
+  const derived = revealed && awarded ? deriveWinners(draw.finalRandomness, racerTable, draw.totalTickets, draw.winners.length) : null;
+
+  if (!awarded || !revealed || !derived) {
+    checks.push({
+      key: "derive",
+      title: "The winner derivation",
+      status: "unavailable",
+      lines: ["The draw has not published both a seed and a result, so there is no derivation to walk through yet."],
+    });
+  } else {
+    const rows = derived.steps.map(
+      (s) =>
+        `slot ${s.slot}: keccak256(randomness ++ uint256(${s.slot})) = ${s.h} → index ${s.index.toString()} of ${formatTickets(draw.totalTickets)} → CHOG #${s.picked.toString()}${s.walked ? " (forward walk after a duplicate)" : ""}`,
+    );
+    checks.push({
+      key: "derive",
+      title: "The winner derivation, step by step",
+      status: "info",
+      lines: [
+        "For every winner slot: h = keccak256(finalRandomness ++ uint256(slot)), then index = uint256(h) mod totalTickets, then the racer under that index in the frozen ticket walk below.",
+        ...rows,
+      ],
+    });
+
+    const exact =
+      derived.winners.length === draw.winners.length &&
+      derived.winners.every((w, i) => w === draw.winners[i]);
+
+    // The contract's own re-derivation, when the deployment can answer it.
+    let contractLine = "";
+    if (live) {
+      try {
+        const onChainDerived = await testnetReadClient.readContract({
+          address: DEPLOYED.drawEngine as Address,
+          abi: drawEngineAbi,
+          functionName: "deriveWinners",
+          args: [draw.drawId, BigInt(draw.winners.length)],
+        });
+        const arr = (onChainDerived as bigint[]).map((w) => w.toString());
+        contractLine = `The contract's own deriveWinners() view returns [${arr.join(", ")}].`;
+      } catch {
+        contractLine =
+          "The contract's own deriveWinners() view did not answer for this race (it walks the current draw's racer set), so the walk above is shown from the draw's own frozen book instead.";
+      }
+    }
+
+    checks.push({
+      key: "match",
+      title: "Recomputed vs the on-chain record",
+      status: exact ? "pass" : "fail",
+      lines: [
+        `Recomputed winners: [${derived.winners.map((w) => w.toString()).join(", ")}]`,
+        `winnersOf(${draw.drawId.toString()}) : [${draw.winners.map((w) => w.toString()).join(", ")}]`,
+        contractLine,
+        exact
+          ? "Exact match. Anyone running this page or this formula against the same published seed gets the same winners."
+          : "LOUD MISMATCH: the published seed does not reproduce the recorded winners. Do not trust this draw until the difference is explained.",
+      ],
+    });
+  }
+
+  // ---- 6. the frozen book is self-consistent ------------------------
+  if (!live) {
+    checks.push({
+      key: "book",
+      title: "The frozen ticket book",
+      status: "unavailable",
+      lines: [
+        "This dev record predates the live deployment, so the book cross-check waits for a live draw. The book used in the derivation above is the recorded one, exactly as the draw froze it.",
+      ],
+    });
+  } else {
+  try {
+    const crossReads = await testnetReadClient.multicall({
+      contracts: draw.racers.flatMap((r) => [
+        {
+          address: DEPLOYED.drawEngine as Address,
+          abi: drawEngineAbi,
+          functionName: "ticketsOf",
+          args: [draw.drawId, r.tokenId],
+        },
+        {
+          address: DEPLOYED.pool as Address,
+          abi: poolAbi,
+          functionName: "ticketsOfFrozen",
+          args: [draw.drawId, r.tokenId],
+        },
+      ]),
+    });
+    const disagreements: string[] = [];
+    draw.racers.forEach((r, i) => {
+      const engine = crossReads[i * 2]?.result as bigint | undefined;
+      const pool = crossReads[i * 2 + 1]?.result as bigint | undefined;
+      if (engine !== pool) {
+        disagreements.push(`CHOG #${r.tokenId.toString()}: draw engine ${engine?.toString() ?? "?"} vs pool ${pool?.toString() ?? "?"}`);
+      }
+    });
+    checks.push({
+      key: "book",
+      title: "The frozen ticket book",
+      status: disagreements.length === 0 ? "pass" : "fail",
+      lines:
+        disagreements.length === 0
+          ? [
+              "Every racer's ticket count reads identically from the draw engine's own snapshot and from the pool's frozen book:",
+              ...draw.racers.map((r) => `CHOG #${r.tokenId.toString()}: ${formatTickets(r.tickets)} tickets`),
+            ]
+          : [`Disagreements found:`, ...disagreements],
+    });
+  } catch {
+    checks.push({
+      key: "book",
+      title: "The frozen ticket book",
+      status: "unavailable",
+      lines: ["The cross-read of the frozen book did not answer on this RPC."],
+    });
+  }
+  }
+
+  // ---- 7. mirror URI record for the winner --------------------------
+  let mirror: MirrorUriCheck | null = null;
+  let career: CareerRecord | null = null;
+  let inscriptionLine: string | null = null;
+  let scanNote: string | null = null;
+
+  if (awarded && live) {
+    const winner = draw.winners[0];
+    try {
+      const [badge, chog] = await Promise.all([readMirrorBadge(winner), readChog(winner).catch(() => null)]);
+      const computedHash = keccak256(toBytes(badge.storedUri));
+      const hashMatch = badge.recordedUriHash === null ? null : badge.recordedUriHash.toLowerCase() === computedHash.toLowerCase();
+      const mainnetUri = chog ? chog.tokenURI : null;
+      const cleanStored = badge.storedUri.startsWith("test-chog:") ? badge.storedUri.slice("test-chog:".length) : badge.storedUri;
+      const mainnetMatch = mainnetUri === null ? null : cleanStored === mainnetUri;
+      mirror = {
+        tokenId: winner,
+        badgeLabel: badge.badgeLabel,
+        storedUri: badge.storedUri,
+        recordedHash: badge.recordedUriHash,
+        computedHash,
+        hashMatch,
+        mainnetUri,
+        mainnetMatch,
+        metadataName: chog?.metadata.name ?? null,
+      };
+    } catch {
+      mirror = null;
+    }
+
+    try {
+      career = await readCareer(winner, draw.drawId);
+    } catch {
+      career = null;
+    }
+
+    try {
+      const events = await readDrawEvents(draw);
+      if (events.inscriptions.length > 0) {
+        const ins = events.inscriptions[0];
+        inscriptionLine = `RaceRecorded(CHOG #${ins.tokenId.toString()}, race ${draw.drawId.toString()}, placement ${ins.placement}) at block ${ins.blockNumber.toString()}, tx ${shortHex(ins.txHash, 10, 8)}.`;
+      }
+      scanNote = `Event logs scanned for blocks ${events.scannedFrom.toString()} to ${events.scannedTo.toString()} (the public RPC caps log ranges at 100 blocks per call).`;
+    } catch {
+      scanNote = "The event log scan did not answer on this RPC; the CareerStore's own reads above still stand.";
+    }
+
+    if (mirror) {
+      checks.push({
+        key: "mirror",
+        title: "The mirror's URI record for the winner",
+        status: mirror.hashMatch === false ? "fail" : mirror.hashMatch === true ? "pass" : "unavailable",
+        lines: [
+          `Mirror badge: ${mirror.badgeLabel}`,
+          `Stored URI: ${mirror.storedUri}`,
+          mirror.recordedHash === null
+            ? "The deployed mirror does not expose a recorded URI hash (this deployment predates the binding), so the digest cannot be compared on chain yet. The mirror contract now binds keccak256 of the stored URI into the owner's signed message, so once minted through that path this check reads the binding directly."
+            : `keccak256(stored URI bytes) = ${mirror.computedHash}`,
+          mirror.recordedHash === null
+            ? ""
+            : mirror.hashMatch
+              ? "The stored URI hashes to the digest recorded at mint. For a Verified Holder token that digest is the one the mainnet owner signed."
+              : "MISMATCH: the stored URI does not hash to the recorded digest.",
+          mirror.mainnetUri === null
+            ? "The live mainnet tokenURI for this token could not be read."
+            : `Live mainnet tokenURI: ${mirror.mainnetUri}`,
+          mirror.mainnetUri === null
+            ? ""
+            : mirror.mainnetMatch
+              ? "The stored URI is exactly the URI the Chog Genesis contract resolves for this token."
+              : "NOTE: the URI stored in the mirror differs from the live mainnet tokenURI of this token. The mirror is a testnet rehearsal token; the race show and this verifier always display metadata from the live mainnet URI.",
+        ].filter(Boolean),
+      });
+    }
+  }
+
+  // ---- 8. trophy inscription ----------------------------------------
+  if (awarded && career) {
+    checks.push({
+      key: "career",
+      title: "Trophy inscription in the CareerStore",
+      status: career.placementInRace > 0 ? "pass" : "fail",
+      lines: [
+        `placementOf(CHOG #${draw.winners[0].toString()}, ${draw.drawId.toString()}) = ${career.placementInRace}`,
+        `Career after this race: ${career.gold} gold, ${career.silver} silver, ${career.bronze} bronze, ${career.races} race(s) recorded.`,
+        inscriptionLine ?? "The inscription event sat outside the scanned block window; the store's own placement read above is the durable record.",
+        scanNote ?? "",
+      ].filter(Boolean),
+    });
+  } else if (awarded) {
+    checks.push({
+      key: "mirror",
+      title: "The mirror's URI record for the winner",
+      status: "unavailable",
+      lines: ["The mirror and career records for this draw live on the live stack, and this dev record predates it. Both checks run in full against live draws."],
+    });
+    checks.push({
+      key: "career",
+      title: "Trophy inscription in the CareerStore",
+      status: "unavailable",
+      lines: ["The CareerStore inscription for this draw is checked in full against live draws."],
+    });
+  }
+
+  // ---- verdict -------------------------------------------------------
+  const mustPass = checks.filter((c) => c.key === "commit" || c.key === "randomness" || c.key === "match");
+  const failed = mustPass.filter((c) => c.status === "fail");
+  const unavailable = mustPass.filter((c) => c.status === "unavailable");
+  let verdict: Verification["verdict"];
+  let verdictLine: string;
+  if (failed.length > 0) {
+    verdict = "mismatch";
+    verdictLine = "MISMATCH: this race's published seed does not reproduce the chain's own record. The steps above say exactly where.";
+  } else if (unavailable.length > 0 || !awarded) {
+    verdict = "incomplete";
+    verdictLine = "Not verifiable yet: this race has not published both a seed and a result. Everything above is what the chain really holds today.";
+  } else {
+    verdict = "verified";
+    verdictLine = "VERIFIED: the published seed re-derives the on-chain record exactly. Same seed, same winners, for anyone who checks.";
+  }
+
+  return {
+    draw,
+    checks,
+    walk,
+    steps: derived ? derived.steps : [],
+    racerTable,
+    mirror,
+    career,
+    inscriptionLine,
+    scanNote,
+    verdict,
+    verdictLine,
+  };
+}
