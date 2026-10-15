@@ -200,7 +200,8 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
         <Panel className="truth-strip">
           <Badge tone="lime">ON-CHAIN RESULT</Badge>
           <span>
-            The chain already recorded this race: winner {winnerRacer.name} (CHOG #{winnerRacer.tokenId.toString()}),
+            The chain already recorded this race: winner CHOG #{winnerRacer.tokenId.toString()}
+            {winnerRacer.name !== `CHOG #${winnerRacer.tokenId.toString()}` ? ` (IPFS metadata name: ${winnerRacer.name})` : ""},
             paid {formatAsset(draw.potPerWinner)}. The replay on screen is that result, frame for frame, every time.
           </span>
           <Button variant="outline" onClick={() => navigate("/verify")}>Verify the draw</Button>
@@ -347,7 +348,8 @@ function Podium({
             const racer = racers.find((r) => r.tokenId === tokenId);
             return (
               <p className="podium-place" key={tokenId.toString()}>
-                <span>{i + 2}.</span> {racer?.name ?? `Chog #${tokenId.toString()}`}
+                <span>{i + 2}.</span> CHOG #{tokenId.toString()}
+                {racer && racer.name !== `CHOG #${tokenId.toString()}` ? <em>IPFS NAME: {racer.name.toUpperCase()}</em> : null}
                 <em> show order (presentation)</em>
               </p>
             );

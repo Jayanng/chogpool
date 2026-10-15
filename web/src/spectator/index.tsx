@@ -53,8 +53,8 @@ export default function Spectator() {
         <h1>Watch without a wallet.</h1>
         <p className="lede">
           Every race is viewable with no wallet and no deposit. Cheer with Test $CHOG tips that land in the
-          racer's team wallet the moment they are sent. Not a holder? A clearly-labeled Test Drive gets you in
-          the experience today.
+          racer's team wallet the moment they are sent. Not a holder? The card below explains the two
+          clearly-labeled ways onto the track.
         </p>
         <Badge tone="neutral">NO WALLET NEEDED TO WATCH</Badge>
       </section>

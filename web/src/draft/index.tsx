@@ -100,8 +100,10 @@ export default function Draft() {
               <div className="viewer-noimage">Metadata has no image field.</div>
             )}
             <div className="viewer-meta">
-              <h3>{record.metadata.name ?? `Chog #${record.tokenId.toString()}`}</h3>
-              <p className="viewer-line"><span>CHOG</span><code>#{record.tokenId.toString()}</code></p>
+              <h3>CHOG #{record.tokenId.toString()}</h3>
+              {record.metadata.name && record.metadata.name !== `CHOG #${record.tokenId.toString()}` && (
+                <p className="viewer-line"><span>IPFS NAME</span><strong>{record.metadata.name}</strong></p>
+              )}
               {tier && <p className="viewer-line"><span>TIER</span><strong>{tier}</strong></p>}
               <div className="viewer-traits">
                 {Object.entries(traits).map(([key, value]) => (
