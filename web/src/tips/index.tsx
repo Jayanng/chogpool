@@ -38,10 +38,13 @@ const chogAbi = [
 const token = () => DEPLOYED.testChogToken as Address;
 
 type TokenState = {
-  balance: bigint;
+  /** The connected wallet's balance. Null when no wallet is connected: the
+   *  balance is unknown then, never zero. */
+  balance: bigint | null;
   claimAmount: bigint;
   claimCooldown: bigint;
-  nextClaimAt: number;
+  /** Unix seconds the connected wallet may claim again. Null with no wallet. */
+  nextClaimAt: number | null;
   testLabel: string;
   totalSupply: bigint;
 };
@@ -49,27 +52,41 @@ type TokenState = {
 export default function Tips() {
   const wallet = useWallet();
   const [state, setState] = useState<TokenState | null>(null);
+  const [readFailed, setReadFailed] = useState(false);
   const [to, setTo] = useState("");
   const [amountText, setAmountText] = useState("");
   const [note, setNote] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!DEPLOYED || !wallet.address) {
+    if (!DEPLOYED) {
       setState(null);
       return;
     }
+    setReadFailed(false);
     void (async () => {
       try {
-        const [balance, claimAmount, claimCooldown, nextClaimAt, testLabel, totalSupply] = await Promise.all([
-          testnetReadClient.readContract({ address: token(), abi: chogAbi, functionName: "balanceOf", args: [wallet.address as Address] }),
+        // The faucet size and the supply are plain token reads: they answer
+        // with no wallet connected. Only the two account reads wait for an
+        // address, and they stay null without one (unknown, not zero).
+        const [claimAmount, claimCooldown, testLabel, totalSupply] = await Promise.all([
           testnetReadClient.readContract({ address: token(), abi: chogAbi, functionName: "claimAmount" }),
           testnetReadClient.readContract({ address: token(), abi: chogAbi, functionName: "claimCooldown" }),
-          testnetReadClient.readContract({ address: token(), abi: chogAbi, functionName: "nextClaimAt", args: [wallet.address as Address] }),
           testnetReadClient.readContract({ address: token(), abi: chogAbi, functionName: "testLabel" }),
           testnetReadClient.readContract({ address: token(), abi: chogAbi, functionName: "totalSupply" }),
         ]);
-        setState({ balance, claimAmount, claimCooldown, nextClaimAt: Number(nextClaimAt), testLabel, totalSupply });
+        let balance: bigint | null = null;
+        let nextClaimAt: number | null = null;
+        if (wallet.address) {
+          const [held, next] = await Promise.all([
+            testnetReadClient.readContract({ address: token(), abi: chogAbi, functionName: "balanceOf", args: [wallet.address as Address] }),
+            testnetReadClient.readContract({ address: token(), abi: chogAbi, functionName: "nextClaimAt", args: [wallet.address as Address] }),
+          ]);
+          balance = held;
+          nextClaimAt = Number(next);
+        }
+        setState({ balance, claimAmount, claimCooldown, nextClaimAt, testLabel, totalSupply });
       } catch {
+        setReadFailed(true);
         setState(null);
       }
     })();
@@ -79,9 +96,18 @@ export default function Tips() {
   const amount = useMemo(() => parseTestChog(amountText), [amountText]);
 
   const now = Math.floor(Date.now() / 1000);
-  const onCooldown = state !== null && state.nextClaimAt > now;
-  const balance = state?.balance ?? 0n;
-  const tooMuch = amount !== null && amount > balance;
+  const onCooldown = state !== null && state.nextClaimAt !== null && state.nextClaimAt > now;
+  const balance = state?.balance ?? null;
+  // Unknown is not zero: with no wallet (or no answer) the page says so and
+  // checks nothing against a balance it does not have.
+  const balanceLabel = !wallet.address
+    ? "connect a wallet to see your balance"
+    : balance !== null
+      ? `${formatTestChog(balance)} Test CHOG`
+      : readFailed
+        ? "this read did not answer on this RPC"
+        : "…";
+  const tooMuch = amount !== null && balance !== null && amount > balance;
   const canTip = recipient !== null && amount !== null && amount > 0n && !tooMuch && wallet.connected && !wallet.onWrongChain;
 
   async function claim() {
@@ -124,13 +150,13 @@ export default function Tips() {
           footer="A REAL ERC-20 ON TESTNET · 18 DECIMALS · FAUCET-CAPPED PER WALLET"
         >
           <div className="stat-row">
-            <Stat label="BALANCE" value={wallet.reading ? "…" : `${formatTestChog(balance)} Test CHOG`} tone="lime" />
+            <Stat label="BALANCE" value={wallet.reading ? "…" : balanceLabel} tone="lime" />
             <Stat
               label="FAUCET"
-              value={state ? `${formatTestChog(state.claimAmount)} per claim` : "…"}
+              value={state ? `${formatTestChog(state.claimAmount)} per claim` : readFailed ? "this read did not answer on this RPC" : "…"}
               note={state ? `once every ${Number(state.claimCooldown) / 3600} hours` : undefined}
             />
-            <Stat label="TOTAL SUPPLY" value={state ? `${formatTestChog(state.totalSupply, 0)} Test CHOG` : "…"} note="Faucet-capped, so tips stay meaningful." />
+            <Stat label="TOTAL SUPPLY" value={state ? `${formatTestChog(state.totalSupply, 0)} Test CHOG` : readFailed ? "this read did not answer on this RPC" : "…"} note="Faucet-capped, so tips stay meaningful." />
           </div>
 
           <div className="button-row">
@@ -164,7 +190,7 @@ export default function Tips() {
               <span>AMOUNT (TEST CHOG)</span>
               <input inputMode="decimal" placeholder="10.00" value={amountText} onChange={(e) => setAmountText(e.target.value)} />
             </label>
-            {tooMuch && <p className="muted small">You hold {formatTestChog(balance)} Test CHOG. Claim more or send less.</p>}
+            {tooMuch && balance !== null && <p className="muted small">You hold {formatTestChog(balance)} Test CHOG. Claim more or send less.</p>}
 
             <div className="button-row">
               <Button onClick={() => void tip()} disabled={!canTip || wallet.txStage === "pending"}>
