@@ -14,6 +14,7 @@ import {
   type MirrorBadge,
 } from "../lib/draw";
 import { getRaceSource } from "../lib/game";
+import { readOutcome, type ReadOutcome } from "../lib/read-outcome";
 import { traitsOf, tierOf } from "../lib/traits";
 import { friendlyError } from "../lib/format";
 import type { DrawEventRecord, DrawRecord } from "../types/race";
@@ -32,8 +33,12 @@ export type RacerDisplay = {
   /** True when the IPFS metadata could not be loaded: the lane shows its
    *  tokenId and says so instead of inventing a Chog. */
   metadataMissing: boolean;
-  badge: MirrorBadge | null;
-  team: Address | null;
+  /** The mirror badge read in three states: a badge the mirror records, a
+   *  mirror that answered with no badge, or a read that did not answer (never
+   *  shown as "no badge": a failed read is not an answer). */
+  badge: ReadOutcome<MirrorBadge>;
+  /** The team-wallet read in the same three states. */
+  team: ReadOutcome<Address>;
   career: CareerRecord | null;
 };
 
@@ -52,12 +57,15 @@ export type RaceBundleState = {
 
 async function loadRacer(tokenId: bigint, draw: DrawRecord): Promise<RacerDisplay> {
   const recordedCareer = draw.recordedCareers?.[tokenId.toString()] ?? null;
-  const [chog, badge, team, career] = await Promise.all([
+  const [chog, reads, career] = await Promise.all([
     readChog(tokenId).catch(() => null),
-    readMirrorBadge(tokenId).catch(() => null),
-    readTeamWallet(tokenId).catch(() => null),
+    // The badge and team reads keep their three states: a read that did not
+    // answer is "failed", never folded into "nothing is recorded on chain".
+    Promise.allSettled([readMirrorBadge(tokenId), readTeamWallet(tokenId)]),
     recordedCareer ? Promise.resolve(recordedCareer) : readCareer(tokenId, draw.drawId).catch(() => null),
   ]);
+  const badge = readOutcome(reads[0], (b) => b.badge === 0); // badge 0: the mirror records no badge
+  const team = readOutcome(reads[1], (address) => BigInt(address) === 0n); // zero address: nothing bound on chain
   const frozen = draw.racers.find((r) => r.tokenId === tokenId);
   const record: ChogRecord | null = chog;
   const traits = record ? traitsOf(record.metadata) : {};
@@ -71,7 +79,7 @@ async function loadRacer(tokenId: bigint, draw: DrawRecord): Promise<RacerDispla
     imageUrl: record && record.metadata.image ? ipfsToGateway(record.metadata.image) : null,
     metadataMissing: record === null,
     badge,
-    team: team && BigInt(team) !== 0n ? team : null, // a zero address means nothing is bound on chain
+    team,
     career,
   };
 }

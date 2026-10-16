@@ -373,9 +373,10 @@ function LaneRow({
       {isWinner && burst && <Confetti seed={seed} active count={110} frames={110} mode="burst" salt={Number(racer.tokenId % 4096n)} />}
       <div className="show-lane-head">
         <span className="show-lane-id">{idLabel}</span>
-        {racer.badge && racer.badge.badge !== 0 && (
-          <Badge tone={racer.badge.badge === 2 ? "lime" : "neutral"}>{racer.badge.badgeLabel}</Badge>
+        {racer.badge.state === "value" && (
+          <Badge tone={racer.badge.value.badge === 2 ? "lime" : "neutral"}>{racer.badge.value.badgeLabel}</Badge>
         )}
+        {racer.badge.state === "failed" && <Badge tone="neutral">BADGE UNKNOWN</Badge>}
         {racer.metadataMissing && <Badge tone="danger">METADATA UNREACHABLE</Badge>}
         {racer.tier && <Badge tone="neutral">TIER: {racer.tier.toUpperCase()}</Badge>}
       </div>
@@ -573,7 +574,7 @@ function WinnerBlock({
     winners: winnerTokens,
     potLabel,
     zeroPot,
-    team: racer?.team ? shortHex(racer.team, 10, 8) : null,
+    team: racer?.team.state === "value" ? shortHex(racer.team.value, 10, 8) : null,
   });
   return (
     <div className={`podium-winner podium-winner--${accent}${place === 1 ? " podium-winner--hero" : ""}`} style={{ animationDelay: `${(place - 1) * 160}ms` }}>
@@ -604,9 +605,10 @@ function WinnerBlock({
           CHOG #{view.tokenId.toString()}
           {name ? ` · IPFS metadata name: ${name}` : ""}
         </h3>
-        {racer?.badge && racer.badge.badge !== 0 && (
-          <Badge tone={racer.badge.badge === 2 ? "lime" : "neutral"}>{racer.badge.badgeLabel}</Badge>
+        {racer?.badge.state === "value" && (
+          <Badge tone={racer.badge.value.badge === 2 ? "lime" : "neutral"}>{racer.badge.value.badgeLabel}</Badge>
         )}
+        {racer?.badge.state === "failed" && <Badge tone="neutral">BADGE UNKNOWN</Badge>}
         {!zeroPot && <PrizeAmount value={pot} paid={!rehearsal} />}
         <p className="muted podium-prize">
           {prizeSentence}

@@ -132,9 +132,13 @@ function CheerBoard({ racers, drawId }: { racers: RacerDisplay[]; drawId: string
   const refreshBacking = useCallback(async () => {
     const entries = await Promise.all(
       racers.map(async (racer) => {
-        if (!racer.team) return [racer.tokenId.toString(), "unknown"] as const;
+        // Three states, three answers: a team wallet's balance, a racer with
+        // no team wallet on chain, or a read that did not answer. A failed
+        // read is never shown as a fact about the chain.
+        if (racer.team.state === "failed") return [racer.tokenId.toString(), "unavailable"] as const;
+        if (racer.team.state === "absent") return [racer.tokenId.toString(), "unknown"] as const;
         try {
-          const raw = await readTestChogBalance(racer.team);
+          const raw = await readTestChogBalance(racer.team.value);
           return [racer.tokenId.toString(), formatTestChog(raw)] as const;
         } catch {
           return [racer.tokenId.toString(), "unavailable"] as const;
@@ -187,10 +191,15 @@ function CheerBoard({ racers, drawId }: { racers: RacerDisplay[]; drawId: string
 
   async function cheer(racer: RacerDisplay) {
     if (!wallet) return;
-    if (!racer.team) {
+    if (racer.team.state === "failed") {
+      setStatus({ tone: "danger", message: "The team wallet read did not answer on this RPC, so this page will not guess an address for the cheer." });
+      return;
+    }
+    if (racer.team.state === "absent") {
       setStatus({ tone: "danger", message: "This racer has no team wallet recorded on chain." });
       return;
     }
+    const team = racer.team.value;
     let amount: bigint;
     try {
       amount = parseUnits(amountText.trim() || "0", TEST_CHOG_DECIMALS);
@@ -205,7 +214,7 @@ function CheerBoard({ racers, drawId }: { racers: RacerDisplay[]; drawId: string
     setBusy(true);
     setStatus(null);
     try {
-      const hash = await sendCheer(wallet.walletClient, wallet.address, racer.team, amount);
+      const hash = await sendCheer(wallet.walletClient, wallet.address, team, amount);
       setCheers((prev) => [{ tokenId: racer.tokenId, amount, txHash: hash }, ...prev]);
       setStatus({
         tone: "success",
@@ -281,12 +290,20 @@ function CheerBoard({ racers, drawId }: { racers: RacerDisplay[]; drawId: string
               <div className="show-lane-head">
                 <span className="show-lane-id">CHOG #{racer.tokenId.toString()}</span>
                 <span className="show-lane-name">{racer.name}</span>
-                {racer.badge && racer.badge.badge !== 0 && (
-                  <Badge tone={racer.badge.badge === 2 ? "lime" : "neutral"}>{racer.badge.badgeLabel}</Badge>
+                {racer.badge.state === "value" && (
+                  <Badge tone={racer.badge.value.badge === 2 ? "lime" : "neutral"}>{racer.badge.value.badgeLabel}</Badge>
                 )}
+                {racer.badge.state === "failed" && <Badge tone="neutral">BADGE UNKNOWN</Badge>}
               </div>
               <p className="viewer-line">
-                <span>TEAM</span><code>{racer.team ? shortHex(racer.team, 10, 8) : "no team wallet on chain"}</code>
+                <span>TEAM</span>
+                <code>
+                  {racer.team.state === "value"
+                    ? shortHex(racer.team.value, 10, 8)
+                    : racer.team.state === "absent"
+                      ? "no team wallet on chain"
+                      : "this read did not answer on this RPC"}
+                </code>
               </p>
               <p className="viewer-line">
                 <span>BACKING</span>
