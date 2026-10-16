@@ -4,6 +4,7 @@ import { Badge, Panel, Skeleton } from "@chogpool/ui";
 import "@chogpool/ui/styles.css";
 import "./styles.css";
 import { usePath, navigate } from "./lib/router";
+import { WalletProvider } from "./lib/useWallet";
 import { WalletButton } from "./components/WalletButton";
 import { CHAIN } from "./generated/addresses.gen";
 
@@ -111,4 +112,8 @@ function App() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(
+  <WalletProvider>
+    <App />
+  </WalletProvider>,
+);

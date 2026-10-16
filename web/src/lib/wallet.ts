@@ -50,17 +50,52 @@ function chainFor(chainId: number) {
   });
 }
 
-export async function connectWallet(): Promise<WalletState> {
-  const provider = getProvider();
-  if (!provider) throw new Error("Install a browser wallet such as MetaMask or Rabby to connect.");
+async function readChainId(provider: Eip1193Provider): Promise<number> {
+  const rawChainId = await provider.request({ method: "eth_chainId" });
+  return typeof rawChainId === "string" ? Number.parseInt(rawChainId, 16) : Number(rawChainId);
+}
+
+function clientFor(provider: Eip1193Provider, chainId: number): WalletClient {
   // viem refuses to sign a write on a chainless client ("No chain was
   // provided"), so the client carries the wallet's actual chain. Without this
   // every deposit, claim and mint dies before the wallet ever sees it.
-  const rawChainId = await provider.request({ method: "eth_chainId" });
-  const chainId = typeof rawChainId === "string" ? Number.parseInt(rawChainId, 16) : Number(rawChainId);
-  const walletClient = createWalletClient({ chain: chainFor(chainId), transport: custom(provider as never) });
+  return createWalletClient({ chain: chainFor(chainId), transport: custom(provider as never) });
+}
+
+export async function connectWallet(): Promise<WalletState> {
+  const provider = getProvider();
+  if (!provider) throw new Error("Install a browser wallet such as MetaMask or Rabby to connect.");
+  const chainId = await readChainId(provider);
+  const walletClient = clientFor(provider, chainId);
   const [address] = await walletClient.requestAddresses();
   return { address, chainId, walletClient };
+}
+
+/**
+ * The silent-restore decision, kept pure so it can be tested: an
+ * eth_accounts answer restores a session only when it holds a real address.
+ * Anything else (no answer, empty list, malformed entries) means no session.
+ */
+export function pickRestoreAccount(accounts: unknown): Address | null {
+  if (!Array.isArray(accounts) || accounts.length === 0) return null;
+  const first = accounts[0];
+  return typeof first === "string" && /^0x[0-9a-fA-F]{40}$/.test(first) ? (first as Address) : null;
+}
+
+/**
+ * Silent session restore for an already-authorized wallet. eth_accounts is
+ * read-only and never pops the wallet UI, unlike eth_requestAccounts. Returns
+ * null when nothing is authorized; a provider failure throws so the caller can
+ * keep whatever state it already holds instead of treating a flake as a
+ * disconnect.
+ */
+export async function restoreSession(): Promise<WalletState | null> {
+  const provider = getProvider();
+  if (!provider) return null;
+  const address = pickRestoreAccount(await provider.request({ method: "eth_accounts" }));
+  if (!address) return null;
+  const chainId = await readChainId(provider);
+  return { address, chainId, walletClient: clientFor(provider, chainId) };
 }
 
 export function onWalletChange(handler: () => void): () => void {
