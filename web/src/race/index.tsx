@@ -49,7 +49,7 @@ export default function Race() {
 
   return (
     <>
-      <section className="page-head">
+      <section className="page-head page-head--compact">
         <p className="kicker">THE RACE</p>
         <h1>One seed.<br /><em>One result. One show.</em></h1>
         <p className="lede">

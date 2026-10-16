@@ -245,44 +245,331 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 
 /* ---------------------------------------------------------- race show */
 .show { display: grid; gap: 20px; }
-.show-stage { padding: 26px; display: grid; gap: 18px; }
+.show-stage { padding: 26px; display: grid; gap: 18px; position: relative; overflow: hidden; }
 .show-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
 .show-title { margin: 6px 0 0; font-size: clamp(24px, 2.6vw, 34px); }
-.show-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+.show-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .show-status { display: grid; gap: 10px; }
 .show-status-line { font: 500 12px 'DM Mono', ui-monospace, monospace; letter-spacing: .12em; color: #ff8a3d; margin: 0; }
-.show-lanes { display: grid; gap: 14px; }
-.show-lane { display: grid; gap: 8px; padding: 14px; border-radius: 16px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); }
-.show-lane--winner { border-color: rgba(198,239,109,.5); background: rgba(198,239,109,.06); }
+
+/* The finish moment: a white flash and a short camera kick on the whole
+   stage, fired when the winner crosses the line. */
+.show-stage--finish { animation: stage-shake .55s cubic-bezier(.36,.07,.19,.97) both; }
+.show-stage--finish::after {
+  content: ""; position: absolute; inset: 0; z-index: 5; pointer-events: none; background: #f4f6f8;
+  animation: stage-flash .7s ease-out forwards;
+}
+/* The finish burst rides above the flash so the blast reads at once. */
+.show-stage > .confetti-canvas { z-index: 7; }
+@keyframes stage-flash { from { opacity: .5; } to { opacity: 0; } }
+@keyframes stage-shake {
+  12% { transform: translate(-5px, 2px) rotate(-.25deg); }
+  32% { transform: translate(6px, -2px) rotate(.3deg); }
+  52% { transform: translate(-4px, 2px); }
+  74% { transform: translate(3px, -1px); }
+  100% { transform: none; }
+}
+
+.show-lanes { display: grid; gap: 16px; }
+.show-lane {
+  position: relative; display: grid; gap: 10px; padding: 16px 18px 14px; border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.028));
+  border: 1px solid rgba(255,255,255,.08);
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.show-lane:hover { transform: translateY(-3px); border-color: rgba(255,138,61,.38); box-shadow: 0 18px 38px rgba(0,0,0,.38); }
+/* Winner lane: the border pulses gold for as long as the reveal is on. */
+.show-lane--winner {
+  border-color: rgba(250,204,21,.75);
+  background: linear-gradient(180deg, rgba(250,204,21,.1), rgba(250,204,21,.03));
+  animation: winner-pulse 1.5s ease-in-out infinite;
+}
+.show-lane--winner:hover { border-color: rgba(250,204,21,.9); }
+.show-lane--winner .show-runner-img { border-color: #facc15; box-shadow: 0 12px 26px rgba(0,0,0,.5), 0 0 0 3px rgba(250,204,21,.22), 0 0 34px rgba(250,204,21,.3); }
+@keyframes winner-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(250,204,21,.35), 0 0 26px rgba(250,204,21,.14); }
+  50% { box-shadow: 0 0 0 2px rgba(250,204,21,.7), 0 0 46px rgba(250,204,21,.38); }
+}
+.show-winner-ribbon {
+  position: absolute; top: -14px; right: 18px; z-index: 4;
+  padding: 8px 24px; transform: rotate(2.5deg); border-radius: 10px;
+  background: linear-gradient(180deg, #fde68a, #facc15 55%, #eab308);
+  color: #241a02;
+  font: 800 15px 'Plus Jakarta Sans', system-ui, sans-serif; letter-spacing: .26em;
+  box-shadow: 0 16px 36px rgba(250,204,21,.45), 0 0 44px rgba(250,204,21,.35);
+  animation: ribbon-in .45s cubic-bezier(.2,1.2,.3,1) both;
+}
+.show-winner-ribbon::before, .show-winner-ribbon::after {
+  content: ""; position: absolute; top: 8px; width: 12px; height: 30px;
+  background: #eab308; z-index: -1;
+}
+.show-winner-ribbon::before { left: -8px; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 5px 50%); }
+.show-winner-ribbon::after { right: -8px; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 5px 50%); transform: scaleX(-1); }
+.show-winner-ribbon--silver, .show-winner-ribbon--silver::before, .show-winner-ribbon--silver::after {
+  background: linear-gradient(180deg, #f4f6f8, #d7dee6 55%, #b9c4cf);
+}
+.show-winner-ribbon--silver { box-shadow: 0 16px 36px rgba(215,222,230,.35), 0 0 44px rgba(215,222,230,.25); }
+@keyframes ribbon-in { from { opacity: 0; transform: rotate(2.5deg) translateY(-14px) scale(.7); } to { opacity: 1; transform: rotate(2.5deg) translateY(0) scale(1); } }
+/* Gold shine sweeping the winning lane at the reveal. */
+.show-lane--winner::after {
+  content: ""; position: absolute; inset: 0; border-radius: 18px; pointer-events: none;
+  background: radial-gradient(640px 260px at 86% 55%, rgba(250,204,21,.24), transparent 72%);
+  animation: winner-shine 1.6s ease-in-out infinite;
+}
+@keyframes winner-shine { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
 .show-lane-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .show-lane-id { font: 500 12px 'DM Mono', ui-monospace, monospace; letter-spacing: .1em; color: #f4f6f8; }
 .show-lane-name { font-size: 13px; color: #aab4be; }
-.show-track { position: relative; height: 58px; border-radius: 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); overflow: hidden; }
-.show-track::after { content: ""; position: absolute; right: 10px; top: 8px; bottom: 8px; width: 2px; background: rgba(255,138,61,.6); }
-.show-runner { position: absolute; top: 50%; transform: translateY(-50%); transition: left 90ms linear; }
-.show-runner-img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 2px solid #ff8a3d; display: block; }
-.show-runner-dot { font-size: 26px; color: #c6ef6d; }
-.show-lane-meta { display: flex; gap: 14px; flex-wrap: wrap; font: 500 11px 'DM Mono', ui-monospace, monospace; letter-spacing: .06em; color: #68737e; }
-.show-perk { color: #c6ef6d; }
+
+/* The track: clay ground with depth, scrolling speed dashes, dashed lane
+   rails, a progress trail the runner drags along, and a checkered line. */
+.show-track {
+  --runner-w: 96px;
+  position: relative; height: 132px; border-radius: 14px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,.09);
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,.08) 0 18px, transparent 18px 46px) 0 24% / 100% 3px no-repeat,
+    repeating-linear-gradient(90deg, rgba(255,255,255,.06) 0 14px, transparent 14px 40px) 0 52% / 100% 3px no-repeat,
+    repeating-linear-gradient(90deg, rgba(255,255,255,.08) 0 18px, transparent 18px 46px) 0 80% / 100% 3px no-repeat,
+    linear-gradient(180deg, #46331e 0%, #2e2213 52%, #201709 100%);
+  box-shadow: inset 0 12px 26px rgba(0,0,0,.5), inset 0 -10px 22px rgba(0,0,0,.4);
+}
+.show-track--moving { animation: track-scroll 1.1s linear infinite; }
+@keyframes track-scroll {
+  from { background-position: 0 24%, 0 52%, 0 80%, 0 0; }
+  to { background-position: -64px 24%, -54px 52%, -64px 80%, 0 0; }
+}
+.show-track::before {
+  content: ""; position: absolute; inset: 7px 0; z-index: 1; pointer-events: none;
+  border-top: 2px dashed rgba(198,239,109,.3);
+  border-bottom: 2px dashed rgba(198,239,109,.3);
+}
+.show-track::after {
+  content: ""; position: absolute; right: 40px; top: 0; bottom: 0; width: 26px; z-index: 1; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255,138,61,.26));
+}
+.show-trail {
+  position: absolute; left: 0; top: 0; bottom: 0; z-index: 1;
+  background: linear-gradient(90deg, rgba(255,150,70,.1), rgba(255,150,70,.3) 78%, rgba(198,239,109,.45));
+  border-right: 3px solid rgba(198,239,109,.75);
+  box-shadow: 8px 0 26px rgba(198,239,109,.28);
+  transition: width 90ms linear;
+}
+.show-finish {
+  position: absolute; right: 0; top: 0; bottom: 0; width: 40px; z-index: 2;
+  background-image: conic-gradient(#f4f6f8 25%, #12161b 0 50%, #f4f6f8 0 75%, #12161b 0);
+  background-size: 20px 20px;
+  box-shadow: -10px 0 26px rgba(255,255,255,.16), -20px 0 44px rgba(255,138,61,.24);
+}
+/* White tape capping the checkered band top and bottom. */
+.show-finish::before, .show-finish::after {
+  content: ""; position: absolute; left: -3px; right: -3px; height: 5px; background: #f4f6f8;
+  box-shadow: 0 0 14px rgba(244,246,248,.55);
+}
+.show-finish::before { top: 0; }
+.show-finish::after { bottom: 0; }
+/* The line names itself so any frame of the replay reads as a race. */
+.show-finish-label {
+  position: absolute; right: 0; top: 0; bottom: 0; width: 40px; z-index: 4;
+  display: grid; place-items: center;
+  writing-mode: vertical-rl;
+  font: 700 10px 'DM Mono', ui-monospace, monospace; letter-spacing: .35em;
+  color: #f4f6f8; text-shadow: 0 0 6px rgba(0,0,0,.95), 0 2px 14px rgba(0,0,0,.9);
+  pointer-events: none;
+}
+/* Photo finish: the stage takes a warm vignette while the clock dilates. */
+.show-stage--slowmo::before {
+  content: ""; position: absolute; inset: 0; z-index: 4; pointer-events: none;
+  background: radial-gradient(1200px 520px at 50% 62%, transparent 40%, rgba(255,138,61,.1) 82%, rgba(0,0,0,.34) 100%);
+  animation: slowmo-breathe 1.6s ease-in-out infinite;
+}
+@keyframes slowmo-breathe {
+  0%, 100% { opacity: .65; }
+  50% { opacity: 1; }
+}
+.show-runner {
+  position: absolute; top: 8px; z-index: 3; width: var(--runner-w, 96px);
+  display: grid; justify-items: center; gap: 3px;
+  transition: left 90ms linear;
+}
+.show-runner::before {
+  content: ""; position: absolute; right: 86%; top: 22px; height: 38px; width: 112px;
+  background: repeating-linear-gradient(0deg, transparent 0 4px, rgba(255,190,130,.75) 4px 7px, transparent 7px 13px);
+  mask-image: linear-gradient(90deg, transparent, #000 72%);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 72%);
+  filter: blur(1px); opacity: .85;
+}
+/* Dust kicked up under the runner. */
+.show-runner::after {
+  content: ""; position: absolute; left: -10px; bottom: 24px; width: 52px; height: 20px;
+  background: radial-gradient(closest-side, rgba(255,205,160,.38), transparent 72%);
+  filter: blur(2px); opacity: .8;
+}
+.show-track--moving .show-runner::before { animation: streak-flicker .5s linear infinite; }
+.show-track--moving .show-runner::after { animation: dust-puff .55s ease-out infinite; }
+@keyframes streak-flicker {
+  0% { opacity: .25; transform: scaleX(.7); }
+  50% { opacity: .85; transform: scaleX(1.1); }
+  100% { opacity: .25; transform: scaleX(.7); }
+}
+@keyframes dust-puff {
+  0% { opacity: .85; transform: scale(.7) translateX(0); }
+  100% { opacity: 0; transform: scale(1.5) translateX(-16px); }
+}
+.show-runner-img {
+  width: var(--runner-w, 96px); height: var(--runner-w, 96px);
+  border-radius: 20px; object-fit: cover; display: block;
+  border: 2px solid #ff8a3d;
+  box-shadow: 0 12px 26px rgba(0,0,0,.5), 0 0 0 3px rgba(255,138,61,.16), inset 0 -8px 16px rgba(0,0,0,.2);
+  transition: transform .18s cubic-bezier(.2,1.2,.3,1);
+}
+.show-track:hover .show-runner-img { transform: scale(1.08) rotate(-2deg); }
+.show-track--moving .show-runner-img { animation: runner-bob .44s ease-in-out infinite; }
+@keyframes runner-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -4px; } }
+.show-runner-dot {
+  width: var(--runner-w, 96px); height: var(--runner-w, 96px);
+  display: grid; place-items: center; border-radius: 20px;
+  background: rgba(198,239,109,.1); border: 2px solid rgba(198,239,109,.5);
+  font-size: 38px; color: #c6ef6d;
+}
+.show-runner-plate {
+  width: var(--runner-w, 96px); padding: 2px 0 3px; border-radius: 7px;
+  background: rgba(13,16,20,.85); border: 1px solid rgba(255,138,61,.5);
+  font: 500 9.5px 'DM Mono', ui-monospace, monospace; letter-spacing: .05em;
+  color: #f4f6f8; text-align: center; white-space: nowrap; overflow: hidden;
+  box-shadow: 0 6px 16px rgba(0,0,0,.4);
+}
+.show-lane-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+.show-lane-meta span {
+  padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.08);
+  font: 500 10.5px 'DM Mono', ui-monospace, monospace; letter-spacing: .05em; color: #8b96a1;
+}
+.show-lane-meta .show-perk { color: #c6ef6d; border-color: rgba(198,239,109,.3); background: rgba(198,239,109,.07); }
 .show-foot { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; border-top: 1px solid rgba(255,255,255,.08); padding-top: 14px; }
 .show-disclosure { flex: 1; min-width: 260px; font-size: 12px; line-height: 1.6; color: #68737e; }
 .truth-strip { padding: 18px 22px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 14px; color: #aab4be; }
 .truth-strip span { flex: 1; min-width: 260px; line-height: 1.6; }
 
+/* --------------------------------------------------- show micro-motion */
+.show-controls .ui-button, .show-replay .ui-button, .hero-actions .ui-button {
+  transition: transform .16s cubic-bezier(.2,1.2,.3,1), box-shadow .16s ease, background-color .16s ease, border-color .16s ease, color .16s ease;
+}
+.show-replay:hover .ui-button { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(255,138,61,.22); }
+.show-controls .ui-button:hover { transform: translateY(-2px); }
+.show-controls .ui-button:active, .hero-actions .ui-button:active { transform: translateY(0) scale(.97); }
+.show-controls .ui-button:focus-visible, .hero-actions .ui-button:focus-visible { outline: 2px solid rgba(255,138,61,.6); outline-offset: 2px; }
+.replay-icon {
+  display: inline-block; margin-right: 8px; font-size: 15px;
+  transition: transform .6s cubic-bezier(.2,1.2,.3,1);
+}
+.show-replay:hover .replay-icon { transform: rotate(360deg); }
+
 /* ------------------------------------------------------------- podium */
 .podium-wrap { position: relative; }
+/* Stage light: a warm glow field around the ceremony, decorative only. */
+.podium-wrap::before {
+  content: ""; position: absolute; inset: -36px -20px; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(620px 320px at 18% -6%, rgba(250,204,21,.15), transparent 70%),
+    radial-gradient(720px 420px at 92% 108%, rgba(255,138,61,.13), transparent 72%),
+    radial-gradient(520px 300px at 55% 50%, rgba(236,72,153,.08), transparent 75%);
+}
 .confetti-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
-.podium { padding: 28px; display: grid; gap: 20px; position: relative; z-index: 1; }
+.show-lane .confetti-canvas { z-index: 3; }
+/* No z-index here on purpose: the panel paints first, the confetti rains over
+   its open space, and the ceremony blocks below sit above the rain. */
+.podium { padding: 30px; display: grid; gap: 22px; position: relative; }
+/* The ceremony panels sit above the confetti so the celebration wraps the
+   payoff frame instead of covering the faces and numbers. */
+.podium-head, .podium-winner, .podium-rest { position: relative; z-index: 3; }
 .podium-head { display: grid; gap: 10px; }
-.podium-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; }
-.podium-winners { display: grid; gap: 24px; align-content: start; }
-.podium-winner { display: grid; grid-template-columns: 180px 1fr; gap: 20px; align-items: start; }
-.podium-img { width: 180px; height: 180px; border-radius: 16px; object-fit: cover; border: 2px solid #c6ef6d; }
+.podium-head h2 { font-size: clamp(28px, 3.2vw, 42px); }
+.podium-grid { display: grid; grid-template-columns: 1fr; gap: 26px; }
+/* The champions stand side by side so the payoff frame holds every winner at
+   once; the rest of the field runs along the bottom. */
+.podium-winners { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 22px; align-content: start; }
+.podium-winner {
+  display: grid; grid-template-columns: 200px 1fr; gap: 22px; align-items: start;
+  padding: 20px; border-radius: 20px;
+  background: linear-gradient(180deg, rgba(26,32,40,.97), rgba(19,24,30,.97));
+  border: 1px solid rgba(255,255,255,.08);
+  animation: podium-pop .55s cubic-bezier(.2,1.2,.3,1) both;
+}
+@keyframes podium-pop { from { opacity: 0; transform: translateY(22px) scale(.96); } to { opacity: 1; transform: none; } }
+.podium-shot { position: relative; width: 200px; }
+.podium-img {
+  width: 200px; height: 200px; border-radius: 20px; object-fit: cover; display: block;
+  border: 3px solid #f4f6f8;
+  box-shadow: 0 26px 52px rgba(0,0,0,.5);
+}
+/* Gold, silver, bronze: rank accents around the champion tiles. */
+.podium-winner--gold .podium-img { border-color: #facc15; box-shadow: 0 0 0 5px rgba(250,204,21,.18), 0 26px 52px rgba(250,204,21,.22); }
+/* Sparkles flanking the champion tile, decorative only. */
+.podium-winner--gold .podium-shot::before, .podium-winner--gold .podium-shot::after {
+  content: "+"; position: absolute; z-index: 2; color: #facc15;
+  font: 700 26px 'Plus Jakarta Sans', system-ui, sans-serif;
+  text-shadow: 0 0 18px rgba(250,204,21,.85);
+  animation: sparkle-twinkle 1.9s ease-in-out infinite;
+}
+.podium-winner--gold .podium-shot::before { right: -14px; top: 26px; }
+.podium-winner--gold .podium-shot::after { left: -12px; bottom: 30px; font-size: 19px; animation-delay: .9s; }
+@keyframes sparkle-twinkle {
+  0%, 100% { opacity: .25; transform: scale(.7) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.15) rotate(90deg); }
+}
+.podium-winner--silver .podium-img { border-color: #d7dee6; box-shadow: 0 0 0 5px rgba(215,222,230,.16), 0 26px 52px rgba(215,222,230,.16); }
+.podium-winner--bronze .podium-img { border-color: #e08a4e; box-shadow: 0 0 0 5px rgba(224,138,78,.16), 0 26px 52px rgba(224,138,78,.18); }
+.podium-rank {
+  position: absolute; left: -8px; top: -10px;
+  padding: 6px 14px; border-radius: 10px;
+  background: #f4f6f8; color: #241a02;
+  font: 800 14px 'Plus Jakarta Sans', system-ui, sans-serif; letter-spacing: .12em;
+  box-shadow: 0 12px 26px rgba(0,0,0,.45);
+  animation: rank-snap .5s cubic-bezier(.2,1.2,.3,1) both;
+}
+.podium-winner--gold .podium-rank { background: linear-gradient(180deg, #fde68a, #facc15 60%, #eab308); }
+.podium-winner--silver .podium-rank { background: linear-gradient(180deg, #f4f6f8, #d7dee6 60%, #b9c4cf); }
+.podium-winner--bronze .podium-rank { background: linear-gradient(180deg, #f2b27e, #e08a4e 60%, #c96f33); }
+@keyframes rank-snap { from { transform: scale(.5) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }
+.podium-amount {
+  margin: 12px 0 8px;
+  font: 700 clamp(26px, 2.6vw, 38px) 'DM Mono', ui-monospace, monospace;
+  letter-spacing: -.01em; color: #f4f6f8; white-space: nowrap;
+  animation: amount-glow 2.6s ease-in-out infinite;
+}
+@keyframes amount-glow {
+  0%, 100% { text-shadow: 0 4px 24px rgba(255,138,61,.18); }
+  50% { text-shadow: 0 6px 34px rgba(250,204,21,.45); }
+}
+.podium-winner--gold .podium-amount { text-shadow: 0 6px 34px rgba(250,204,21,.4); }
+.podium-prize { border-left: 3px solid rgba(255,138,61,.55); padding-left: 14px; font-size: 14px; }
 .podium-winner h3 { margin: 4px 0 10px; font-size: 22px; }
-.podium-rest { display: grid; gap: 8px; align-content: start; }
-.podium-place { display: flex; gap: 10px; margin: 0; font-size: 15px; color: #f4f6f8; }
+.podium-rest { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; align-content: start; }
+.podium-rest .kicker { flex-basis: 100%; margin: 0 0 4px; }
+.podium-rest .muted, .podium-rest .show-disclosure { flex-basis: 100%; margin: 0; }
+.podium-place {
+  display: flex; gap: 10px; margin: 0; padding: 8px 12px; border-radius: 10px;
+  background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.06);
+  font-size: 14px; color: #f4f6f8;
+}
+.podium-place span { color: #ff8a3d; font: 500 12px 'DM Mono', ui-monospace, monospace; }
 .podium-place em { font-style: normal; color: #68737e; font: 500 11px 'DM Mono', ui-monospace, monospace; letter-spacing: .06em; }
 .show-inscription { font: 500 12px 'DM Mono', ui-monospace, monospace; color: #c6ef6d; line-height: 1.6; }
+
+/* ---------------------------------------------- race page compact head */
+/* Same words, tighter frame: the show stage belongs near the top of the
+   fold, so the hero gets out of its way. */
+.page-head--compact { padding: 16px 0 6px; }
+.page-head--compact h1 { font-size: clamp(24px, 3vw, 34px); line-height: 1.02; letter-spacing: -.045em; }
+.page-head--compact .kicker { margin: 0 0 4px; }
+.page-head--compact .lede { margin: 8px 0; font-size: 13px; line-height: 1.5; max-width: 680px; }
+.page-head--compact .hero-actions { margin: 4px 0 0; }
+.race-picker { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; padding: 10px 14px; }
+.race-picker .field { margin-bottom: 0; flex: 1 1 240px; }
+.race-picker .field input { height: 42px; }
+.race-picker .hero-actions { margin: 0; }
+.race-picker .viewer-error { flex-basis: 100%; margin: 0; }
 
 /* ------------------------------------------------------------ verify */
 .verdict { padding: 22px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
@@ -322,4 +609,28 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 @media (max-width: 1024px) {
   .podium-grid, .podium-winner { grid-template-columns: 1fr; }
   .draft-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+  /* Narrow phones: the runner art shrinks with its track and the ceremony
+     tiles fill the column, so nothing clips or overflows. */
+  .show-stage { padding: 16px; gap: 14px; }
+  .show-lane { padding: 12px 12px 10px; }
+  .show-track { --runner-w: 60px; height: 92px; }
+  .show-runner { top: 6px; }
+  .show-runner::before { top: 14px; height: 26px; width: 64px; }
+  .show-runner::after { bottom: 18px; width: 38px; height: 15px; }
+  .show-runner-plate { font-size: 8.5px; letter-spacing: .02em; }
+  .show-runner-dot { font-size: 26px; }
+  .show-finish { width: 28px; }
+  .show-finish-label { width: 28px; font-size: 8px; letter-spacing: .25em; }
+  .show-track::after { right: 28px; width: 18px; }
+  .show-winner-ribbon { top: -10px; right: 8px; font-size: 11px; padding: 5px 12px; }
+  .podium { padding: 18px; }
+  .podium-winners { grid-template-columns: 1fr; }
+  .podium-winner { padding: 14px; }
+  .podium-shot { width: 100%; }
+  .podium-img { width: 100%; height: auto; aspect-ratio: 1; }
+  .podium-amount { font-size: 30px; }
+  .race-picker { padding: 12px 14px; }
 }
