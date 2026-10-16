@@ -446,7 +446,7 @@ function Podium({
             ))}
           </div>
           <div className="podium-rest">
-            <p className="kicker">THE REST OF THE FIELD</p>
+            <p className="kicker">{draw.winners.length === 1 ? "RUNNER-UP · SHOW ORDER" : "THE REST OF THE FIELD"}</p>
             {runners.length === 0 && (
               <p className="muted">
                 {racers.length === 1

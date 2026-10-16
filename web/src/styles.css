@@ -595,6 +595,7 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
   margin: 12px 0 8px;
 }
 .podium-amount-glyph { display: inline-flex; filter: drop-shadow(0 4px 14px rgba(250,204,21,.45)); }
+.podium-amount-glyph svg { width: 88px; height: 88px; }
 .podium-amount {
   margin: 0;
   font: 800 clamp(28px, 2.6vw, 40px) 'Plus Jakarta Sans', system-ui, sans-serif;
@@ -685,7 +686,7 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 }
 .podium-field-card--runner-up { border-color: rgba(215,222,230,.55); }
 .podium-field-shot { position: relative; width: 104px; }
-.podium-field-card--runner-up .podium-field-shot { width: 180px; }
+.podium-field-card--runner-up .podium-field-shot { width: 260px; }
 /* A soft spotlight behind the field art too: same stage light, smaller pool. */
 .podium-field-card .podium-spotlight {
   background: radial-gradient(closest-side, rgba(215,222,230,.32), rgba(215,222,230,.12) 55%, transparent 80%);
