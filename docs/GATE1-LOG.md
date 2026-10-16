@@ -370,3 +370,88 @@ transaction. Every step therefore has to be safe to re-run, and three were not:
 
 The trader's quote is capped per racer so the second racer is not left with
 nothing, and the cap is reported in the log.
+
+## Gate 1 on stack v6, the draw the demo runs on
+
+Deployed fresh with the `_racerSet` fix and `commitWindow = 600s`, migrated both
+deposits in from v4, then ran the draw as **four separate invocations** with the
+commit window genuinely elapsing between them. Every number below was read from
+chain state after the fact, not from the script's own log.
+
+- Draw: `drawId 1`. Open → snapshot → commit in one invocation. Closed in a
+  second, after the real 600s window elapsed. Reveal → award → finalize in a
+  third. Payout → withdrawAll in a fourth.
+- Tickets frozen at close: racer1 (token 1462) 53,627,384, racer2 (token 954)
+  887,422. Odds 98.37% / 1.63%, summing to 100%.
+- Winner: token **1462**, re-derived off chain from the published seed and
+  matching the on-chain `winnersOf(1)`. Trophy count went 0 → 1, written by this
+  draw.
+- Harvest: 819 units, from the adapter's `realizableSurplus()` — LP fees accrued
+  on the real pair. Pot paid in full to racer1, `potPerWinnerOf(1)` = 819.
+- Withdraw all: racer1's 53,627,384 shares out, 53,628,203 asset received. The
+  819 surplus is the pot, so the numbers are consistent.
+- Final state: `stateOf(1)` = 4 (Finalized). Pool holds racer2's position,
+  887,422 principal, `positionValue` matching, pot 0.
+
+### The `_racerSet` fix, demonstrated on a real past draw
+
+This is the property the regression test pins, now confirmed against a draw that
+has actually finalized rather than simulated:
+
+```
+deriveWinners(1, 1)  -> [1462]
+deriveWinners(1, 2)  -> [1462, 954]
+```
+
+Asking for two winners from draw 1's book returns both racers from draw 1's own
+book. On the unfixed code this read the *current* draw's racer set, so once draw
+2 opened the answer would silently be a different set — the exposure was a public
+view that judges can call directly, which is why it was fixed before the demo
+rather than after.
+
+### What this run did not do, stated plainly
+
+- **The funding phase did not run.** Both racers were already deposited from the
+  migration, so re-running it made the script claim-and-swap for actors with live
+  positions. That crashed the simulated pair price and the script's own guard
+  (`pool booked more principal than the venue holds`) reverted it. A reverted
+  forge script discards its broadcasts, and racer1 was verified to have sent zero
+  transactions afterwards — nothing landed, and the pool was unharmed
+  (`totalPrincipal == positionValue == 54,514,806`). The guard did its job.
+- **No volume step.** The trader held no quote and is on the faucet's 24h
+  cooldown, so the 20 USDC of intended swap volume never happened. The pot is
+  therefore 819 units of accrued LP fees, not the ~20 USDC the plan assumed.
+- **Racer2 was not migrated from v4.** See the v4 section below.
+
+## The v4 migration, and the 0.89 USDC it cost
+
+v5 was a fresh stack, so the real deposits sat in the v4 contracts. Migration
+was `withdrawAll` from v4, `mintTestDrive` on the v6 mirror, re-deposit.
+
+**Racer1 migrated cleanly.** 54,305,574 units withdrawn, token 1462 re-minted on
+v6, 54,305,574 re-deposited. Credited 53,627,384 shares against 54,305,574
+principal — the 1.2% gap is the LP entry cost, real and shown to the depositor
+rather than absorbed by whoever exits last.
+
+**Racer2 did not, and this is the finding.** `withdrawAll(954)` on v4 reverted:
+
+```
+InsufficientLiquidity(890452, 875759)
+```
+
+The v4 adapter holds **one shared LP position for the whole pool**. Racer1's
+withdrawal walked that position out in slices until it was empty, so by racer2's
+turn there was nothing behind the 890,452 shares. Confirmed after the fact: v4
+adapter `lpHeld` 0, asset balance 0, USDT balance 0. Racer2's position still
+*shows* 890,452 shares in v4's accounting, backed by nothing.
+
+**Remedy, and its cost.** Racer2 was re-funded from scratch — StableFaucet
+claim, then two swaps through WMON into core USDC — and now holds 3.886 USDC.
+Token 954 was minted on v6 and 0.89 USDC re-deposited, so racer2 is whole and
+racing in the new pool. But they got there via the faucet, not via their v4
+position: **~0.89 USDC of real deposit is stranded in v4 and unrecoverable.**
+
+This is now recorded as a known behaviour in `PuddleLpAdapter.sol`'s header, with
+the operational mitigation (do not run a large `withdrawAll` while a smaller
+position is open). Per-depositor backing is the structural fix and is deferred
+until after submission.

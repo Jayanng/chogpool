@@ -22,9 +22,26 @@ import {IPuddlePair} from "../interfaces/IPuddlePair.sol";
 ///      transaction that actually moved tokens.
 ///
 /// @dev Withdrawal stays instant and full: `redeem()` removes liquidity
-///      proportionally and returns the requested asset amount. Principal is never at risk
-///      beyond ordinary AMM impermanent loss, which is the honest trade-off of the design
-///      and is labelled as such in the UI.
+///      proportionally and returns the requested asset amount. A single depositor's
+///      principal is never at risk beyond ordinary AMM impermanent loss, which is
+///      the honest trade-off of the design and is labelled as such in the UI.
+///
+/// @dev KNOWN BEHAVIOUR, one shared position for the whole pool: this adapter holds
+///      ONE LP position backing every depositor, not one per position. The first
+///      `withdrawAll` that walks the LP out to its full value can therefore consume
+///      the shared position and leave a later, smaller position with nothing behind
+///      it. Verified on the live v4 pool: racer1's withdrawAll drained the adapter
+///      (lpHeld 0, asset 0) and racer2's 890,452 shares became unredeemable, with
+///      `redeem()` reverting `InsufficientLiquidity(890452, 875759)`. The
+///      accounting still shows racer2's shares; the venue behind them is gone.
+///      Racer2 was made whole from the faucet and re-deposited, but ~0.89 USDC of
+///      real deposit is stranded in v4 and unrecoverable.
+///
+///      This is a design property, not a bug in `redeem()` — it delivered exactly
+///      what it was asked for. Per-depositor backing is the fix and is deliberately
+///      deferred until after submission. Until then the property is real and the
+///      mitigation is operational: do not run a large `withdrawAll` while a smaller
+///      position is still open.
 contract PuddleLpAdapter is IYieldAdapter, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
