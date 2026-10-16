@@ -37,7 +37,7 @@ export function ipfsToGateway(uri: string): string {
   return `${IPFS.gateway}${path}`;
 }
 
-// SWR-style cache keyed by tokenId (plan Phase 2 item 4): a cached record is
+// SWR-style cache keyed by tokenId: a cached record is
 // served instantly while a background revalidation refreshes it, so owners
 // that changed hands update without a second explicit lookup. In-flight reads
 // are deduplicated. TTL keeps the revalidation window small and honest.

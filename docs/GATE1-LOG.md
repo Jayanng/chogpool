@@ -1,12 +1,12 @@
-# Gate 1 — End-to-End Run (recorded, on a local FORK of Monad testnet)
+# Gate 1: End-to-End Run (recorded, on a local FORK of Monad testnet)
 
-**What this is:** the Gate 1 checklist from PLAN.md, executed for real against a
+**What this is:** the end-to-end checklist, executed for real against a
 fresh anvil fork of Monad testnet. Every number below was read from chain state
 during the run by `contracts/script/Gate1.s.sol`. The faucet, router, pair and LP
 are the real testnet contracts; the Chog stack is deployed into the fork, because
 a fork has no deployed stack.
 
-**Scope — read this first:** this is a **fork** run. It proves the contract logic
+**Scope, read this first:** this is a **fork** run. It proves the contract logic
 end-to-end against real Monad testnet state. It does **not** leave anything on
 testnet, and it is not a live testnet run. The correction section at the bottom of
 this file records a previous, false claim that it was.
@@ -115,32 +115,32 @@ withdraw all        : yes, instant and full
 
 ## What each step proves
 
-1. **Claim stables** — the funding path is the honest user path: `StableFaucet.claim()`
+1. **Claim stables**, the funding path is the honest user path: `StableFaucet.claim()`
    mints 1,000 USDT, then a real `swapExactTokensForTokens` through the real router
    converts it to USDC. No balance is ever invented. Note the two racers get
    different amounts (367.6 vs 245.0 USDC) because the second swap moves the thin
-   pair's price — that price impact is real and is shown, not hidden.
-2. **Mint mirror Chogs** — two Test Drive mints, both labelled on-chain
+   pair's price, that price impact is real and is shown, not hidden.
+2. **Mint mirror Chogs**, two Test Drive mints, both labelled on-chain
    (`badgeOf() == 1`), using real Chog metadata URIs.
-3. **Deposit → real LP** — 495 USDC of principal goes straight into the real
+3. **Deposit → real LP**: 495 USDC of principal goes straight into the real
    USDC/USDT pair. `adapter principal` (480.5) is the LP's measured redemption value,
    deliberately below the nominal 495 because `supply()` swaps half into USDT first,
    a fee-paying trade. Tickets are TWAB, and the odds split 5050/4949 tracks the
    deposit split exactly.
-4. **Real swap volume** — 100 USDC traded both directions through the real pair.
+4. **Real swap volume**: 100 USDC traded both directions through the real pair.
    `LP value delta: 0` at this print resolution: 100 USDC of volume against a
    ~6,000 USDC pool earns ~0.3% on our ~13% share, which is well under one unit of
    6-decimal precision. The yield that IS realized shows up in step 5.
-5. **Harvest** — the pot grows by 3,254,227 and `pool asset balance` equals it
+5. **Harvest**, the pot grows by 3,254,227 and `pool asset balance` equals it
    exactly. The pool holds the pot it booked. `adapter position` drops by the same
    amount, so the pot came out of the position, not out of thin air.
-6. **Commit-reveal draw** — full lifecycle in one run: open → snapshot → commit →
+6. **Commit-reveal draw**, full lifecycle in one run: open → snapshot → commit →
    close → reveal → award → finalize. The winner is re-derived from the published
    seed off-chain and **matches** the on-chain result. The winner's career record is
    written by the draw itself (`winner gold trophies: 1`).
-7. **Winner takes the pot** — `pot` is 0 after payout and the winner's balance rose,
+7. **Winner takes the pot**, `pot` is 0 after payout and the winner's balance rose,
    so the transfer is real.
-8. **Withdraw all** — 250,000,000 shares out, 250,000,000 USDC received, position
+8. **Withdraw all**: 250,000,000 shares out, 250,000,000 USDC received, position
    empty. Instant, full, no fee.
 
 ## Bugs this run found and fixed
@@ -162,7 +162,7 @@ suites, which only ever exercise a single supply, a single harvest, or neither.
    realize path.** The `loose >= surplus` branch transferred; the branch that
    actually redeems an LP slice and swaps it only emitted the event and left the
    tokens in the adapter. The pool credited `potBalance` with tokens it did not hold,
-   so `payPot()` reverted for every winner — the pot was permanently unpayable, and
+   so `payPot()` reverted for every winner, the pot was permanently unpayable, and
    the bug would have shipped as "harvest works, payouts fail". Fixed by moving the
    transfer to a single exit after both branches. The Gate 1 script now asserts
    `pool asset balance >= potBalance`, so this cannot regress silently.
@@ -170,7 +170,7 @@ suites, which only ever exercise a single supply, a single harvest, or neither.
 3. **`Gate1.s.sol` fork-vs-live discriminator was wrong.** It branched on
    `block.chainid`, but an anvil fork of testnet reports the same chainId (10143) as
    real testnet, so the script silently took the live branch and died on a missing
-   `deployments.json`. Now it discriminates on whether `deployments.json` exists —
+   `deployments.json`. Now it discriminates on whether `deployments.json` exists: 
    the actual signal.
 
 ## Also worth recording: the fork's reveal constraint
@@ -180,7 +180,7 @@ blocks the local node has really mined. Inside a `forge script` every call lands
 one simulated frame whose own block hash is zero, so a reveal in that frame reverts
 `RevealBlockUnavailable`, and rolling *forward* past the local tip reverts it too
 (unmined). The script therefore rolls back below the frame tip, closes the draw
-there, and reveals in the frame's own block — both are real mined blocks and the
+there, and reveals in the frame's own block, both are real mined blocks and the
 reveal is strictly after the close. Self-transfers do **not** advance
 `block.number` inside a forge script (verified directly), so they cannot be used to
 reach a mined block.
@@ -188,7 +188,7 @@ reach a mined block.
 ---
 
 
-# Correction — the run described below was a SIMULATION, not a live testnet run
+# Correction, the run described below was a SIMULATION, not a live testnet run
 
 An earlier version of this log claimed Gate 1 had "passed live end-to-end" on
 Monad testnet and reported real numbers (495 USDC deposited, a frozen ticket
@@ -218,20 +218,20 @@ Every contract holds code, and all six wirings were re-read from chain and match
 ## What was NOT real
 
 The Gate 1 end-to-end run. `contracts/script/Gate1.s.sol` was executed with
-`--broadcast` and printed a complete, plausible log — faucet claims, deposits, an
+`--broadcast` and printed a complete, plausible log, faucet claims, deposits, an
 LP position, a commit-reveal draw with a matching re-derivation, a paid pot, a
-withdrawal — but it **sent no transactions at all**.
+withdrawal, but it **sent no transactions at all**.
 
 The evidence, all of it checkable after the fact:
 
 - The run ended with `Warning: No transactions to broadcast.`
 - No `contracts/broadcast/Gate1.s.sol/` directory was ever created.
 - `engine.currentDrawId() == 0` and `engine.stateOf(1) == None` on the live
-  DrawEngine — no draw ever existed.
+  DrawEngine, no draw ever existed.
 - `pool.totalPrincipal() == 0`, `pool.potBalance() == 0`,
   `pool.positionValue() == 0` on the live pool.
 - `mirror.totalMinted() == 0` and `mirror.ownerOf(1462)` reverts
-  `ERC721NonexistentToken` — no Chog was ever minted.
+  `ERC721NonexistentToken`, no Chog was ever minted.
 - The deployer's nonce was 11, exactly the deploy transactions, with nothing
   from Gate 1.
 
@@ -242,7 +242,7 @@ holds. The old Gate 1 drove its actors with `vm.prank` and `vm.startPrank`,
 which only rewrite `msg.sender` **inside the EVM simulation**. When broadcasting,
 foundry silently skips those calls, prints a fully populated log, and warns once
 at the very end with "No transactions to broadcast". The script's own summary
-line — "No value was simulated, no fee was booked without a real tx" — was
+line, "No value was simulated, no fee was booked without a real tx", was
 therefore untrue, and the warning that contradicted it was the last line of a
 long log nobody read to the end.
 
@@ -274,14 +274,14 @@ On a real chain the draw cannot be warped into shape:
 The deployed `commitWindow` was 6 hours, so a complete live draw needed 6 real
 hours. The deploy script now honours `CHOGPOOL_COMMIT_WINDOW`, and a demo-sized
 stack is deployed with a short window so the sequence completes in minutes while
-still waiting for the window to genuinely elapse — mining a no-op transaction to
+still waiting for the window to genuinely elapse, mining a no-op transaction to
 advance `block.timestamp`, never `vm.warp` on a real chain.
 
 ## Lesson recorded
 
 A gate that can pass without executing anything is not a gate. Any enforcement
-step must be verified against observable chain state — nonce, `code.length`,
-`currentDrawId`, `totalPrincipal` — rather than against the log a script prints
+step must be verified against observable chain state, nonce, `code.length`,
+`currentDrawId`, `totalPrincipal`, rather than against the log a script prints
 about itself. `Gate1.s.sol` now asserts the things it claims (principal reached
 the LP, the mirror really owns the minted Chogs, the winner's trophy was
 recorded), but the assertions are worthless unless someone also checks the
@@ -292,11 +292,11 @@ outside world. That check is now part of the run.
 The live run surfaced a real accounting bug, not a script bug. Withdrawing all of
 a position reverted `InsufficientLiquidity(76577421, 75872479)`.
 
-`ChogPool.deposit()` credited `pos.shares += amount` — the full nominal deposit.
+`ChogPool.deposit()` credited `pos.shares += amount`, the full nominal deposit.
 `PuddleLpAdapter.supply()` does not take the full amount in: it swaps half the
 asset into the quote token before adding liquidity, so a deposit of N arrives in
 the position worth about N x (1 - entryCost). Measured on the live USDC/USDT pair,
-the entry cost was ~0.92% — 744,015 USDC on a 76.6M deposit.
+the entry cost was ~0.92%: 744,015 USDC on a 76.6M deposit.
 
 The pool therefore booked more principal than the venue could deliver. The first
 withdraw-all reverted, and the last depositor to leave would have absorbed the
@@ -312,7 +312,7 @@ it honestly.
 always succeeds, and the cost is visible in the numbers rather than hidden behind
 a revert that lands on whichever address exits last.
 
-`IChogPool.Deposited` already carried both fields — `amount` and `sharesMinted` —
+`IChogPool.Deposited` already carried both fields, `amount` and `sharesMinted`, 
 so the event needed no change.
 
 **What was deliberately not done:** pro-rata withdrawal distribution. It would

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-/// @title IChogMirror — frozen contract between contracts/ and web/ (2026-10-14).
+/// @title IChogMirror, frozen contract between contracts/ and web/ (2026-10-14).
 /// @notice FROZEN INTERFACE. Changing anything in this file requires BOTH owners
 ///         to approve (docs/WORKING-AGREEMENT.md: "the interfaces folder is law").
 ///
@@ -10,12 +10,11 @@ pragma solidity ^0.8.28;
 /// MUST NOT be weakened: it binds (tokenId, mainnetOwner, minter, nonce) under a
 /// domain containing this contract and the testnet chainId.
 ///
-/// ⚠️ CONTRADICTION RESOLVED HERE: PLAN.md Phase 1 item 1 and the audited prototype
-/// specify EIP-712, but PLAN.md's Phase 4 build prompt asked for EIP-191 over
+/// ⚠️ DESIGN DECISION: an earlier sketch asked for EIP-191 over
 /// keccak("CHOGPOOL-MIRROR:" + tokenId). That EIP-191 shape does NOT bind tokenId or
 /// minter, which re-opens cross-token replay and stolen-signature redemption. The
 /// EIP-712 shape below is the one that is implemented and audited, so EIP-712 is
-/// what we build. Any EIP-191 wording in PLAN.md Phase 4 is superseded by this file.
+/// what this file specifies. Any EIP-191 wording elsewhere is superseded here.
 interface IChogMirror {
     // ---------- events ----------
 
@@ -50,8 +49,9 @@ interface IChogMirror {
     ///      over the "ChogMirror"/"1" domain. `uriHash` is keccak256(bytes(realURI)),
     ///      so the metadata the contract stores is bound to the signature: a caller
     ///      cannot submit a valid signature alongside a different URI. Verify a stored
-    ///      token by recomputing the digest from tokenURI() and comparing with
-    ///      uriHashOf(tokenId).
+    ///      token by recomputing the digest from realURIOf() and comparing with
+    ///      uriHashOf(tokenId). Do NOT hash tokenURI() for this: it adds a display
+    ///      prefix for Test Drive tokens that was never part of the signed bytes.
     function mintWithSig(
         uint256 tokenId,
         address mainnetOwner,
@@ -64,7 +64,7 @@ interface IChogMirror {
     // ---------- test drive path ----------
 
     /// @notice Anyone can claim ONE Test Drive Chog (clearly labeled, testnet only).
-    /// @param tokenId an unclaimed real tokenId (1..MAX_SUPPLY) — real metadata, no proof
+    /// @param tokenId an unclaimed real tokenId (1..MAX_SUPPLY), real metadata, no proof
     /// @param realURI the token's real mainnet IPFS URI
     function mintTestDrive(uint256 tokenId, string calldata realURI) external;
 
@@ -78,6 +78,15 @@ interface IChogMirror {
 
     /// @notice tokenId => true if minted via Test Drive (no ownership proof).
     function isTestDrive(uint256 tokenId) external view returns (bool);
+
+    /// @notice The real metadata URI recorded at mint, with no display prefix.
+    /// @dev This is the value whose bytes were hashed into the recorded digest, so
+    ///      `keccak256(bytes(realURIOf(tokenId)))` is what must be compared against
+    ///      `uriHashOf(tokenId)`. `tokenURI()` deliberately adds a `test-chog:`
+    ///      prefix for Test Drive tokens, so hashing *its* output gives a false
+    ///      negative for exactly those tokens. Anyone running the verification
+    ///      check must hash this value, not tokenURI()'s.
+    function realURIOf(uint256 tokenId) external view returns (string memory);
 
     /// @notice keccak256(bytes(realURI)) recorded at mint, so the stored URI can be
     ///         checked against the digest the owner signed.
@@ -98,6 +107,6 @@ interface IChogMirror {
     /// @notice Badge source for the UI: 2 = Verified Holder, 1 = Test Drive, 0 = none.
     /// @dev PROVENANCE ONLY. The UI must also cross-check live mainnet
     ///      ownerOf(tokenId) == mainnetOwnerOf[tokenId] before showing "Verified Holder";
-    ///      the contract cannot see mainnet state. See docs/RULES.md label discipline.
+    ///      the contract cannot see mainnet state. Keep the two labels distinct.
     function badgeOf(uint256 tokenId) external view returns (uint8);
 }

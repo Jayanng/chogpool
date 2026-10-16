@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {CareerStore} from "../src/CareerStore.sol";
 import {ICareerStore} from "../interfaces/ICareerStore.sol";
 
-/// @title CareerStore suite — the portable career record.
+/// @title CareerStore suite, the portable career record.
 /// @notice Guards the properties the career page depends on: only the draw engine may
 ///         write, a race can only be recorded once, trophies land on the podium
 ///         places, and fatigue accrues on wins then decays over time.
@@ -76,7 +76,7 @@ contract CareerStoreTest is Test {
         assertEq(bronze, 1);
     }
 
-    /// Fourth place and beyond must not award a trophy — only the podium counts.
+    /// Fourth place and beyond must not award a trophy, only the podium counts.
     function test_RecordRace_OffPodium_NoTrophy() public {
         _record(TOKEN_A, 1, 4, 0);
         _record(TOKEN_A, 2, 10, 0);
@@ -152,7 +152,7 @@ contract CareerStoreTest is Test {
         assertEq(store.fatigueMultiplierOf(TOKEN_A), store.minMultiplier());
     }
 
-    /// The multiplier must be monotonically decreasing in fatigue — a more burdened
+    /// The multiplier must be monotonically decreasing in fatigue, a more burdened
     /// Chog can never be better off than a fresher one.
     function test_FatigueMultiplier_MonotonicInFatigue() public {
         _record(TOKEN_A, 1, 1, 0.25e18);

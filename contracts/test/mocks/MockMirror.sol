@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-/// @title MockMirror — DEV/TEST ONLY. Never imported by contracts/src.
+/// @title MockMirror: DEV/TEST ONLY. Never imported by contracts/src.
 /// @notice Minimal ERC-721 ownership surface so pool tests can bind tokenIds without
 ///         deploying the real mirror. Only ownerOf/setOwnerOf are used by the pool.
 contract MockMirror {

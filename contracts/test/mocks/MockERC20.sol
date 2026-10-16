@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-/// @title MockERC20 — DEV/TEST ONLY. Never imported by contracts/src.
+/// @title MockERC20: DEV/TEST ONLY. Never imported by contracts/src.
 /// @notice A plain mintable ERC-20 with configurable decimals, so pool tests can use
 ///         6-decimal stable semantics without touching a real token.
 contract MockERC20 is ERC20 {

@@ -1,6 +1,6 @@
 # Deploy Log
 
-## 2026-10-14 — Phase 2 (design system + app shell) · production
+## 2026-10-14: design system + app shell · production
 
 - URL (canonical): https://chogpool.vercel.app
 - Vercel project: chogpool (`prj_V91WdA7r5uRTE5aAJpko4e1x09Q4`, team jayanng)

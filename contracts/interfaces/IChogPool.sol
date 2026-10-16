@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-/// @title IChogPool — frozen contract between contracts/ and web/ (2026-10-14).
+/// @title IChogPool, frozen contract between contracts/ and web/ (2026-10-14).
 /// @notice FROZEN INTERFACE. Changing anything here requires BOTH owners to approve.
 ///
-/// Design invariants (from PLAN.md Phase 1 item 4):
+/// Design invariants:
 ///  - Deposit is denominated in a single stable (PuddleSwap core USDC on testnet,
 ///    mainnet USDC in production) resolved from infra/verified.json.
 ///  - Per-Depositor accounting is keyed by the Chog tokenId bound at deposit, so one
@@ -12,7 +12,7 @@ pragma solidity ^0.8.28;
 ///  - Instant FULL principal withdrawal: no lock, no fee. Principal is never at risk.
 ///  - Odds are time-weighted (TWAB), not last-second snapshot, so sniping cannot win.
 ///  - The pot only grows from value REALIZED through actual removeLiquidity/swap
-///    transactions (see IYieldAdapter) — never from a paper calculation.
+///    transactions (see IYieldAdapter), never from a paper calculation.
 interface IChogPool {
     // ---------- events ----------
 
@@ -76,7 +76,7 @@ interface IChogPool {
     /// @notice Total shares issued across all tokenIds.
     function totalShares() external view returns (uint256);
 
-    /// @notice Total principal currently held by the pool (asset units) — excludes pot.
+    /// @notice Total principal currently held by the pool (asset units), excludes pot.
     /// @dev CURRENT holdings, not lifetime deposits. Increases on deposit and
     ///      decreases on withdraw, so it always equals `totalShares()`. Lifetime
     ///      deposits are a separate question and live in `lifetimePrincipal()`.
@@ -99,7 +99,7 @@ interface IChogPool {
     ///      average = Δcumulative / Δt. Both timestamps must be <= now and ordered.
     function twabOf(uint256 tokenId) external view returns (uint256);
 
-    /// @notice TWAB over an explicit window — used by the draw and the /verify page.
+    /// @notice TWAB over an explicit window, used by the draw and the /verify page.
     /// @param tokenId the Chog position
     /// @param from    window start (unix seconds)
     /// @param to      window end (unix seconds), must be >= from and <= now
@@ -131,7 +131,7 @@ interface IChogPool {
     /// @notice Pay `amount` from the pot to `winner`. Callable only by the draw engine.
     function payPot(address winner, uint256 amount) external;
 
-    /// @notice Move realized yield from the adapter into the pot. Permissionless —
+    /// @notice Move realized yield from the adapter into the pot. Permissionless: 
     ///         anyone can trigger a harvest; the money only comes from real trades.
     /// @return amount the asset units moved into the pot
     function harvest() external returns (uint256 amount);

@@ -7,12 +7,12 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IChogMirror} from "../interfaces/IChogMirror.sol";
 
-/// @title ChogMirror — testnet mirror of Chog Genesis (mainnet).
+/// @title ChogMirror, testnet mirror of Chog Genesis (mainnet).
 /// @notice Production implementation of the FROZEN IChogMirror interface. It carries
 ///         the audited message shape from ChogMirrorProto.sol (audit 2026-10-14,
 ///         10 adversarial tests). DO NOT weaken the message shape.
 ///
-/// Two mint paths, never blurred (docs/RULES.md label discipline):
+/// Two mint paths, never blurred:
 ///   - Verified Holder: signed by the real mainnet owner. Provenance recorded on-chain.
 ///   - Test Drive: anyone, one per wallet, clearly labeled. Testnet only.
 ///
@@ -88,7 +88,7 @@ contract ChogMirror is ERC721, EIP712, Ownable, IChogMirror {
         // covers tokenId, mainnetOwner, minter and nonce, and a caller could submit
         // any string at all alongside a valid signature. The only thing standing
         // between the chain and a false metadata URI would be the frontend's
-        // behaviour — "trust our site" is not an answer a judge should have to
+        // behaviour, "trust our site" is not an answer a judge should have to
         // accept, and it is not one this contract needs to rely on. Hashing the URI
         // into the struct turns the guarantee into "check the signature", which is
         // checkable by anyone, forever, with no trust in us.
@@ -147,12 +147,17 @@ contract ChogMirror is ERC721, EIP712, Ownable, IChogMirror {
     // ---------------- views ----------------
 
     /// @notice keccak256(bytes(realURI)) recorded at mint for `tokenId`.
-    /// @dev Lets anyone verify the stored URI is the one that was signed: recompute
-    ///      keccak256 of the URI returned by tokenURI() and compare. For a Verified
-    ///      Holder token this is the digest inside the EIP-712 message the mainnet
-    ///      owner signed. For a Test Drive token nobody signed anything, so a match
-    ///      here proves only that the stored bytes hash to the recorded value — check
-    ///      isTestDrive() for whether an attestation exists at all.
+    /// @dev Lets anyone verify the stored URI is the one that was signed: read
+    ///      realURIOf(tokenId), take keccak256 of those bytes, and compare with this
+    ///      value. Do NOT hash tokenURI() for this: it prepends a `test-chog:`
+    ///      display prefix to Test Drive tokens, and that prefix was never part of
+    ///      the signed bytes, so hashing it reports a false negative for exactly the
+    ///      tokens that carry no signature.
+    ///      For a Verified Holder token this is the digest inside the EIP-712
+    ///      message the mainnet owner signed. For a Test Drive token nobody signed
+    ///      anything, so a match here proves only that the stored bytes hash to the
+    ///      recorded value, check isTestDrive() for whether an attestation exists
+    ///      at all.
     function uriHashOf(uint256 tokenId) external view returns (bytes32) {
         return _uriHashes[tokenId];
     }
@@ -163,6 +168,18 @@ contract ChogMirror is ERC721, EIP712, Ownable, IChogMirror {
         if (isTestDrive[tokenId]) {
             return string.concat(TEST_DRIVE_PREFIX, _realURIs[tokenId]);
         }
+        return _realURIs[tokenId];
+    }
+
+    /// @notice The real metadata URI recorded at mint, with no display prefix.
+    /// @dev This is the value whose bytes were hashed into the recorded digest, so
+    ///      `keccak256(bytes(realURIOf(tokenId)))` is what must be compared against
+    ///      `uriHashOf(tokenId)`. `tokenURI()` deliberately adds a `test-chog:`
+    ///      prefix for Test Drive tokens, which means hashing *its* output gives a
+    ///      false negative for exactly those tokens. Anyone running the
+    ///      verification check must hash this value, not tokenURI()'s.
+    function realURIOf(uint256 tokenId) external view returns (string memory) {
+        _requireOwned(tokenId);
         return _realURIs[tokenId];
     }
 

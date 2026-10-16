@@ -5,7 +5,7 @@ import {console2} from "forge-std/console2.sol";
 import {DeployBase} from "./DeployBase.sol";
 import {ITestChogToken} from "../interfaces/ITestChogToken.sol";
 
-/// @title Deploy.s.sol — deploys and wires the full Chog Pool stack on Monad testnet.
+/// @title Deploy.s.sol, deploys and wires the full Chog Pool stack on Monad testnet.
 /// @notice See DeployBase.sol for the registry rules and the wiring verification.
 ///
 /// Usage:

@@ -1,0 +1,474 @@
+// The race show: a deterministic replay of a draw the chain has already
+// decided. The lanes, the pace, the photo finish and the podium are built
+// purely from the draw's published final randomness, the frozen ticket book
+// and the racers' real IPFS traits. The winners on screen are the winners the
+// contract recorded; the replay never decides anything.
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { Hex } from "viem";
+import { Badge, Button, Panel, tokens } from "@chogpool/ui";
+import { buildRaceReplay, type RaceReplay } from "../lib/race-engine";
+import { perkEffectFor } from "../lib/draft";
+import { isSoundMuted, playCue, setSoundMuted } from "../lib/sound";
+import { formatAsset, formatBps, formatTickets, hexIsNonZero, shortHex } from "../lib/format";
+import { getRaceSource } from "../lib/game";
+import { navigate } from "../lib/router";
+import {
+  inscriptionFor,
+  ipfsName,
+  isWinnerToken,
+  joinWithAnd,
+  podiumPlacesFooter,
+  podiumPrizeSentence,
+  prizePerWinner,
+  replayDisclosure,
+  replayHeadline,
+  resultStripCopy,
+  trophySentence,
+  winnerHeadline,
+  winnerKickerLabel,
+  type CareerSource,
+  type InscriptionEvidence,
+} from "../lib/result-copy";
+import { Countdown } from "../components/Countdown";
+import { ShareCard, type ShareCardResult } from "../components/ShareCard";
+import { Confetti } from "./Confetti";
+import type { RaceBundle, RacerDisplay } from "./useRaceBundle";
+
+/** Wall-clock seconds of the replay at full speed. The frames themselves are
+ *  pure; only the playback clock is time-based. */
+const RACE_SECONDS = 20;
+const SLOWMO_FROM = 0.82;
+const SLOWMO_SPEED = 0.32;
+
+const ZERO_WORD: Hex = `0x${"0".repeat(64)}`;
+
+type Phase = "gates" | "running" | "done";
+
+/** One on-chain winner with the display data and the page's own evidence for
+ *  it. The inscription is the RaceRecorded event for this draw, when the logs
+ *  hold one; the trophy line may claim a recording only when it is there. */
+type WinnerView = {
+  tokenId: bigint;
+  racer: RacerDisplay | null;
+  inscription: InscriptionEvidence | null;
+};
+
+export function RaceShow({ bundle }: { bundle: RaceBundle }) {
+  const { draw, events, racers } = bundle;
+  // "0x" is the soft-read fallback, not a number: never hand it to BigInt().
+  const decided = (draw.state === "awarded" || draw.state === "finalized") && hexIsNonZero(draw.finalRandomness);
+
+  const replay: RaceReplay | null = useMemo(() => {
+    if (!decided) return null;
+    return buildRaceReplay({
+      drawId: draw.drawId,
+      finalRandomness: draw.finalRandomness,
+      winners: draw.winners,
+      lanes: racers.map((r) => ({
+        tokenId: r.tokenId,
+        tickets: r.tickets,
+        boost: r.boost,
+        tier: r.tier,
+        traits: r.traits,
+        perk: perkEffectFor(draw.drawId.toString(), r.tokenId.toString()),
+      })),
+    });
+    // The replay is a pure function of these exact inputs.
+  }, [draw.drawId, draw.finalRandomness, draw.winners, decided, racers]);
+
+  const [phase, setPhase] = useState<Phase>("gates");
+  const [progress, setProgress] = useState<Record<string, number>>({});
+  const [muted, setMuted] = useState(isSoundMuted);
+  const [slowmo, setSlowmo] = useState(false);
+  const tRef = useRef(0);
+  const finishCued = useRef(false);
+
+  const winnerViews: WinnerView[] = draw.winners.map((tokenId) => ({
+    tokenId,
+    racer: racers.find((r) => r.tokenId === tokenId) ?? null,
+    inscription: inscriptionFor(events?.inscriptions ?? [], tokenId),
+  }));
+  const winnerIndexInLanes = replay ? replay.lanes.findIndex((l) => l.tokenId === replay.winner) : -1;
+  const liveSource = getRaceSource()?.kind === "live";
+  // A rehearsal draw exists only in this draw's record. It drops the on-chain
+  // wording everywhere it shows; real draws keep the chain wording untouched.
+  const rehearsal = draw.rehearsal === true;
+
+  function progressSnapshot(t: number): Record<string, number> {
+    if (!replay) return {};
+    const values = replay.progressAt(t);
+    const out: Record<string, number> = {};
+    replay.lanes.forEach((lane, i) => {
+      out[lane.tokenId.toString()] = values[i] ?? 0;
+    });
+    return out;
+  }
+
+  function startRace() {
+    if (!replay) return;
+    tRef.current = 0;
+    finishCued.current = false;
+    setSlowmo(false);
+    setProgress(progressSnapshot(0));
+    playCue("gates");
+    setPhase("running");
+  }
+
+  useEffect(() => {
+    if (!replay) return;
+    // Runs start on load for decided draws: the show is the replay.
+    startRace();
+    return () => setPhase("gates");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replay]);
+
+  useEffect(() => {
+    if (phase !== "running" || !replay) return;
+    let raf = 0;
+    let last = performance.now();
+    const step = (now: number) => {
+      const dt = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      const current = replay.progressAt(tRef.current);
+      const winnerProgress = winnerIndexInLanes >= 0 ? current[winnerIndexInLanes] : 1;
+      const inSlowmo = winnerProgress > SLOWMO_FROM && winnerProgress < 1;
+      setSlowmo(inSlowmo);
+      tRef.current += (dt / RACE_SECONDS) * (inSlowmo ? SLOWMO_SPEED : 1);
+      if (winnerProgress >= 1 && !finishCued.current) {
+        finishCued.current = true;
+        playCue("finish");
+      }
+      if (tRef.current >= 1) {
+        setProgress(progressSnapshot(1));
+        playCue("fanfare");
+        setPhase("done");
+        return;
+      }
+      setProgress(progressSnapshot(tRef.current));
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [phase, replay, winnerIndexInLanes]);
+
+  const totalTickets = racers.reduce((acc, r) => acc + r.tickets, 0n);
+  const zeroPot = draw.potPerWinner === 0n;
+  const shareResult: ShareCardResult | null =
+    decided && winnerViews.length > 0
+      ? {
+          drawId: draw.drawId.toString(),
+          winners: winnerViews.map((view) => ({
+            tokenId: view.tokenId.toString(),
+            name: view.racer ? ipfsName(view.tokenId, view.racer.name, view.racer.metadataMissing) : null,
+            imageUrl: view.racer?.imageUrl ?? null,
+          })),
+          potLabel: formatAsset(draw.potPerWinner),
+          zeroPot,
+          rehearsal,
+        }
+      : null;
+
+  const strip = resultStripCopy({
+    rehearsal,
+    winnersLabel: joinWithAnd(winnerViews.map((view) => displayLabel(view))),
+    winnerCount: winnerViews.length,
+    prizeLabel: prizePerWinner(draw.winners, formatAsset(draw.potPerWinner)),
+    potLabel: formatAsset(draw.potPerWinner),
+    zeroPot,
+  });
+
+  return (
+    <div className="show">
+      <Panel className="show-stage">
+        <div className="show-top">
+          <div>
+            <p className="kicker">RACE {draw.drawId.toString()} · {stateLabel(draw.state)}</p>
+            <h2 className="show-title">{decided ? replayHeadline(rehearsal) : gatesTitle(draw.state)}</h2>
+          </div>
+          <div className="show-controls">
+            {decided && (
+              <Button variant="outline" onClick={startRace}>{phase === "running" ? "Racing…" : "Run the replay"}</Button>
+            )}
+            <Button variant="quiet" onClick={() => { const next = !muted; setSoundMuted(next); setMuted(next); }}>
+              {muted ? "Sound off" : "Sound on"}
+            </Button>
+          </div>
+        </div>
+
+        {draw.state === "open" && (
+          <div className="show-status">
+            <Countdown
+              nextDrawAt={draw.closeAt > 0 ? draw.closeAt : null}
+              fieldLocked={false}
+              sourceLabel={liveSource ? "LIVE FROM THE DRAW ENGINE (drawCloseAt)" : "FROM THE RECORDED DRAW (drawCloseAt)"}
+            />
+            <p className="muted">
+              The gates close when the commit window ends and the field locks. The race you watch here is a
+              replay of the revealed result, so it starts once the seed is revealed and the draw is awarded.
+            </p>
+          </div>
+        )}
+        {draw.state === "closed" && (
+          <div className="show-status">
+            <p className="show-status-line">SEED COMMITTED · AWAITING REVEAL</p>
+            <p className="muted">
+              The operator committed <code>{shortHex(draw.commitHash)}</code> before the window closed. The reveal
+              publishes the seed and binds the reveal block's hash; until then there is no result to replay, and
+              this page will not invent one.
+            </p>
+          </div>
+        )}
+
+        <div className="show-lanes">
+          {racers.map((racer) => (
+            <LaneRow
+              key={racer.tokenId.toString()}
+              racer={racer}
+              progress={progress[racer.tokenId.toString()] ?? 0}
+              share={totalTickets === 0n ? 0n : (racer.tickets * 10000n) / totalTickets}
+              drawId={draw.drawId.toString()}
+              isWinner={decided && isWinnerToken(draw.winners, racer.tokenId)}
+              showResult={phase === "done"}
+            />
+          ))}
+        </div>
+
+        <div className="show-foot">
+          <Badge tone={slowmo ? "accent" : "neutral"}>{slowmo ? "PHOTO FINISH" : phase === "done" ? "RACE COMPLETE" : phase === "running" ? "RACING" : "AT THE GATES"}</Badge>
+          <span className="show-disclosure">{replayDisclosure(rehearsal)}</span>
+        </div>
+      </Panel>
+
+      {decided && phase === "done" && (
+        <div className="podium-wrap">
+          <Confetti seed={draw.finalRandomness} active />
+          <Podium bundle={bundle} replay={replay} winners={winnerViews} eventsLabel={eventsLabel(events)} />
+        </div>
+      )}
+
+      {decided && phase !== "done" && winnerViews.length > 0 && (
+        <Panel className="truth-strip">
+          <Badge tone={rehearsal ? "neutral" : "lime"}>{strip.badge}</Badge>
+          <span>{strip.body}</span>
+          <Button variant="outline" onClick={() => navigate("/verify")}>Verify the draw</Button>
+        </Panel>
+      )}
+
+      {shareResult && (
+        <section className="share-section">
+          <ShareCard
+            chog={winnerViews[0]?.racer ? { tokenId: winnerViews[0].racer.tokenId.toString(), imageUrl: winnerViews[0].racer.imageUrl, name: winnerViews[0].racer.name } : null}
+            raceLabel={`Race ${draw.drawId.toString()} · ${stateLabel(draw.state)}`}
+            result={shareResult}
+          />
+        </section>
+      )}
+    </div>
+  );
+}
+
+function stateLabel(state: string): string {
+  if (state === "open") return "GATES OPEN";
+  if (state === "closed") return "AWAITING REVEAL";
+  if (state === "awarded") return "RESULT IN";
+  if (state === "finalized") return "FINALIZED";
+  return "NO DRAW";
+}
+
+function gatesTitle(state: string): string {
+  if (state === "open") return "The field is filling. The gates are not open yet.";
+  if (state === "closed") return "The seed is committed. The race waits for its reveal.";
+  return "No result to replay yet.";
+}
+
+function eventsLabel(events: RaceBundle["events"]): string {
+  if (!events) return "";
+  return events.awardedAt ? `Awarded at block ${events.awardedAt.blockNumber.toString()}` : "";
+}
+
+/** "CHOG #1462", with the real IPFS metadata name where one exists. */
+function displayLabel(view: WinnerView): string {
+  const base = `CHOG #${view.tokenId.toString()}`;
+  const name = view.racer ? ipfsName(view.tokenId, view.racer.name, view.racer.metadataMissing) : null;
+  return name ? `${base} (IPFS metadata name: ${name})` : base;
+}
+
+function LaneRow({
+  racer,
+  progress,
+  share,
+  drawId,
+  isWinner,
+  showResult,
+}: {
+  racer: RacerDisplay;
+  progress: number;
+  share: bigint;
+  drawId: string;
+  isWinner: boolean;
+  showResult: boolean;
+}) {
+  const perk = perkEffectFor(drawId, racer.tokenId.toString());
+  const name = ipfsName(racer.tokenId, racer.name, racer.metadataMissing);
+  return (
+    <div className={`show-lane${isWinner && showResult ? " show-lane--winner" : ""}`}>
+      <div className="show-lane-head">
+        <span className="show-lane-id">CHOG #{racer.tokenId.toString()}</span>
+        {racer.badge && racer.badge.badge !== 0 && (
+          <Badge tone={racer.badge.badge === 2 ? "lime" : "neutral"}>{racer.badge.badgeLabel}</Badge>
+        )}
+        {racer.metadataMissing && <Badge tone="danger">METADATA UNREACHABLE</Badge>}
+        {racer.tier && <Badge tone="neutral">TIER: {racer.tier.toUpperCase()}</Badge>}
+      </div>
+      <div className="show-track">
+        <div className="show-runner" style={{ left: `calc(${(progress * 100).toFixed(3)}% - 28px)` }}>
+          {racer.imageUrl ? (
+            <img src={racer.imageUrl} alt={`CHOG #${racer.tokenId.toString()}`} className="show-runner-img" />
+          ) : (
+            <span className="show-runner-dot">◉</span>
+          )}
+        </div>
+      </div>
+      <div className="show-lane-meta">
+        <span>{formatTickets(racer.tickets)} tickets · {formatBps(share)} of the frozen book</span>
+        {name && <span>IPFS NAME: {name.toUpperCase()}</span>}
+        {perk && <span className="show-perk">PERK: {perk.name.toUpperCase()} (SHOW ONLY)</span>}
+      </div>
+    </div>
+  );
+}
+
+function Podium({
+  bundle,
+  replay,
+  winners,
+  eventsLabel,
+}: {
+  bundle: RaceBundle;
+  replay: RaceReplay | null;
+  winners: WinnerView[];
+  eventsLabel: string;
+}) {
+  const { draw, racers } = bundle;
+  const winnerKeys = new Set(draw.winners.map((w) => w.toString()));
+  const runners = replay ? replay.finishOrder.filter((t) => !winnerKeys.has(t.toString())) : [];
+  const zeroPot = draw.potPerWinner === 0n;
+  const rehearsal = draw.rehearsal === true;
+  const careerSource: CareerSource = draw.recordedCareers ? "draw-record" : "live-read";
+  return (
+    <Panel className="podium">
+      <div className="podium-head">
+        <Badge tone="lime">PODIUM</Badge>
+        <h2>{winnerHeadline(draw.winners)}</h2>
+      </div>
+      <div className="podium-grid">
+        <div className="podium-winners">
+          {winners.map((view) => (
+            <WinnerBlock
+              key={view.tokenId.toString()}
+              view={view}
+              drawId={draw.drawId.toString()}
+              winnerTokens={draw.winners}
+              potLabel={formatAsset(draw.potPerWinner)}
+              eventsLabel={eventsLabel}
+              zeroPot={zeroPot}
+              rehearsal={rehearsal}
+              careerSource={careerSource}
+            />
+          ))}
+        </div>
+        <div className="podium-rest">
+          <p className="kicker">THE REST OF THE FIELD</p>
+          {runners.length === 0 && (
+            <p className="muted">
+              {racers.length === 1
+                ? "A one-racer field: the book held a single racer this draw."
+                : "Every racer in the book is a winner this draw."}
+            </p>
+          )}
+          {runners.map((tokenId, i) => {
+            const racer = racers.find((r) => r.tokenId === tokenId);
+            return (
+              <p className="podium-place" key={tokenId.toString()}>
+                <span>{i + draw.winners.length + 1}.</span> CHOG #{tokenId.toString()}
+                {racer && ipfsName(tokenId, racer.name, racer.metadataMissing) ? <em>IPFS NAME: {(ipfsName(tokenId, racer.name, racer.metadataMissing) ?? "").toUpperCase()}</em> : null}
+                <em> show order (presentation)</em>
+              </p>
+            );
+          })}
+          <p className="show-disclosure">
+            {podiumPlacesFooter(draw.winners.length, rehearsal)}{" "}
+            The rest of the finishing order is deterministic show flavor from the same seed, labeled wherever it
+            appears.
+          </p>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function WinnerBlock({
+  view,
+  drawId,
+  winnerTokens,
+  potLabel,
+  eventsLabel,
+  zeroPot,
+  rehearsal,
+  careerSource,
+}: {
+  view: WinnerView;
+  drawId: string;
+  winnerTokens: readonly bigint[];
+  potLabel: string;
+  eventsLabel: string;
+  zeroPot: boolean;
+  rehearsal: boolean;
+  careerSource: CareerSource;
+}) {
+  const racer = view.racer;
+  const name = racer ? ipfsName(view.tokenId, racer.name, racer.metadataMissing) : null;
+  // A zero split is not a payment: the sentence says so instead of claiming
+  // one. With prize money the copy names the per-winner share and its source;
+  // a rehearsal says what award() would have done and that no money moved.
+  const prizeSentence = podiumPrizeSentence({
+    rehearsal,
+    winners: winnerTokens,
+    potLabel,
+    zeroPot,
+    team: racer?.team ? shortHex(racer.team, 10, 8) : null,
+  });
+  return (
+    <div className="podium-winner">
+      {racer?.imageUrl && (
+        <img src={racer.imageUrl} alt={`CHOG #${view.tokenId.toString()}`} className="podium-img" />
+      )}
+      <div>
+        <p className="kicker">{winnerKickerLabel(drawId, rehearsal)}</p>
+        <h3>
+          CHOG #{view.tokenId.toString()}
+          {name ? ` · IPFS metadata name: ${name}` : ""}
+        </h3>
+        {racer?.badge && racer.badge.badge !== 0 && (
+          <Badge tone={racer.badge.badge === 2 ? "lime" : "neutral"}>{racer.badge.badgeLabel}</Badge>
+        )}
+        <p className="muted">
+          {prizeSentence}
+          {eventsLabel ? ` ${eventsLabel}.` : ""}
+        </p>
+        {racer?.career && <p className="muted">{trophySentence(racer.career, view.inscription, careerSource)}</p>}
+        {view.inscription && (
+          <p className="show-inscription">
+            INSCRIPTION EVENT: RaceRecorded at block {view.inscription.blockNumber.toString()} (tx{" "}
+            {shortHex(view.inscription.txHash, 10, 8)}), placement {view.inscription.placement}.
+          </p>
+        )}
+        <div className="hero-actions">
+          <Button onClick={() => navigate("/verify")}>Re-derive this result</Button>
+          <Button variant="outline" onClick={() => navigate("/spectator")}>Cheer the field</Button>
+        </div>
+      </div>
+    </div>
+  );
+}

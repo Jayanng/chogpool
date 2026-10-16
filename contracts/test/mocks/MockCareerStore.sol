@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import {ICareerStore} from "../../interfaces/ICareerStore.sol";
 
-/// @title MockCareerStore — DEV/TEST ONLY. Never imported by contracts/src.
+/// @title MockCareerStore: DEV/TEST ONLY. Never imported by contracts/src.
 /// @notice Records what the draw engine sends it, so the engine's career hook can be
 ///         asserted without deploying the real CareerStore in the same suite.
 contract MockCareerStore is ICareerStore {

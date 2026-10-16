@@ -5,9 +5,9 @@ import {Test} from "forge-std/Test.sol";
 import {TestChogToken} from "../src/TestChogToken.sol";
 import {ITestChogToken} from "../interfaces/ITestChogToken.sol";
 
-/// @title TestChogToken suite — the play-money token's faucet and labelling rules.
+/// @title TestChogToken suite, the play-money token's faucet and labelling rules.
 /// @notice These tests guard the two properties that keep the token honest: the
-///         name/symbol really do say "Test" (RULES.md #8), and the faucet is capped
+///         name/symbol really do say "Test", and the faucet is capped
 ///         per address per cooldown so side prizes stay meaningful.
 contract TestChogTokenTest is Test {
     TestChogToken token;
@@ -23,7 +23,7 @@ contract TestChogTokenTest is Test {
         token = new TestChogToken(owner_, CLAIM, COOLDOWN);
     }
 
-    // ---------- labelling (RULES.md #8) ----------
+    // ---------- labelling ----------
 
     /// The token must never be confusable with the real mainnet $CHOG.
     function test_Label_IsExplicitlyTest() public {
@@ -100,7 +100,7 @@ contract TestChogTokenTest is Test {
         assertEq(token.balanceOf(alice), 2 * CLAIM);
     }
 
-    /// The cap must be per address, not global — a second wallet can still claim.
+    /// The cap must be per address, not global, a second wallet can still claim.
     function test_Claim_CooldownIsPerAddress() public {
         vm.prank(alice);
         token.claim();

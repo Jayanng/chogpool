@@ -7,10 +7,10 @@ import {IDrawEngine} from "../interfaces/IDrawEngine.sol";
 import {IChogPool} from "../interfaces/IChogPool.sol";
 import {ICareerStore} from "../interfaces/ICareerStore.sol";
 
-/// @title DrawEngine — commit-reveal draw with a published, re-verifiable seed.
+/// @title DrawEngine, commit-reveal draw with a published, re-verifiable seed.
 /// @notice Production implementation of the FROZEN IDrawEngine interface.
 ///
-/// Fairness (docs/RULES.md #5):
+/// Fairness:
 ///  1. While a draw is Open, the operator commits keccak256(seed). The seed itself is
 ///     NOT on-chain, so nobody can read it early.
 ///  2. After close, the operator reveals `seed`; the contract checks keccak256(seed)==commit.
@@ -18,7 +18,7 @@ import {ICareerStore} from "../interfaces/ICareerStore.sol";
 ///     The reveal block's blockhash is not knowable at commit time, so the operator
 ///     cannot grind the seed to a chosen winner.
 ///  4. Winners are derived on-chain from that randomness and the frozen TWAB tickets.
-///     Anyone can re-derive them off-chain from the published seed — /verify does this.
+///     Anyone can re-derive them off-chain from the published seed: /verify does this.
 ///
 /// Modulo bias: the winner index is drawn from a 2^256 space via the draw's randomness,
 /// reduced modulo totalTickets. Because totalTickets is a real number (not a power of
@@ -38,7 +38,7 @@ contract DrawEngine is IDrawEngine, Ownable2Step, ReentrancyGuard {
     ///      adding to a frozen interface needs both owners' approval.
     event OperatorUpdated(address indexed newOperator);
 
-    /// @dev Raised when a wiring target has no code — see setCareerStore.
+    /// @dev Raised when a wiring target has no code, see setCareerStore.
     error NotAContract(address target);
 
     // ---------------- immutables / wiring ----------------
@@ -88,7 +88,7 @@ contract DrawEngine is IDrawEngine, Ownable2Step, ReentrancyGuard {
     uint64 public commitWindow = 6 hours;
 
     /// @dev How long after close the operator has to reveal. Miss it and the draw
-    ///      cannot be settled — the honest outcome is an unplayable draw, not a
+    ///      cannot be settled, the honest outcome is an unplayable draw, not a
     ///      quietly rewritten result.
     uint64 public revealWindow = 24 hours;
 
@@ -257,7 +257,7 @@ contract DrawEngine is IDrawEngine, Ownable2Step, ReentrancyGuard {
         // We bind blockhash(block.number - 1), the PREVIOUS block, because EVM
         // `blockhash(n)` is defined as zero when n is the current block. Binding
         // the current block would bind a constant zero and contribute nothing to
-        // the randomness — the whole point of the binding is to fold in a value
+        // the randomness, the whole point of the binding is to fold in a value
         // the operator cannot choose.
         if (block.number <= d.closedAtBlock) revert RevealTooEarly();
 
@@ -288,7 +288,7 @@ contract DrawEngine is IDrawEngine, Ownable2Step, ReentrancyGuard {
         if (d.totalTickets == 0) revert NoTickets();
         if (d.winners.length != 0) revert NoWinners();
 
-        uint256[] memory winners = _deriveWinners(d, d.finalRandomness, winnerCount);
+        uint256[] memory winners = _deriveWinners(drawId, d.finalRandomness, winnerCount);
         for (uint256 i = 0; i < winners.length; i++) {
             d.winners.push(winners[i]);
         }
@@ -344,14 +344,17 @@ contract DrawEngine is IDrawEngine, Ownable2Step, ReentrancyGuard {
     /// @dev Reads ONLY the draw's frozen snapshot (tickets + boosts), never the live
     ///      `boostOf` mapping, so a boost changed after close cannot alter the result
     ///      and an off-chain re-derivation from the published seed matches exactly.
-    function _deriveWinners(Draw storage d, bytes32 randomness, uint256 winnerCount)
+    /// @dev `drawId` is passed explicitly rather than read from `currentDrawId`, so a
+    ///      past draw derives from ITS OWN racer book. Deriving a closed draw against
+    ///      the live book would answer a different question than the one asked.
+    function _deriveWinners(uint256 drawId, bytes32 randomness, uint256 winnerCount)
         internal
         view
         returns (uint256[] memory winners)
     {
         // The racer set for a draw is the tokens with non-zero tickets. We keep the
         // list in the draw so derivation is self-contained.
-        uint256[] memory racers = _racerSet(d);
+        uint256[] memory racers = _racerSet(drawId);
         uint256 n = racers.length;
         if (n == 0) revert NoTickets();
         if (winnerCount > n) winnerCount = n;
@@ -363,8 +366,8 @@ contract DrawEngine is IDrawEngine, Ownable2Step, ReentrancyGuard {
         for (uint256 i = 0; i < winnerCount; i++) {
             // Derive a fresh index per winner from the draw randomness + attempt index.
             bytes32 h = keccak256(abi.encodePacked(randomness, i));
-            uint256 idx = uint256(h) % d.totalTickets;
-            uint256 tokenId = _tokenAtCumulativeIndex(d, racers, idx);
+            uint256 idx = uint256(h) % _draws[drawId].totalTickets;
+            uint256 tokenId = _tokenAtCumulativeIndex(_draws[drawId], racers, idx);
             // Skip duplicates.
             bool dup = false;
             for (uint256 j = 0; j < pickedCount; j++) {
@@ -415,15 +418,21 @@ contract DrawEngine is IDrawEngine, Ownable2Step, ReentrancyGuard {
     /// @dev The racer set for a draw: every tokenId that has tickets recorded.
     ///      The pool is the source of truth for WHICH tokens have tickets, so we
     ///      read the frozen book back rather than tracking a set ourselves.
-    function _racerSet(Draw storage) internal view returns (uint256[] memory) {
-        return IChogPool(pool).frozenRacers(currentDrawId);
+    /// @dev Takes `drawId` as an argument and MUST NOT fall back to
+    ///      `currentDrawId`: `deriveWinners(drawId, n)` is a public view anyone can
+    ///      call on any past draw, and answering from the live book would return
+    ///      the wrong racers for that draw. The earlier version ignored its
+    ///      argument, which was invisible with one draw and wrong the moment a
+    ///      second one opened.
+    function _racerSet(uint256 drawId) internal view returns (uint256[] memory) {
+        return IChogPool(pool).frozenRacers(drawId);
     }
 
     /// @inheritdoc IDrawEngine
     function deriveWinners(uint256 drawId, uint256 winnerCount) external view returns (uint256[] memory) {
         Draw storage d = _draws[drawId];
         if (d.finalRandomness == bytes32(0)) revert NoWinners();
-        return _deriveWinners(d, d.finalRandomness, winnerCount);
+        return _deriveWinners(drawId, d.finalRandomness, winnerCount);
     }
 
     // ---------------- views ----------------
@@ -464,7 +473,7 @@ contract DrawEngine is IDrawEngine, Ownable2Step, ReentrancyGuard {
     ///      know when it may honestly call closeDraw(): closeDraw() reverts
     ///      CommitWindowClosed while block.timestamp < closeAt, and a real chain
     ///      cannot be warped past it. The value is already stored in the draw and
-    ///      already emitted in DrawOpened, so this exposes nothing new — it only
+    ///      already emitted in DrawOpened, so this exposes nothing new, it only
     ///      makes an existing value readable without an event scan.
     function drawCloseAt(uint256 drawId) external view returns (uint64) {
         return _draws[drawId].closeAt;

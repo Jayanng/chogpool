@@ -29,10 +29,10 @@ interface IStableFaucet {
     function nextClaimAt(address who) external view returns (uint256);
 }
 
-/// @title Gate1.s.sol — the Gate 1 end-to-end run, as an executable log.
-/// @notice This script IS the recorded demo log the plan requires.
+/// @title Gate1.s.sol, the Gate 1 end-to-end run, as an executable log.
+/// @notice This script IS the recorded demo log for the end-to-end run.
 ///
-/// @dev CRITICAL — how this achieves REAL testnet transactions.
+/// @dev CRITICAL, how this achieves REAL testnet transactions.
 ///
 /// `forge script --broadcast` only signs transactions for a wallet it holds. A
 /// `vm.prank`/`vm.startPrank` merely changes `msg.sender` inside the EVM
@@ -63,10 +63,10 @@ interface IStableFaucet {
 ///   2. mint a Test Drive mirror Chog
 ///   3. deposit USDC into the pool (goes straight into the real LP)
 ///   4. swap real volume through the pair so LP fees accrue
-///   5. harvest — the pot grows ONLY from realized removeLiquidity/swap value
+///   5. harvest, the pot grows ONLY from realized removeLiquidity/swap value
 ///   6. run a full commit-reveal draw
 ///   7. winner takes the pot
-///   8. withdraw all principal — instant, full, no fee
+///   8. withdraw all principal, instant, full, no fee
 ///
 /// Usage (real testnet, state persists):
 ///   forge script script/Gate1.s.sol --rpc-url monad_testnet --broadcast
@@ -141,15 +141,15 @@ contract Gate1 is DeployBase {
         // fails mid-run DISCARDS its broadcasts (verified directly: a script that
         // completes advances the nonce and saves artifacts; one that reverts
         // leaves the chain untouched and writes no artifacts). The draw also
-        // cannot be closed in the same frame that opened it — block.timestamp
+        // cannot be closed in the same frame that opened it, block.timestamp
         // inside a script frame is frozen, so closeDraw() sees the frame's clock
         // and reverts CommitWindowClosed even after the chain has moved on.
         //
         // Each phase is therefore a complete, successful script:
-        //   fund   — steps 1-4: claims, mints, deposits, volume
-        //   draw   — step 6: open (or resume), wait for the REAL window, then
+        //   fund, steps 1-4: claims, mints, deposits, volume
+        //   draw, step 6: open (or resume), wait for the REAL window, then
         //             close, reveal, award, finalize in a SECOND invocation
-        //   settle — steps 5, 7, 8: harvest, payout report, withdraw all
+        //   settle, steps 5, 7, 8: harvest, payout report, withdraw all
         //
         // The boundary between "draw" and "settle" is the commit window, which is
         // real time and cannot be crossed inside one script frame.
@@ -220,7 +220,7 @@ contract Gate1 is DeployBase {
         require(msg.sender != racer1 && msg.sender != racer2, "racers must differ from the script sender");
 
         // The key that signs the operator and owner calls. It must be the on-chain
-        // operator, otherwise every draw call reverts NotOperator() — and the
+        // operator, otherwise every draw call reverts NotOperator(), and the
         // revert looks like a contract bug rather than a missing broadcast.
         operatorKey = vm.envUint("CHOGPOOL_OPERATOR_PRIVATE_KEY");
         require(vm.addr(operatorKey) == engine.operator(), "operator key is not the on-chain operator");
@@ -271,7 +271,7 @@ contract Gate1 is DeployBase {
     ///      Passing `block.timestamp` makes UniswapV2Router revert EXPIRED, because
     ///      the script frame's timestamp is frozen and is already in the past by the
     ///      time the tx lands. The chain clock is read from the node and given a
-    ///      generous margin — a deadline is a slippage guard, not a timing promise,
+    ///      generous margin, a deadline is a slippage guard, not a timing promise,
     ///      so a wide one does not weaken the protection that matters (amountOutMinimum
     ///      is set explicitly at every call site).
     function _swapDeadline() internal returns (uint256) {
@@ -300,7 +300,7 @@ contract Gate1 is DeployBase {
 
     // ---------------- steps ----------------
 
-    /// Step 1: the honest funding path — claim from the real StableFaucet, exactly as
+    /// Step 1: the honest funding path, claim from the real StableFaucet, exactly as
     ///         a user does, then swap into the asset the pool needs.
     function _step1_ClaimStables() internal {
         console2.log("");
@@ -323,7 +323,7 @@ contract Gate1 is DeployBase {
         for (uint256 i = 0; i < claimants.length; i++) {
             // The faucet enforces a 24h cooldown per claimant, so a re-run after an
             // interruption must not try to claim again for an actor that already
-            // did — it would revert ClaimTooSoon and discard the whole broadcast.
+            // did, it would revert ClaimTooSoon and discard the whole broadcast.
             // An actor that already holds quote token is treated as funded, and the
             // swap is repeated only if it still holds unswapped quote.
             // "Already funded" means holding EITHER leg. An actor that already
@@ -381,7 +381,7 @@ contract Gate1 is DeployBase {
         // claimed in an earlier run has nothing left and cannot claim again. The
         // trader's quote balance is real money on the same real pair, so moving a
         // slice of it to the racers keeps every unit traceable to a real trade.
-        // Nothing is fabricated and no address is privileged — the racers simply
+        // Nothing is fabricated and no address is privileged, the racers simply
         // receive asset the trader actually swapped out of the pair.
         _topUpRacers();
     }
@@ -423,7 +423,7 @@ contract Gate1 is DeployBase {
             }
 
             // Quote needed to buy `missing` asset, with a 2% cushion for price impact.
-            // Capped at what the trader actually holds — a top-up that would drain the
+            // Capped at what the trader actually holds, a top-up that would drain the
             // trader entirely is trimmed to what it can afford, so the NEXT racer is
             // not left with nothing. The cap is reported so the log states what
             // actually moved rather than the target it was aiming at.
@@ -445,7 +445,7 @@ contract Gate1 is DeployBase {
 
             // Send only what the swap actually produced, and only up to what is
             // missing. A racer that received part of the top-up is left with what it
-            // has — step 3 deposits the real balance rather than reverting on a
+            // has, step 3 deposits the real balance rather than reverting on a
             // zero or short amount.
             uint256 got = IERC20(reg.asset).balanceOf(trader);
             if (got > missing) got = missing;
@@ -482,7 +482,7 @@ contract Gate1 is DeployBase {
         // simply reported, so the phase stays resumable.
         //
         // ownerOf REVERTS for an unminted token (ERC721NonexistentToken) rather
-        // than returning address(0), so the existence check has to catch that —
+        // than returning address(0), so the existence check has to catch that: 
         // calling it unguarded is what killed a live run at this exact step.
         if (_mirrorOwns(DEMO_TOKEN_ID)) {
             console2.log("racer1 Chog already minted (resuming)");
@@ -518,7 +518,7 @@ contract Gate1 is DeployBase {
         console2.log("--- step 3: deposit into the pool (principal -> real LP) ---");
 
         // A position is bound to its first depositor, so a re-run must not deposit
-        // again for a tokenId that already has one — it would revert
+        // again for a tokenId that already has one, it would revert
         // NotMirrorOwner (or double-count principal). Depositing only what is still
         // missing keeps the phase resumable without changing what is on chain.
         uint256 dep1 = 0;
@@ -544,7 +544,7 @@ contract Gate1 is DeployBase {
             uint256 bal2 = IERC20(reg.asset).balanceOf(racer2);
             dep2 = bal2 < RIVAL_DEPOSIT ? bal2 : RIVAL_DEPOSIT;
             // A racer the faucet can no longer serve and the trader could not top
-            // up has nothing to deposit. Skipping keeps the phase resumable — the
+            // up has nothing to deposit. Skipping keeps the phase resumable, the
             // draw still runs, just with one fewer funded racer. Reverting on a zero
             // deposit would discard the whole broadcast, including racer1's.
             if (dep2 == 0) {
@@ -608,7 +608,7 @@ contract Gate1 is DeployBase {
         );
         // Same resumability rule as step 1: a trader that already claimed is on
         // cooldown, and re-claiming would revert ClaimTooSoon and discard the whole
-        // broadcast — including the deposits that already succeeded in simulation.
+        // broadcast, including the deposits that already succeeded in simulation.
         // A zero balance alone does not mean the trader may claim: one that claimed
         // earlier today AND already spent the proceeds holds nothing yet still
         // cannot. Reading nextClaimAt() distinguishes the two, and a trader on
@@ -699,7 +699,7 @@ contract Gate1 is DeployBase {
         console2.log("adapter position    :", pool.positionValue());
 
         // The pot must not exceed what the position actually realized, and the pool
-        // must actually HOLD the pot it booked — otherwise payPot() reverts for
+        // must actually HOLD the pot it booked, otherwise payPot() reverts for
         // every winner and the pot is permanently unpayable.
         require(pool.potBalance() <= pool.positionValue(), "pot exceeded realized value");
         require(
@@ -709,7 +709,7 @@ contract Gate1 is DeployBase {
     }
 
     /// Step 6a: open the draw, snapshot the tickets, commit the seed hash.
-    /// @dev This phase must COMPLETE for its transactions to be broadcast — a
+    /// @dev This phase must COMPLETE for its transactions to be broadcast, a
     ///      script that reverts mid-run discards everything it sent. So it does
     ///      only what can finish in one frame, and leaves the window to real time.
     function _step6_OpenAndCommit() internal {
@@ -721,7 +721,7 @@ contract Gate1 is DeployBase {
 
         // A Finalized (or never-used) draw means a NEW draw may be opened, which is
         // what a second Gate 1 run needs. Only a draw still in flight (Open, Closed
-        // or Awarded) must be resumed rather than replaced — opening over one of
+        // or Awarded) must be resumed rather than replaced, opening over one of
         // those is impossible anyway, since openDraw() reverts WrongState.
         if (st == IDrawEngine.DrawState.None || st == IDrawEngine.DrawState.Finalized) {
             vm.startBroadcast(operatorKey);
@@ -809,7 +809,7 @@ contract Gate1 is DeployBase {
         // Guard the ordering defect that cost a real draw its payout: award() reads
         // potBalance() when it runs, and a Finalized draw cannot be re-awarded. If
         // the pot is empty here, the draw would complete, log success, and pay
-        // nobody — so fail before revealing rather than after.
+        // nobody, so fail before revealing rather than after.
         if (engine.stateOf(drawId) == IDrawEngine.DrawState.Closed) {
             require(pool.potBalance() > 0, "pot is empty: harvest BEFORE awarding");
         }
@@ -823,7 +823,7 @@ contract Gate1 is DeployBase {
         // Baseline the winner's trophy count before awarding, so the assertion
         // afterwards proves THIS draw wrote the record rather than an earlier one.
         // deriveWinners reverts NoWinners until the draw is revealed, so the preview
-        // is guarded — an unguarded call here would abort the phase before the
+        // is guarded, an unguarded call here would abort the phase before the
         // reveal it is meant to support.
         uint32 goldBaseline = 0;
         if (engine.finalRandomnessOf(drawId) != bytes32(0)) {

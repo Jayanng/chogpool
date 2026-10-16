@@ -8,7 +8,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {IChogPool} from "../interfaces/IChogPool.sol";
 import {IYieldAdapter} from "../interfaces/IYieldAdapter.sol";
 
-/// @title ChogPool — deposit stables, keep full principal, race the yield.
+/// @title ChogPool, deposit stables, keep full principal, race the yield.
 /// @notice Production implementation of the FROZEN IChogPool interface.
 ///
 /// Odds are TIME-WEIGHTED (TWAB), not last-second snapshot: a racer's ticket count is
@@ -82,7 +82,7 @@ contract ChogPool is IChogPool, IYieldAdapter, Ownable2Step, ReentrancyGuard {
     /// @dev Principal CURRENTLY held by the pool, which is what `totalShares` is
     ///      denominated in and what `positionValue()` can actually deliver. It
     ///      increases on deposit and decreases on withdraw, so it always equals
-    ///      `totalShares` — the two must never disagree, because a UI reading one as
+    ///      `totalShares`, the two must never disagree, because a UI reading one as
     ///      "pool size" while the other says something different is exactly the kind
     ///      of unearned claim that cannot survive a judge reading both numbers.
     ///
@@ -174,7 +174,7 @@ contract ChogPool is IChogPool, IYieldAdapter, Ownable2Step, ReentrancyGuard {
         // withdraw-all then reverts InsufficientLiquidity for the shortfall.
         //
         // The entry cost is measured the same way redeem() measures what it can
-        // deliver — the adapter's own positionValue() — so a share is always
+        // deliver, the adapter's own positionValue(), so a share is always
         // redeemable. The cost is real and permanent (pair fees plus price impact),
         // so it is shown to the depositor rather than absorbed by whoever exits last.
         IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);

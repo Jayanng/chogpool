@@ -171,7 +171,7 @@ contract DrawEngineCareerTest is Test {
     }
 
     /// A career store with no code must be refused at wiring time. Wiring it would
-    /// make award() revert on every draw — bricking the draw with the pot locked.
+    /// make award() revert on every draw, bricking the draw with the pot locked.
     function test_SetCareerStore_RejectsCodelessAddress() public {
         address dead = makeAddr("noCareerStore");
 
@@ -193,7 +193,7 @@ contract DrawEngineCareerTest is Test {
         bare.setCareerStore(address(store)); // required now, so a real one is set
 
         // Now confirm a draw on the bare engine (career store still set) works, and
-        // that a zero careerStore — the only "no hook" state — is safe.
+        // that a zero careerStore, the only "no hook" state, is safe.
         assertEq(bare.careerStore(), address(store));
     }
 }

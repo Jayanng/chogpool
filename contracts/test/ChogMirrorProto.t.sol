@@ -44,7 +44,7 @@ contract ChogMirrorProtoTest is Test {
             )
         );
         // Recompute the contract's EIP-712 domain (name "ChogMirror", version "1",
-        // this chain, the deployed mirror address) — mirrors OZ EIP712 internals.
+        // this chain, the deployed mirror address), mirrors OZ EIP712 internals.
         bytes32 domainSeparator = keccak256(
             abi.encode(
                 keccak256(
@@ -190,7 +190,7 @@ contract ChogMirrorProtoTest is Test {
         mirror.mintTestDrive(TOKEN, "ipfs://fake");
     }
 
-    /// ATTACK 7: tokenURI label discipline — test drive URIs are prefixed.
+    /// ATTACK 7: tokenURI label discipline, test drive URIs are prefixed.
     function test_TestDriveTokenURI_IsLabeled() public {
         vm.prank(OTHER_USER);
         mirror.mintTestDrive(500, REAL_URI);

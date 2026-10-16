@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-/// @notice Phase 0 toolchain smoke contract. Removed in Phase 1.
+/// @notice Toolchain smoke contract, not part of the product.
 contract Hello {
     string public constant GREETING = "Chog Track";
 

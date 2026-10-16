@@ -21,7 +21,7 @@ const dep = existsSync(depPath) ? JSON.parse(readFileSync(depPath, "utf8")) : nu
 // at contracts that do not exist here, so it is ignored loudly instead.
 if (dep && dep.chainId !== reg.monadTestnet.chainId) {
   console.error(
-    `gen-addresses: ignoring infra/deployments.json — it records chainId ${dep.chainId}, ` +
+    `gen-addresses: ignoring infra/deployments.json (it records chainId ${dep.chainId}, ` +
       `but the registry describes testnet chainId ${reg.monadTestnet.chainId}.`
   );
   dep = null;
@@ -42,12 +42,12 @@ const deployedBlock = dep
   : `export const DEPLOYED = null;
 `;
 
-const t = `// GENERATED from infra/verified.json + infra/deployments.json — do not edit by hand.
+const t = `// GENERATED from infra/verified.json + infra/deployments.json, do not edit by hand.
 // Source of truth: infra/verified.json (verified live 2026-10-14).
 // DEPLOYED is our own testnet deployment; null when nothing is deployed yet.
 export const CHAIN = {
-  monad: { id: ${reg.monad.chainId}, name: ${JSON.stringify(reg.monad.name)}, rpc: ${JSON.stringify(reg.monad.rpc)} },
-  monadTestnet: { id: ${reg.monadTestnet.chainId}, name: ${JSON.stringify(reg.monadTestnet.name)}, rpc: ${JSON.stringify(reg.monadTestnet.rpc)} },
+  monad: { id: ${reg.monad.chainId}, name: ${JSON.stringify(reg.monad.name)}, rpc: ${JSON.stringify(reg.monad.rpc)}, explorer: ${JSON.stringify(reg.monad.explorer)} },
+  monadTestnet: { id: ${reg.monadTestnet.chainId}, name: ${JSON.stringify(reg.monadTestnet.name)}, rpc: ${JSON.stringify(reg.monadTestnet.rpc)}, explorer: ${JSON.stringify(reg.monadTestnet.explorer)} },
 } as const;
 
 export const MAINNET = {

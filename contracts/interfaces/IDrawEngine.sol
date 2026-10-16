@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-/// @title IDrawEngine — frozen contract between contracts/ and web/ (2026-10-14).
+/// @title IDrawEngine, frozen contract between contracts/ and web/ (2026-10-14).
 /// @notice FROZEN INTERFACE. Changing anything here requires BOTH owners to approve.
 ///
 /// Draw lifecycle: Open -> Closed -> Awarded -> Finalized.
 ///
-/// Fairness (docs/RULES.md #5): commit-reveal. The operator commits keccak256(seed)
+/// Fairness: commit-reveal. The operator commits keccak256(seed)
 /// while the draw is Open, then reveals `seed` after close; the final randomness is
 /// keccak256(commitSeed, blockhash(revealBlock), previousDrawNumber). Anyone can
-/// re-derive the winner off-chain from the published seed — /verify does exactly this.
+/// re-derive the winner off-chain from the published seed: /verify does exactly this.
 ///
 /// Winner check per racer:
 ///   keccak256(drawId, tokenId, tier, packedParams, finalRandomness) % totalTickets

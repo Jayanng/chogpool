@@ -6,7 +6,7 @@ import {ChogMirror} from "../src/ChogMirror.sol";
 import {IChogMirror} from "../interfaces/IChogMirror.sol";
 import {Vm} from "forge-std/Vm.sol";
 
-/// @title Production mirror test suite — every test is an attack or an invariant.
+/// @title Production mirror test suite, every test is an attack or an invariant.
 /// @notice Ports the full 10-attack audit suite from ChogMirrorProto.t.sol onto the
 ///         production ChogMirror, plus new coverage for the interface's view surface
 ///         and the nonce-burn fix. If any attack test stops reverting the way it
@@ -200,6 +200,38 @@ contract ChogMirrorTest is Test {
         assertEq(mirror.nonces(REAL_OWNER), 2);
     }
 
+    /// The verification check hashes the REAL URI, not what tokenURI() returns.
+    /// tokenURI() prepends a display prefix to Test Drive tokens, and that prefix
+    /// was never part of the signed bytes, so hashing it would report a false
+    /// negative for exactly the tokens that carry no signature. This pins the
+    /// property the /verify page and any external checker depend on.
+    function test_VerificationCheck_HashesTheRealURI_NotTheDisplayedOne() public {
+        vm.prank(OTHER_USER);
+        mirror.mintTestDrive(OTHER_TOKEN, REAL_URI);
+
+        bytes32 recorded = mirror.uriHashOf(OTHER_TOKEN);
+        bytes32 realHash = keccak256(bytes(mirror.realURIOf(OTHER_TOKEN)));
+        bytes32 displayedHash = keccak256(bytes(mirror.tokenURI(OTHER_TOKEN)));
+
+        assertEq(realHash, recorded, "the real URI hashes to the recorded digest");
+        assertTrue(displayedHash != recorded, "the displayed URI does NOT match: it carries the prefix");
+        assertTrue(bytes(mirror.tokenURI(OTHER_TOKEN)).length > bytes(mirror.realURIOf(OTHER_TOKEN)).length,
+            "tokenURI is longer, by exactly the display prefix");
+        assertEq(mirror.realURIOf(OTHER_TOKEN), REAL_URI, "realURIOf returns the URI as submitted");
+    }
+
+    /// The same holds for a verified token, where the prefix is absent: both
+    /// readings agree, so the check is unambiguous either way.
+    function test_VerificationCheck_VerifiedToken_BothReadingsAgree() public {
+        (uint8 v, bytes32 r, bytes32 s) = _signWithLiveNonce(TOKEN, REAL_OWNER, REAL_OWNER, OWNER_KEY);
+        vm.prank(REAL_OWNER);
+        mirror.mintWithSig(TOKEN, REAL_OWNER, REAL_URI, v, r, s);
+
+        bytes32 recorded = mirror.uriHashOf(TOKEN);
+        assertEq(keccak256(bytes(mirror.realURIOf(TOKEN))), recorded, "real URI matches the digest");
+        assertEq(keccak256(bytes(mirror.tokenURI(TOKEN))), recorded, "no prefix on verified tokens either");
+    }
+
     /// ATTACK 5: Test Drive one-per-wallet cap.
     function test_ATTACK_SecondTestDrive_Reverts() public {
         vm.prank(OTHER_USER);
@@ -219,7 +251,7 @@ contract ChogMirrorTest is Test {
         mirror.mintTestDrive(TOKEN, "ipfs://fake");
     }
 
-    /// ATTACK 7: tokenURI label discipline — test drive URIs are prefixed.
+    /// ATTACK 7: tokenURI label discipline, test drive URIs are prefixed.
     function test_TestDriveTokenURI_IsLabeled() public {
         vm.prank(OTHER_USER);
         mirror.mintTestDrive(OTHER_TOKEN, REAL_URI);
@@ -239,7 +271,7 @@ contract ChogMirrorTest is Test {
 
     /// ATTACK 9: a failed mint must NOT burn the signer's nonce.
     /// (This is the fix over the prototype, which used nonces[mainnetOwner]++ inside
-    ///  the struct hash — it advanced on every attempt, including failures.)
+    ///  the struct hash, it advanced on every attempt, including failures.)
     function test_ATTACK_FailedMintDoesNotBurnNonce() public {
         // First, an attacker burns an attempt with a bad signature.
         vm.prank(THIEF);
@@ -265,7 +297,7 @@ contract ChogMirrorTest is Test {
 
     /// The URI is bound into the signature, so a valid signature cannot be replayed
     /// alongside different metadata. Before this, realURI was plain calldata and a
-    /// caller could submit any string with a genuine signature — the only defence
+    /// caller could submit any string with a genuine signature, the only defence
     /// would have been the frontend's behaviour.
     function test_ATTACK_SubstitutedURI_Reverts() public {
         (uint8 v, bytes32 r, bytes32 s) = _sign(TOKEN, REAL_OWNER, REAL_OWNER, 0, OWNER_KEY);
@@ -376,7 +408,7 @@ contract ChogMirrorTest is Test {
 
     // ---------- invariants ----------
 
-    /// Provenance is either a real signer or address(0) for Test Drive — never fabricated.
+    /// Provenance is either a real signer or address(0) for Test Drive, never fabricated.
     function testFuzz_ProvenanceInvariant(uint256 tokenIdSeed) public {
         tokenIdSeed = bound(tokenIdSeed, 1, 1969);
         vm.assume(mirror.isUnclaimed(tokenIdSeed));

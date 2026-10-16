@@ -1,4 +1,4 @@
-# CHOG POOL — TEAM RULES (binding)
+# CHOG POOL: TEAM RULES (binding)
 
 1. **Nothing mocked, nothing hardcoded.** Real contracts with test value (faucet tokens, real DEX, real fees) are fine. A function that pretends (fake APY ticking up, fake yield numbers) is banned.
 2. **Everything real about Chog.** Mirror NFTs carry real mainnet token IDs, real IPFS metadata, real images. The product reads real mainnet Chogs. The boost mapping is OUR design layer on real traits and is labeled as such.
@@ -15,7 +15,7 @@
 - No "guaranteed", "risk-free", "never lose" absolutes.
 - Prizes scale with the pool. Never promise prize sizes.
 - Traits are off-chain IPFS metadata; say "reads the Chog's traits", never "on-chain traits".
-- APY is read live and labeled "current, variable" — never a hardcoded number.
+- APY is read live and labeled "current, variable", never a hardcoded number.
 
 ## Label discipline: Verified Holder vs Test Drive (user-approved 2026-10-14)
 - Two racers exist in the testnet demo: **Verified Holder** (minted with a real mainnet owner signature) and **Test Drive** (anyone, one per wallet, clearly labeled).

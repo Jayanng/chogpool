@@ -4,7 +4,7 @@ import { Badge, Button, Card, Marquee, Panel, Stat, tokens } from "@chogpool/ui"
 import { ChogViewer } from "../components/ChogViewer";
 import { Countdown } from "../components/Countdown";
 import { ShareCard } from "../components/ShareCard";
-import { getGameSource } from "../lib/game";
+import { getGameSource, getRaceSource } from "../lib/game";
 import { CHAIN } from "../generated/addresses.gen";
 import { POT_DECIMALS } from "../types/game";
 import { ipfsToGateway, type ChogRecord } from "../lib/chog";
@@ -15,6 +15,12 @@ export default function Landing() {
   const [pot, setPot] = useState<bigint | null>(null);
   const [sourceLabel, setSourceLabel] = useState("FROM THE GAME SOURCE (nextDrawAt)");
   const [lookedUp, setLookedUp] = useState<ChogRecord | null>(null);
+  // Whether the current draw's field already locked on chain (the draw is
+  // closed or awarded). Unknown until the draw's state is read.
+  const [fieldLocked, setFieldLocked] = useState<boolean | null>(null);
+  // Preview lane names come from the real current draw when one exists; a
+  // null lane renders as a clear placeholder, never an invented tokenId.
+  const [previewLanes, setPreviewLanes] = useState<Array<string | null>>([null, null, null]);
   const fixturesOn = import.meta.env.VITE_FIXTURES === "1";
 
   useEffect(() => {
@@ -27,6 +33,24 @@ export default function Landing() {
     );
     void source.nextDrawAt().then(setNextDrawAt);
     void source.potBalance().then(setPot);
+  }, []);
+
+  useEffect(() => {
+    const source = getRaceSource();
+    if (!source) return;
+    void (async () => {
+      try {
+        const id = await source.currentDrawId();
+        const draw = id === null ? null : await source.getDraw(id);
+        const ids = (draw?.racers ?? []).slice(0, 3).map((r) => r.tokenId.toString());
+        setPreviewLanes([ids[0] ?? null, ids[1] ?? null, ids[2] ?? null]);
+        setFieldLocked(draw ? draw.state !== "open" : null);
+      } catch {
+        // No draw readable: the lanes stay generic placeholders and the
+        // countdown makes no claim about the field being locked.
+        setFieldLocked(null);
+      }
+    })();
   }, []);
 
   return (
@@ -48,12 +72,12 @@ export default function Landing() {
             <span>GRAND PRIX</span>
             <Badge tone="neutral">UI PREVIEW</Badge>
           </div>
-          <Countdown nextDrawAt={nextDrawAt} sourceLabel={sourceLabel} />
-          <div className="lane lane-one"><div className="lane-label">01 <span>CHOG #1462</span></div><div className="runner runner-one">◉</div></div>
-          <div className="lane lane-two"><div className="lane-label">02 <span>CHOG #1</span></div><div className="runner runner-two">◉</div></div>
-          <div className="lane lane-three"><div className="lane-label">03 <span>CHOG #954</span></div><div className="runner runner-three">◉</div></div>
+          <Countdown nextDrawAt={nextDrawAt} sourceLabel={sourceLabel} fieldLocked={fieldLocked} />
+          <div className="lane lane-one"><div className="lane-label">01 <span>{previewLanes[0] ? `CHOG #${previewLanes[0]}` : "ANY CHOG"}</span></div><div className="runner runner-one">◉</div></div>
+          <div className="lane lane-two"><div className="lane-label">02 <span>{previewLanes[1] ? `CHOG #${previewLanes[1]}` : "ANY CHOG"}</span></div><div className="runner runner-two">◉</div></div>
+          <div className="lane lane-three"><div className="lane-label">03 <span>{previewLanes[2] ? `CHOG #${previewLanes[2]}` : "ANY CHOG"}</span></div><div className="runner runner-three">◉</div></div>
           <div className="track-footer"><span>PRIZE POT</span><strong>{pot === null ? "Yield accumulates live" : `${formatUnits(pot, POT_DECIMALS)} USDC${fixturesOn ? " (fixture)" : ""}`}</strong><span>↗</span></div>
-          <p className="track-note">A preview of the race experience. Lanes are illustrative. No race is running.</p>
+          <p className="track-note">A preview of the race experience. Lane names come from the current draw when one exists and are placeholders otherwise. No race is running.</p>
         </Panel>
       </section>
 
@@ -66,7 +90,7 @@ export default function Landing() {
           <p className="muted">The track only competes with yield. Withdraw your principal at any time. Rewards scale with the pool.</p>
         </div>
         <Panel className="proof-panel">
-          <Stat label="NEXT DRAW" value={nextDrawAt ? "Counting down" : "Not scheduled yet"} note="Draws are opened on chain by the operator — no timer, no promised cadence." />
+          <Stat label="NEXT DRAW" value={nextDrawAt ? "Counting down" : "Not scheduled yet"} note="Draws are opened on chain by the operator: no timer, no promised cadence." />
           <Stat label="FAIRNESS" value="Published seed" note="Winner re-derivable from the published seed on the verifier page." tone="lime" />
         </Panel>
         <Panel className="proof-panel">
