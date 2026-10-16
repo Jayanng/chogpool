@@ -1,5 +1,6 @@
 import { createPublicClient, createWalletClient, custom, defineChain, http, type Address, type WalletClient } from "viem";
 import { CHAIN } from "../generated/addresses.gen";
+import { rpcFetch } from "./rpc-throttle";
 
 export type WalletState = {
   address: Address;
@@ -111,5 +112,10 @@ export const testnetReadClient = createPublicClient({
     nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
     rpcUrls: { default: { http: [CHAIN.monadTestnet.rpc] } },
   },
-  transport: http(CHAIN.monadTestnet.rpc),
+  // The public testnet RPC caps callers at 15 requests per second and answers
+  // bursts with HTTP 429 / JSON-RPC -32011. The verifier walk fans out around
+  // 54 reads at once, so every read through this client goes through the
+  // throttled, retrying queue instead of hitting the cap and failing honest
+  // checks.
+  transport: http(CHAIN.monadTestnet.rpc, { fetchFn: rpcFetch() }),
 });
