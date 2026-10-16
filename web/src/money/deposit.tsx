@@ -47,7 +47,14 @@ const mirrorReadAbi = [
 
 const poolReadAbi = [
   { type: "function", name: "sharesOf", stateMutability: "view", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [{ name: "", type: "uint256" }] },
-  { type: "function", name: "depositOf", stateMutability: "view", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [{ name: "", type: "uint256" }] },
+  // depositOf returns the depositor and both counters. Reading it as a bare
+  // uint256 decoded the depositor ADDRESS as the principal and printed a
+  // giant number where the position's principal belongs.
+  { type: "function", name: "depositOf", stateMutability: "view", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [
+      { name: "depositor", type: "address" },
+      { name: "shares", type: "uint256" },
+      { name: "principal", type: "uint256" },
+    ] },
   { type: "function", name: "twabOf", stateMutability: "view", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [{ name: "", type: "uint256" }] },
   { type: "function", name: "oddsBpsOf", stateMutability: "view", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [{ name: "", type: "uint256" }] },
   { type: "function", name: "totalShares", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "uint256" }] },
@@ -120,13 +127,13 @@ export default function Deposit() {
     }
     void (async () => {
       try {
-        const [shares, principal, twab, oddsBps] = await Promise.all([
+        const [shares, deposit, twab, oddsBps] = await Promise.all([
           testnetReadClient.readContract({ address: pool(), abi: poolReadAbi, functionName: "sharesOf", args: [tokenId] }),
           testnetReadClient.readContract({ address: pool(), abi: poolReadAbi, functionName: "depositOf", args: [tokenId] }),
           testnetReadClient.readContract({ address: pool(), abi: poolReadAbi, functionName: "twabOf", args: [tokenId] }),
           testnetReadClient.readContract({ address: pool(), abi: poolReadAbi, functionName: "oddsBpsOf", args: [tokenId] }),
         ]);
-        setPosition({ shares, principal, twab, oddsBps });
+        setPosition({ shares, principal: deposit[2], twab, oddsBps });
       } catch {
         setPosition(null);
       }
