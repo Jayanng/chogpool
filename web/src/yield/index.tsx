@@ -1,4 +1,4 @@
-// /yield — the yield rehearsal. Shows where deposited principal actually sits
+// /yield, the yield rehearsal. Shows where deposited principal actually sits
 // and what harvest has actually realized.
 //
 // This page exists because "your deposit earns yield" is a claim, and a claim
@@ -78,7 +78,7 @@ export default function Yield() {
 
   // The unrealized surplus is the gap between what the LP position would redeem
   // for right now and the principal tracked as deployed. It only becomes prize
-  // money when a harvest redeems a slice and swaps it — the UI never presents it
+  // money when a harvest redeems a slice and swaps it, the UI never presents it
   // as if it were already in the pot.
   const surplus = state ? (state.positionValue > state.principalDeployed ? state.positionValue - state.principalDeployed : 0n) : 0n;
 
@@ -153,7 +153,7 @@ export default function Yield() {
             <Button variant="outline" onClick={() => navigate("/deposit")}>Deposit more ↗</Button>
           </div>
 
-          {!wallet.connected && <p className="muted small">Connect a wallet on Monad Testnet to harvest. Anyone can trigger it — the money only comes from real trades.</p>}
+          {!wallet.connected && <p className="muted small">Connect a wallet on Monad Testnet to harvest. Anyone can trigger it, the money only comes from real trades.</p>}
           {wallet.connected && surplus === 0n && (
             <p className="muted small">
               No surplus to harvest yet. Fees accrue inside the pair as trading volume happens;
@@ -174,7 +174,7 @@ export default function Yield() {
             What runs here is the PuddleSwap LP adapter: real liquidity in the real USDC/USDT pair,
             implementing the same frozen <code>IYieldAdapter</code> interface. The production venue
             swaps in behind that interface without changing the pool, the pot, or this page's
-            numbers. The rehearsal is that the whole path — deposit, position, harvest, pot —
+            numbers. The rehearsal is that the whole path, deposit, position, harvest, pot, 
             already works end to end against a real venue, just a different one.
           </p>
           <p className="muted small">

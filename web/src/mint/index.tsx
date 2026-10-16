@@ -1,11 +1,11 @@
-// /mint — the mirror mint. Look up a real mainnet Chog, sign the URI-bound
+// /mint, the mirror mint. Look up a real mainnet Chog, sign the URI-bound
 // EIP-712 message, mint the testnet mirror.
 //
 // What this page refuses to do is claim a mint is "verified" when the only
 // evidence is that our frontend asked for it. The mint produces a checkable
 // fact: the contract records keccak256(bytes(realURI)) at mint and exposes it
-// through uriHashOf(). Anyone can recompute that hash from realURIOf() — not
-// tokenURI(), which carries a display prefix on Test Drive tokens — and
+// through uriHashOf(). Anyone can recompute that hash from realURIOf(), not
+// tokenURI(), which carries a display prefix on Test Drive tokens, and
 // compare, with no trust in this page. The Test Drive path says in plain words
 // that nobody signed anything.
 
@@ -168,7 +168,7 @@ export default function Mint() {
     });
     if (ok) {
       setPhase("done");
-      setMessage(`Chog #${record.tokenId} is mirrored as a Test Drive. Nobody signed anything for it — that is what the label means.`);
+      setMessage(`Chog #${record.tokenId} is mirrored as a Test Drive. Nobody signed anything for it, that is what the label means.`);
       setLookup(await lookupChog(record.tokenId));
       void loadSupplyAndTestDrive();
     } else {
@@ -188,7 +188,7 @@ export default function Mint() {
         <p className="lede">
           Pick a Chog you own on Monad mainnet. Its metadata is fetched from the real collection,
           its owner signs a message binding that metadata, and the mirror mints with the signature
-          recorded. Anyone can then verify the stored URI is the signed one — no trust required.
+          recorded. Anyone can then verify the stored URI is the signed one, no trust required.
         </p>
         <div className="network-note"><span className="status-dot" /> Read: Monad Mainnet · Play: Monad Testnet · test funds only</div>
       </section>
@@ -261,7 +261,7 @@ export default function Mint() {
                 note={
                   lookup.status === "already-minted"
                     ? lookup.testDrive
-                      ? "Minted as a Test Drive — no signature behind it."
+                      ? "Minted as a Test Drive, no signature behind it."
                       : "Minted through the signed path."
                     : "Available to mirror."
                 }
@@ -287,7 +287,7 @@ export default function Mint() {
                 ) : (
                   <p className="muted">
                     Your connected wallet is not this Chog's mainnet owner. The signature must come
-                    from <strong>{shortAddress(lookup.record.owner)}</strong> — the same wallet that
+                    from <strong>{shortAddress(lookup.record.owner)}</strong>, the same wallet that
                     holds it on mainnet. Connect that wallet to mint it with proof.
                   </p>
                 )}
@@ -332,13 +332,13 @@ export default function Mint() {
         <Card title="Why the signature covers the URI" footer="THE CHECK A JUDGE CAN RUN WITHOUT TRUSTING US">
           <p className="muted">
             A mirror token stores the URI you submit. If that URI were not signed, the stored
-            metadata would be only as honest as whoever sent the transaction — which in practice
+            metadata would be only as honest as whoever sent the transaction, which in practice
             means trusting a frontend.
           </p>
           <p className="muted">
             Binding <code>keccak256(bytes(realURI))</code> into the signed message changes the
-            question. Anyone can call <code>realURIOf(id)</code> — not <code>tokenURI(id)</code>,
-            which prepends a <code>test-chog:</code> label to Test Drive tokens — hash those
+            question. Anyone can call <code>realURIOf(id)</code>, not <code>tokenURI(id)</code>,
+            which prepends a <code>test-chog:</code> label to Test Drive tokens, hash those
             bytes, and compare with <code>uriHashOf(id)</code>. If they match, the metadata on
             chain is the metadata the mainnet owner signed. That check needs nothing from us and
             works forever.

@@ -1,4 +1,4 @@
-// /deposit — the deposit dashboard, on the real money path.
+// /deposit, the deposit dashboard, on the real money path.
 //
 // The funding sequence is not three buttons that can be pressed in any order.
 // The pool's asset is not mintable: the only way in is
@@ -250,7 +250,7 @@ export default function Deposit() {
             <Card
               title="Fund your wallet"
               aside={<Badge tone="neutral">STEP 1–2</Badge>}
-              footer="THE POOL'S USDC IS NOT MINTABLE — CLAIM, THEN SWAP THROUGH THE REAL ROUTER"
+              footer="THE POOL'S USDC IS NOT MINTABLE: CLAIM, THEN SWAP THROUGH THE REAL ROUTER"
             >
               <div className="stat-row">
                 <Stat label="WALLET USDC" value={wallet.reading ? "…" : `${formatUsdc(usdc)} USDC`} note={shortAddress(ASSET)} tone="accent" />
@@ -288,7 +288,7 @@ export default function Deposit() {
             <Card
               title="Deposit"
               aside={<Badge tone={needsApproval ? "accent" : "neutral"}>{needsApproval ? "STEP 3 · APPROVE" : "STEP 4 · DEPOSIT"}</Badge>}
-              footer="ONE BOOK PER CHOG — DEPOSIT AS MANY CHOGS AS YOU HOLD"
+              footer="ONE BOOK PER CHOG: DEPOSIT AS MANY CHOGS AS YOU HOLD"
             >
               <label className="field">
                 <span>CHOG ID (1–1,969)</span>
@@ -305,7 +305,7 @@ export default function Deposit() {
                   <Stat label="YOUR PRINCIPAL" value={formatUsdc(position.principal)} note="What you can withdraw, in full." />
                   <Stat
                     label="YOUR ODDS"
-                    value={position.oddsBps === 0n ? "—" : `${(Number(position.oddsBps) / 100).toFixed(2)}%`}
+                    value={position.oddsBps === 0n ? ": " : `${(Number(position.oddsBps) / 100).toFixed(2)}%`}
                     note="Time-weighted share of the draw. Grows with time held, not last-minute size."
                   />
                 </div>
@@ -347,7 +347,7 @@ export default function Deposit() {
               {needsApproval && (
                 <p className="muted small">
                   The pool is approved for {formatUsdc(allowance)} USDC. Approve this deposit's exact
-                  amount — never an unlimited allowance.
+                  amount, never an unlimited allowance.
                 </p>
               )}
             </Card>
