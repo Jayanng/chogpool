@@ -5,7 +5,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CHAIN } from "../generated/addresses.gen";
-import { connectWallet } from "./wallet";
+import { connectWallet, pickRestoreAccount, restoreSession } from "./wallet";
 
 type FakeRequest = { method: string };
 
@@ -53,5 +53,60 @@ describe("the wallet client carries the wallet's real chain", () => {
     const state = await connectWallet();
     expect(state.walletClient.chain?.id).toBe(999);
     expect(state.walletClient.chain?.name).toBe("Unsupported network (chainId 999)");
+  });
+});
+
+// A restore must never pop the wallet UI: eth_accounts answers for an
+// already-authorized wallet, eth_requestAccounts asks. This provider throws on
+// the asking method, so a regression here fails the test loudly.
+function silentProvider(chainIdHex: string, accounts: unknown) {
+  return {
+    isMetaMask: true,
+    async request({ method }: FakeRequest): Promise<unknown> {
+      if (method === "eth_accounts") return accounts;
+      if (method === "eth_chainId") return chainIdHex;
+      if (method === "eth_requestAccounts") throw new Error("a silent restore must never request accounts");
+      throw new Error(`unexpected method ${method}`);
+    },
+  };
+}
+
+describe("the silent restore decides from the eth_accounts answer alone", () => {
+  it("restores only for a real address", () => {
+    expect(pickRestoreAccount([FAKE_ACCOUNT])).toBe(FAKE_ACCOUNT);
+    expect(pickRestoreAccount([FAKE_ACCOUNT, `0x${"22".repeat(20)}`])).toBe(FAKE_ACCOUNT);
+  });
+
+  it("restores nothing on an empty or malformed answer", () => {
+    expect(pickRestoreAccount([])).toBeNull();
+    expect(pickRestoreAccount(undefined)).toBeNull();
+    expect(pickRestoreAccount(null)).toBeNull();
+    expect(pickRestoreAccount("not a list")).toBeNull();
+    expect(pickRestoreAccount([42])).toBeNull();
+    expect(pickRestoreAccount(["not-an-address"])).toBeNull();
+    expect(pickRestoreAccount([`0x${"11".repeat(19)}`])).toBeNull(); // one hex digit short
+  });
+
+  it("picks up an authorized wallet without ever asking for one", async () => {
+    vi.stubGlobal("window", { ethereum: silentProvider("0x279f", [FAKE_ACCOUNT]) });
+    const restored = await restoreSession();
+    expect(restored?.address).toBe(FAKE_ACCOUNT);
+    expect(restored?.chainId).toBe(CHAIN.monadTestnet.id);
+    expect(restored?.walletClient.chain?.id).toBe(CHAIN.monadTestnet.id);
+  });
+
+  it("stays disconnected when nothing is authorized", async () => {
+    vi.stubGlobal("window", { ethereum: silentProvider("0x279f", []) });
+    expect(await restoreSession()).toBeNull();
+  });
+
+  it("stays disconnected when the answer holds no usable account", async () => {
+    vi.stubGlobal("window", { ethereum: silentProvider("0x279f", ["nope"]) });
+    expect(await restoreSession()).toBeNull();
+  });
+
+  it("stays disconnected with no wallet at all", async () => {
+    vi.stubGlobal("window", {});
+    expect(await restoreSession()).toBeNull();
   });
 });
