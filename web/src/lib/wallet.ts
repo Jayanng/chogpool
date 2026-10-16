@@ -1,4 +1,4 @@
-import { createPublicClient, createWalletClient, custom, http, type Address, type WalletClient } from "viem";
+import { createPublicClient, createWalletClient, custom, defineChain, http, type Address, type WalletClient } from "viem";
 import { CHAIN } from "../generated/addresses.gen";
 
 export type WalletState = {
@@ -36,12 +36,29 @@ export function shortAddress(address: Address): string {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
+/** The chains this app talks to, built from the generated registry. */
+function chainFor(chainId: number) {
+  const known = (CHAIN.monad.id === chainId ? CHAIN.monad : null) ?? (CHAIN.monadTestnet.id === chainId ? CHAIN.monadTestnet : null);
+  const base = known ?? CHAIN.monadTestnet;
+  return defineChain({
+    id: chainId,
+    name: known ? base.name : chainLabel(chainId),
+    nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
+    rpcUrls: { default: { http: [base.rpc] } },
+    blockExplorers: { default: { name: "MonadScan", url: base.explorer } },
+  });
+}
+
 export async function connectWallet(): Promise<WalletState> {
   const provider = getProvider();
   if (!provider) throw new Error("Install a browser wallet such as MetaMask or Rabby to connect.");
-  const walletClient = createWalletClient({ transport: custom(provider as never) });
+  // viem refuses to sign a write on a chainless client ("No chain was
+  // provided"), so the client carries the wallet's actual chain. Without this
+  // every deposit, claim and mint dies before the wallet ever sees it.
+  const rawChainId = await provider.request({ method: "eth_chainId" });
+  const chainId = typeof rawChainId === "string" ? Number.parseInt(rawChainId, 16) : Number(rawChainId);
+  const walletClient = createWalletClient({ chain: chainFor(chainId), transport: custom(provider as never) });
   const [address] = await walletClient.requestAddresses();
-  const chainId = await walletClient.getChainId();
   return { address, chainId, walletClient };
 }
 
