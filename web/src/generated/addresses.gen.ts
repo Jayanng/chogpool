@@ -40,5 +40,5 @@ export const DEPLOYED = {
   drawEngine: "0x1FcA003BD5B9503ea444420193C33e3e040200aE",
   careerStore: "0x4E202c0B08087159f7694f544B63323bBe59c5Fd",
   testChogToken: "0xe5a495B1761075363141f3Ac2B99e6Ae1fE6944E",
-  deployedAt: 1792148629,
+  deployedAt: 1792144248,
 } as const;
