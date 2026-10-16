@@ -797,6 +797,9 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
   .podium-winners { grid-template-columns: 1fr; }
   .podium-winner { padding: 14px; }
   .podium-shot { width: 100%; }
+  /* The spotlight is decorative light, never layout: on phones its bleed is
+     capped so the glow cannot push the document wider than the screen. */
+  .podium-spotlight { inset: -30% -6%; }
   .podium-img { width: 100%; height: auto; aspect-ratio: 1; }
   .podium-amount { font-size: 30px; }
   .race-picker { padding: 12px 14px; }
