@@ -22,6 +22,11 @@ const ALLOW_FILES = [
                          // Source files stay under the strict rule above.
   "docs/GATE2-LOG.md",   // gate evidence log: same rule as GATE1-LOG — it quotes the
                          // RPC values and addresses the checks actually produced.
+  "docs/MIRROR-VERIFY-LOG.md", // recorded live result of the TESTING.md §5 check:
+                         // same rule as the gate logs — evidence, not source. It
+                         // must quote the real hash the chain returned, or it is
+                         // not a record of anything. The check itself is documented
+                         // in TESTING.md §5 with no address literals.
   "package-lock.json",
   "pnpm-lock.yaml",
 ];

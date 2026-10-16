@@ -92,6 +92,15 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 .toast-row { margin-top: 16px; }
 .rules-list { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
 
+/* Shared layout for the Phase 4 money pages: stat rows, button rows, and the
+   small-print class used for the honest caveats. Defined once here so the mint,
+   deposit, yield and tips pages cannot drift apart visually. */
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 18px; }
+.button-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.divider { height: 1px; background: rgba(255,255,255,.1); margin: 22px 0 18px; }
+.muted.small { font-size: 12px; line-height: 1.55; }
+.feature-panel + .feature-panel { margin-top: 4px; }
+
 .style-panel { display: grid; gap: 12px; padding: 64px 0; justify-items: start; }
 .token-row { display: flex; gap: 10px; }
 .token-row span { width: 52px; height: 52px; border-radius: 14px; border: 1px solid rgba(255,255,255,.12); }

@@ -2,8 +2,8 @@
 // Source of truth: infra/verified.json (verified live 2026-10-14).
 // DEPLOYED is our own testnet deployment; null when nothing is deployed yet.
 export const CHAIN = {
-  monad: { id: 143, name: "Monad Mainnet", rpc: "https://rpc.monad.xyz" },
-  monadTestnet: { id: 10143, name: "Monad Testnet", rpc: "https://testnet-rpc.monad.xyz" },
+  monad: { id: 143, name: "Monad Mainnet", rpc: "https://rpc.monad.xyz", explorer: "https://monadscan.com" },
+  monadTestnet: { id: 10143, name: "Monad Testnet", rpc: "https://testnet-rpc.monad.xyz", explorer: "https://testnet.monadscan.com" },
 } as const;
 
 export const MAINNET = {
@@ -34,11 +34,11 @@ export const IPFS = {
 
 export const DEPLOYED = {
   chainId: 10143,
-  mirror: "0x2B76e153da6B77aEE56E60207b1Ac7a80bd02E5E",
-  pool: "0xBde3Ca1050d07a2cD59ad3cda54F05B314aC799a",
-  yieldAdapter: "0x7cd5086190C583495815C323bE5eD8D98E718621",
-  drawEngine: "0x71dFD0dfad9a0398984BAF7c55AeF100e5bC633b",
-  careerStore: "0x06f4A0fF31BA3aB2F4Cdf8591F3CEb64628c2c29",
-  testChogToken: "0x39fDcB5341d959C741A89A58acE550d24899022e",
-  deployedAt: 1792095398,
+  mirror: "0x630Fa7868D0C08282C37679Be9339bfe1C2Ee92f",
+  pool: "0x38FBe65F41c15502525070498F0149c669b8ee25",
+  yieldAdapter: "0x07e9Ef1dB80FfFAa982Cf2dF0FB8d11FfC1e45E2",
+  drawEngine: "0x537f25C40835d078002be1F11ffbf868FFe4BcE5",
+  careerStore: "0xEAf3884774A3463F132AA9fbcf944FBeac44cc1b",
+  testChogToken: "0xb2085AB8E198DE4334EFD5DfbcB01825083C7872",
+  deployedAt: 1792129454,
 } as const;

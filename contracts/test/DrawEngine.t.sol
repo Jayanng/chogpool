@@ -276,6 +276,73 @@ contract DrawEngineTest is Test {
         assertGt(engine.ticketsOf(drawId, onChain[0]), 0, "winner must hold tickets");
     }
 
+    /// REGRESSION: `deriveWinners(drawId, n)` must answer for THAT draw, not for
+    /// whichever draw happens to be current.
+    ///
+    /// `_racerSet()` used to ignore its argument and always read
+    /// `frozenRacers(currentDrawId)`. With a single draw that is invisible — the
+    /// current draw IS the one being asked about. The moment a second draw opens,
+    /// asking about draw 1 derives from draw 2's racer book against draw 1's
+    /// ticket map, so the view answers a different question than the one asked.
+    /// `deriveWinners` is a public view, so this is exactly what an outside
+    /// verifier hits.
+    ///
+    /// THE DISCRIMINATOR. Asking for 2 winners is what makes this fail loudly
+    /// rather than quietly agreeing:
+    ///   - draw 1's book is {T_A, T_B}, so 2 distinct winners exist;
+    ///   - draw 2's book is {T_A} alone, because bob withdrew between draws.
+    /// Deriving draw 1 from the live book therefore finds a single racer and
+    /// silently clamps winnerCount to 1, returning a 1-element array. The correct
+    /// answer is 2. There is no probability and no luck in that difference, so
+    /// this test cannot pass against the bug by accident.
+    function test_Regression_DeriveWinners_UsesTheAskedDrawsBook_NotTheCurrentOne() public {
+        // Draw 1: two racers in the book.
+        _deposit(alice, T_A, 100 * ONE);
+        _deposit(bob, T_B, 200 * ONE);
+        vm.warp(block.timestamp + 1 days);
+        uint256 draw1 = _openWithSeed(SEED);
+        assertEq(pool.frozenRacers(draw1).length, 2, "draw 1 books two racers");
+
+        _injectPot(10 * ONE);
+        vm.prank(operator_);
+        engine.award(2);
+        assertEq(engine.winnersOf(draw1).length, 2, "draw 1 recorded two winners");
+
+        vm.prank(operator_);
+        engine.finalize();
+
+        // Bob withdraws, so his TWAB drops to zero and he leaves the live book.
+        // Carol never deposits, so draw 2's book is alice alone.
+        vm.prank(bob);
+        pool.withdrawAll(T_B);
+
+        vm.warp(block.timestamp + 1 days);
+        uint256 draw2 = _openWithSeed(keccak256("second-draw-seed"));
+        assertEq(engine.currentDrawId(), draw2, "draw 2 is now the current draw");
+        assertEq(pool.frozenRacers(draw2).length, 1, "draw 2 books one racer only");
+
+        // THE ASSERTION. Two winners must be derivable from draw 1's book.
+        uint256[] memory recomputed = engine.deriveWinners(draw1, 2);
+        assertEq(recomputed.length, 2, "draw 1 must still yield 2 winners from its OWN book");
+
+        // Every winner must be a racer who actually held tickets in draw 1, and
+        // they must be distinct. Deriving from the live book would drop bob, who
+        // was booked into draw 1 with the largest ticket count.
+        assertTrue(recomputed[0] != recomputed[1], "winners are distinct");
+        for (uint256 i = 0; i < recomputed.length; i++) {
+            assertGt(engine.ticketsOf(draw1, recomputed[i]), 0, "winner held tickets in draw 1");
+        }
+
+        // And it agrees with what award() recorded, which is what a user was paid on.
+        uint256[] memory recorded = engine.winnersOf(draw1);
+        assertEq(recorded.length, 2);
+        assertEq(recorded[0], recomputed[0], "view agrees with the awarded winners");
+        assertEq(recorded[1], recomputed[1], "view agrees with the awarded winners");
+
+        // Draw 2, whose book really is a single racer, still clamps to 1.
+        assertEq(engine.deriveWinners(draw2, 2).length, 1, "draw 2 has one racer, so one winner");
+    }
+
     /// The same seed on the same book must always give the same winner.
     function testFuzz_SameSeedSameBookSameWinner(uint8 winnerCount) public {
         winnerCount = uint8(bound(winnerCount, 1, 3));
