@@ -17,12 +17,14 @@ import { useWallet, type MoneyBalances } from "../lib/useWallet";
 import {
   ASSET,
   approveAsset,
+  approveQuoteForRouter,
   claimStableFaucet,
   cooldownLabel,
   depositToPool,
   formatUsdc,
   parseUsdc,
   quoteQuoteToAsset,
+  readQuoteRouterAllowance,
   swapQuoteToAsset,
   withdrawAllFromPool,
 } from "../lib/money";
@@ -172,6 +174,18 @@ export default function Deposit() {
 
   async function swapQuote() {
     setNote(null);
+    // The router pulls the quote token with transferFrom, so it needs an
+    // allowance first. A swap without one reverts on chain every time.
+    if (wallet.address && quoteBalance > 0n) {
+      const granted = await readQuoteRouterAllowance(testnetReadClient, wallet.address as Address);
+      if (granted < quoteBalance) {
+        const approved = await wallet.runTx(
+          (walletClient, account) => approveQuoteForRouter(walletClient, account, quoteBalance),
+          () => setNote("Approved the router to take the USDT. Sending the swap now."),
+        );
+        if (!approved) return;
+      }
+    }
     const ok = await wallet.runTx(
       (walletClient, account) => swapQuoteToAsset(walletClient, account, quoteBalance, quote ?? 0n, testnetReadClient),
       () => setNote("Swapped. Your wallet now holds the pool's USDC."),
