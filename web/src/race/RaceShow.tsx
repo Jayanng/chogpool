@@ -213,7 +213,7 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
       <Panel className={`show-stage${finishBurst ? " show-stage--finish" : ""}${slowmo ? " show-stage--slowmo" : ""}`}>
         <div className="show-top">
           <div>
-            <p className="kicker">RACE {draw.drawId.toString()} · {stateLabel(draw.state)}</p>
+            <p className="kicker">RACE {draw.drawId.toString()} · {stateLabel(draw.state, rehearsal)}</p>
             <h2 className="show-title">{decided ? replayHeadline(rehearsal) : gatesTitle(draw.state)}</h2>
           </div>
           <div className="show-controls">
@@ -303,7 +303,7 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
         <section className="share-section">
           <ShareCard
             chog={winnerViews[0]?.racer ? { tokenId: winnerViews[0].racer.tokenId.toString(), imageUrl: winnerViews[0].racer.imageUrl, name: winnerViews[0].racer.name } : null}
-            raceLabel={`Race ${draw.drawId.toString()} · ${stateLabel(draw.state)}`}
+            raceLabel={`Race ${draw.drawId.toString()} · ${stateLabel(draw.state, rehearsal)}`}
             result={shareResult}
           />
         </section>
@@ -312,7 +312,11 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
   );
 }
 
-function stateLabel(state: string): string {
+/** The pill over the show. A rehearsal draw exists only in its own record, so
+ *  its pill names that record and never wears chain-state vocabulary; real
+ *  draws keep the exact state labels they had. */
+function stateLabel(state: string, rehearsal: boolean): string {
+  if (rehearsal) return "REHEARSAL RECORD";
   if (state === "open") return "GATES OPEN";
   if (state === "closed") return "AWAITING REVEAL";
   if (state === "awarded") return "RESULT IN";
