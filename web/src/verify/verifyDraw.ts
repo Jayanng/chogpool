@@ -53,9 +53,12 @@ export type Verification = {
   walk: WalkRow[];
   steps: DerivedWinner[];
   racerTable: RacerTickets[];
-  mirror: MirrorUriCheck | null;
-  career: CareerRecord | null;
-  inscriptionLine: string | null;
+  /** One mirror URI record per winner the chain recorded. */
+  mirrors: MirrorUriCheck[];
+  /** One CareerStore record per winner the chain recorded. */
+  careers: Array<{ tokenId: bigint; record: CareerRecord }>;
+  /** Every RaceRecorded line the log scan found for this draw. */
+  inscriptionLines: string[];
   scanNote: string | null;
   verdict: "verified" | "mismatch" | "incomplete";
   verdictLine: string;
@@ -287,57 +290,60 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
   }
   }
 
-  // ---- 7. mirror URI record for the winner --------------------------
-  let mirror: MirrorUriCheck | null = null;
-  let career: CareerRecord | null = null;
-  let inscriptionLine: string | null = null;
+  // ---- 7 + 8. mirror URI records and trophy inscriptions, per winner ----
+  const mirrors: MirrorUriCheck[] = [];
+  const careers: Array<{ tokenId: bigint; record: CareerRecord }> = [];
+  const inscriptionLines: string[] = [];
   let scanNote: string | null = null;
+  let scannedInscriptions: Array<{ tokenId: bigint; placement: number; blockNumber: bigint; txHash: Hex }> = [];
 
   if (awarded && live) {
-    const winner = draw.winners[0];
-    try {
-      const [badge, chog] = await Promise.all([readMirrorBadge(winner), readChog(winner).catch(() => null)]);
-      const computedHash = keccak256(toBytes(badge.storedUri));
-      const hashMatch = badge.recordedUriHash === null ? null : badge.recordedUriHash.toLowerCase() === computedHash.toLowerCase();
-      const mainnetUri = chog ? chog.tokenURI : null;
-      const cleanStored = badge.storedUri.startsWith("test-chog:") ? badge.storedUri.slice("test-chog:".length) : badge.storedUri;
-      const mainnetMatch = mainnetUri === null ? null : cleanStored === mainnetUri;
-      mirror = {
-        tokenId: winner,
-        badgeLabel: badge.badgeLabel,
-        storedUri: badge.storedUri,
-        recordedHash: badge.recordedUriHash,
-        computedHash,
-        hashMatch,
-        mainnetUri,
-        mainnetMatch,
-        metadataName: chog?.metadata.name ?? null,
-      };
-    } catch {
-      mirror = null;
-    }
-
-    try {
-      career = await readCareer(winner, draw.drawId);
-    } catch {
-      career = null;
+    for (const winner of draw.winners) {
+      try {
+        const [badge, chog] = await Promise.all([readMirrorBadge(winner), readChog(winner).catch(() => null)]);
+        const computedHash = keccak256(toBytes(badge.storedUri));
+        const hashMatch = badge.recordedUriHash === null ? null : badge.recordedUriHash.toLowerCase() === computedHash.toLowerCase();
+        const mainnetUri = chog ? chog.tokenURI : null;
+        const cleanStored = badge.storedUri.startsWith("test-chog:") ? badge.storedUri.slice("test-chog:".length) : badge.storedUri;
+        const mainnetMatch = mainnetUri === null ? null : cleanStored === mainnetUri;
+        mirrors.push({
+          tokenId: winner,
+          badgeLabel: badge.badgeLabel,
+          storedUri: badge.storedUri,
+          recordedHash: badge.recordedUriHash,
+          computedHash,
+          hashMatch,
+          mainnetUri,
+          mainnetMatch,
+          metadataName: chog?.metadata.name ?? null,
+        });
+      } catch {
+        checks.push({
+          key: `mirror-${winner.toString()}`,
+          title: `The mirror's URI record for CHOG #${winner.toString()}`,
+          status: "unavailable",
+          lines: ["The mirror read for this winner did not answer on this RPC."],
+        });
+      }
     }
 
     try {
       const events = await readDrawEvents(draw);
-      if (events.inscriptions.length > 0) {
-        const ins = events.inscriptions[0];
-        inscriptionLine = `RaceRecorded(CHOG #${ins.tokenId.toString()}, race ${draw.drawId.toString()}, placement ${ins.placement}) at block ${ins.blockNumber.toString()}, tx ${shortHex(ins.txHash, 10, 8)}.`;
+      scannedInscriptions = events.inscriptions;
+      for (const ins of events.inscriptions) {
+        inscriptionLines.push(
+          `RaceRecorded(CHOG #${ins.tokenId.toString()}, race ${draw.drawId.toString()}, placement ${ins.placement}) at block ${ins.blockNumber.toString()}, tx ${shortHex(ins.txHash, 10, 8)}.`,
+        );
       }
       scanNote = `Event logs scanned for blocks ${events.scannedFrom.toString()} to ${events.scannedTo.toString()} (the public RPC caps log ranges at 100 blocks per call).`;
     } catch {
       scanNote = "The event log scan did not answer on this RPC; the CareerStore's own reads above still stand.";
     }
 
-    if (mirror) {
+    for (const mirror of mirrors) {
       checks.push({
-        key: "mirror",
-        title: "The mirror's URI record for the winner",
+        key: `mirror-${mirror.tokenId.toString()}`,
+        title: `The mirror's URI record for CHOG #${mirror.tokenId.toString()}`,
         status: mirror.hashMatch === false ? "fail" : mirror.hashMatch === true ? "pass" : "unavailable",
         lines: [
           `Mirror badge: ${mirror.badgeLabel}`,
@@ -361,31 +367,49 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
         ].filter(Boolean),
       });
     }
-  }
 
-  // ---- 8. trophy inscription ----------------------------------------
-  if (awarded && career) {
-    checks.push({
-      key: "career",
-      title: "Trophy inscription in the CareerStore",
-      status: career.placementInRace > 0 ? "pass" : "fail",
-      lines: [
-        `placementOf(CHOG #${draw.winners[0].toString()}, ${draw.drawId.toString()}) = ${career.placementInRace}`,
-        `Career after this race: ${career.gold} gold, ${career.silver} silver, ${career.bronze} bronze, ${career.races} race(s) recorded.`,
-        inscriptionLine ?? "The inscription event sat outside the scanned block window; the store's own placement read above is the durable record.",
-        scanNote ?? "",
-      ].filter(Boolean),
-    });
+    for (const winner of draw.winners) {
+      let record: CareerRecord | null = null;
+      try {
+        record = await readCareer(winner, draw.drawId);
+        careers.push({ tokenId: winner, record });
+      } catch {
+        record = null;
+      }
+      if (!record) {
+        checks.push({
+          key: `career-${winner.toString()}`,
+          title: `Trophy inscription in the CareerStore for CHOG #${winner.toString()}`,
+          status: "unavailable",
+          lines: ["The CareerStore read for this winner did not answer on this RPC."],
+        });
+        continue;
+      }
+      const inscription = scannedInscriptions.find((i) => i.tokenId.toString() === winner.toString());
+      checks.push({
+        key: `career-${winner.toString()}`,
+        title: `Trophy inscription in the CareerStore for CHOG #${winner.toString()}`,
+        status: record.placementInRace > 0 ? "pass" : "fail",
+        lines: [
+          `placementOf(CHOG #${winner.toString()}, ${draw.drawId.toString()}) = ${record.placementInRace}`,
+          `Career after this race: ${record.gold} gold, ${record.silver} silver, ${record.bronze} bronze, ${record.races} race(s) recorded.`,
+          inscription
+            ? `RaceRecorded(CHOG #${inscription.tokenId.toString()}, race ${draw.drawId.toString()}, placement ${inscription.placement}) at block ${inscription.blockNumber.toString()}, tx ${shortHex(inscription.txHash, 10, 8)}.`
+            : "No RaceRecorded event for this winner appeared in the scanned block window; the store's own placement read above is the durable record.",
+          scanNote ?? "",
+        ].filter(Boolean),
+      });
+    }
   } else if (awarded) {
     checks.push({
       key: "mirror",
-      title: "The mirror's URI record for the winner",
+      title: "The mirror's URI record for the winners",
       status: "unavailable",
       lines: ["The mirror and career records for this draw live on the live stack, and this dev record predates it. Both checks run in full against live draws."],
     });
     checks.push({
       key: "career",
-      title: "Trophy inscription in the CareerStore",
+      title: "Trophy inscriptions in the CareerStore",
       status: "unavailable",
       lines: ["The CareerStore inscription for this draw is checked in full against live draws."],
     });
@@ -414,9 +438,9 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
     walk,
     steps: derived ? derived.steps : [],
     racerTable,
-    mirror,
-    career,
-    inscriptionLine,
+    mirrors,
+    careers,
+    inscriptionLines,
     scanNote,
     verdict,
     verdictLine,

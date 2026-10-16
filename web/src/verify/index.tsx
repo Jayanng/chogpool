@@ -60,7 +60,7 @@ export default function Verify() {
         <p className="kicker">FAIRNESS VERIFIER</p>
         <h1>Trust the math,<br /><em>then check it.</em></h1>
         <p className="lede">
-          Paste a race ID and the verifier re-derives the winner from the published seed using the exact
+          Paste a race ID and the verifier re-derives the winners from the published seed using the exact
           on-chain formula. Green check when it matches the on-chain record, loud and specific when it does not.
         </p>
       </section>
@@ -77,7 +77,7 @@ export default function Verify() {
           />
         </label>
         <div className="hero-actions">
-          <Button onClick={submit} disabled={busy}>{busy ? "Recomputing…" : "Recompute winner"}</Button>
+          <Button onClick={submit} disabled={busy}>{busy ? "Recomputing…" : "Recompute winners"}</Button>
           <Button variant="quiet" onClick={() => navigate("/race")}>Watch the race</Button>
         </div>
         {error && <p className="viewer-error" role="alert">{error}</p>}

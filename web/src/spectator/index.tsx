@@ -53,7 +53,7 @@ export default function Spectator() {
         <h1>Watch without a wallet.</h1>
         <p className="lede">
           Every race is viewable with no wallet and no deposit. Cheer with Test $CHOG tips that land in the
-          racer's team wallet the moment they are sent. Not a holder? The card below explains the two
+          racer's team wallet as soon as the transaction is mined. Not a holder? The card below explains the two
           clearly-labeled ways onto the track.
         </p>
         <Badge tone="neutral">NO WALLET NEEDED TO WATCH</Badge>
@@ -94,10 +94,10 @@ export default function Spectator() {
         >
           <p className="muted">
             Chog Genesis is a 1,969-piece collection on Monad. Your Chog is the key to the track: it binds the
-            deposit, it races the yield, and it keeps the career. On this testnet build every racer carries a
-            clearly-labeled mirror badge: <strong>Verified Holder</strong> when the real mainnet owner signed
-            the mint, or <strong>Test Drive</strong> when it is a one-per-wallet demo token. The two are never
-            blurred, on this site or on chain.
+            deposit, it races the yield, and it keeps the career. On this testnet build each racer's mirror
+            badge is shown wherever the mirror records one: <strong>Verified Holder</strong> when the real
+            mainnet owner signed the mint, or <strong>Test Drive</strong> when it is a one-per-wallet demo
+            token. The two are never blurred, on this site or on chain.
           </p>
           <div className="hero-actions">
             <a

@@ -1,7 +1,7 @@
 // The race show: a deterministic replay of a draw the chain has already
 // decided. The lanes, the pace, the photo finish and the podium are built
 // purely from the draw's published final randomness, the frozen ticket book
-// and the racers' real IPFS traits. The winner on screen is the winner the
+// and the racers' real IPFS traits. The winners on screen are the winners the
 // contract recorded; the replay never decides anything.
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -11,7 +11,18 @@ import { buildRaceReplay, type RaceReplay } from "../lib/race-engine";
 import { perkEffectFor } from "../lib/draft";
 import { isSoundMuted, playCue, setSoundMuted } from "../lib/sound";
 import { formatAsset, formatBps, formatTickets, shortHex } from "../lib/format";
+import { getRaceSource } from "../lib/game";
 import { navigate } from "../lib/router";
+import {
+  inscriptionFor,
+  ipfsName,
+  isWinnerToken,
+  joinWithAnd,
+  prizePerWinner,
+  trophySentence,
+  winnerHeadline,
+  type InscriptionEvidence,
+} from "../lib/result-copy";
 import { Countdown } from "../components/Countdown";
 import { ShareCard, type ShareCardResult } from "../components/ShareCard";
 import { Confetti } from "./Confetti";
@@ -26,6 +37,15 @@ const SLOWMO_SPEED = 0.32;
 const ZERO_WORD: Hex = `0x${"0".repeat(64)}`;
 
 type Phase = "gates" | "running" | "done";
+
+/** One on-chain winner with the display data and the page's own evidence for
+ *  it. The inscription is the RaceRecorded event for this draw, when the logs
+ *  hold one; the trophy line may claim a recording only when it is there. */
+type WinnerView = {
+  tokenId: bigint;
+  racer: RacerDisplay | null;
+  inscription: InscriptionEvidence | null;
+};
 
 export function RaceShow({ bundle }: { bundle: RaceBundle }) {
   const { draw, events, racers } = bundle;
@@ -56,8 +76,13 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
   const tRef = useRef(0);
   const finishCued = useRef(false);
 
-  const winnerRacer = racers.find((r) => r.tokenId === draw.winners[0]) ?? null;
+  const winnerViews: WinnerView[] = draw.winners.map((tokenId) => ({
+    tokenId,
+    racer: racers.find((r) => r.tokenId === tokenId) ?? null,
+    inscription: inscriptionFor(events?.inscriptions ?? [], tokenId),
+  }));
   const winnerIndexInLanes = replay ? replay.lanes.findIndex((l) => l.tokenId === replay.winner) : -1;
+  const liveSource = getRaceSource()?.kind === "live";
 
   function progressSnapshot(t: number): Record<string, number> {
     if (!replay) return {};
@@ -118,12 +143,14 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
 
   const totalTickets = racers.reduce((acc, r) => acc + r.tickets, 0n);
   const shareResult: ShareCardResult | null =
-    decided && winnerRacer
+    decided && winnerViews.length > 0
       ? {
           drawId: draw.drawId.toString(),
-          winnerName: winnerRacer.name,
-          winnerTokenId: winnerRacer.tokenId.toString(),
-          winnerImageUrl: winnerRacer.imageUrl,
+          winners: winnerViews.map((view) => ({
+            tokenId: view.tokenId.toString(),
+            name: view.racer ? ipfsName(view.tokenId, view.racer.name, view.racer.metadataMissing) : null,
+            imageUrl: view.racer?.imageUrl ?? null,
+          })),
           potLabel: formatAsset(draw.potPerWinner),
         }
       : null;
@@ -148,7 +175,10 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
 
         {draw.state === "open" && (
           <div className="show-status">
-            <Countdown nextDrawAt={draw.closeAt} sourceLabel="LIVE FROM THE DRAW ENGINE (drawCloseAt)" />
+            <Countdown
+              nextDrawAt={draw.closeAt > 0 ? draw.closeAt : null}
+              sourceLabel={liveSource ? "LIVE FROM THE DRAW ENGINE (drawCloseAt)" : "FROM THE RECORDED DRAW (drawCloseAt)"}
+            />
             <p className="muted">
               The gates close when the commit window ends and the field locks. The race you watch here is a
               replay of the revealed result, so it starts once the seed is revealed and the draw is awarded.
@@ -174,7 +204,7 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
               progress={progress[racer.tokenId.toString()] ?? 0}
               share={totalTickets === 0n ? 0n : (racer.tickets * 10000n) / totalTickets}
               drawId={draw.drawId.toString()}
-              isWinner={decided && racer.tokenId === draw.winners[0]}
+              isWinner={decided && isWinnerToken(draw.winners, racer.tokenId)}
               showResult={phase === "done"}
             />
           ))}
@@ -192,17 +222,19 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
       {decided && phase === "done" && (
         <div className="podium-wrap">
           <Confetti seed={draw.finalRandomness} active />
-          <Podium bundle={bundle} replay={replay} winnerRacer={winnerRacer} eventsLabel={eventsLabel(events)} />
+          <Podium bundle={bundle} replay={replay} winners={winnerViews} eventsLabel={eventsLabel(events)} />
         </div>
       )}
 
-      {decided && phase !== "done" && winnerRacer && (
+      {decided && phase !== "done" && winnerViews.length > 0 && (
         <Panel className="truth-strip">
           <Badge tone="lime">ON-CHAIN RESULT</Badge>
           <span>
-            The chain already recorded this race: winner CHOG #{winnerRacer.tokenId.toString()}
-            {winnerRacer.name !== `CHOG #${winnerRacer.tokenId.toString()}` ? ` (IPFS metadata name: ${winnerRacer.name})` : ""},
-            paid {formatAsset(draw.potPerWinner)}. The replay on screen is that result, frame for frame, every time.
+            The chain already recorded this race: {winnerViews.length === 1 ? "winner" : "winners"}{" "}
+            {joinWithAnd(winnerViews.map((view) => displayLabel(view)))}, paid{" "}
+            {prizePerWinner(draw.winners, formatAsset(draw.potPerWinner))}
+            {winnerViews.length > 1 ? ", the pot split evenly across the winners" : ""}. The replay on screen is
+            that result, frame for frame, every time.
           </span>
           <Button variant="outline" onClick={() => navigate("/verify")}>Verify the draw</Button>
         </Panel>
@@ -211,7 +243,7 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
       {shareResult && (
         <section className="share-section">
           <ShareCard
-            chog={winnerRacer ? { tokenId: winnerRacer.tokenId.toString(), imageUrl: winnerRacer.imageUrl, name: winnerRacer.name } : null}
+            chog={winnerViews[0]?.racer ? { tokenId: winnerViews[0].racer.tokenId.toString(), imageUrl: winnerViews[0].racer.imageUrl, name: winnerViews[0].racer.name } : null}
             raceLabel={`Race ${draw.drawId.toString()} · ${stateLabel(draw.state)}`}
             result={shareResult}
           />
@@ -240,6 +272,13 @@ function eventsLabel(events: RaceBundle["events"]): string {
   return events.awardedAt ? `Awarded at block ${events.awardedAt.blockNumber.toString()}` : "";
 }
 
+/** "CHOG #1462", with the real IPFS metadata name where one exists. */
+function displayLabel(view: WinnerView): string {
+  const base = `CHOG #${view.tokenId.toString()}`;
+  const name = view.racer ? ipfsName(view.tokenId, view.racer.name, view.racer.metadataMissing) : null;
+  return name ? `${base} (IPFS metadata name: ${name})` : base;
+}
+
 function LaneRow({
   racer,
   progress,
@@ -256,6 +295,7 @@ function LaneRow({
   showResult: boolean;
 }) {
   const perk = perkEffectFor(drawId, racer.tokenId.toString());
+  const name = ipfsName(racer.tokenId, racer.name, racer.metadataMissing);
   return (
     <div className={`show-lane${isWinner && showResult ? " show-lane--winner" : ""}`}>
       <div className="show-lane-head">
@@ -277,7 +317,7 @@ function LaneRow({
       </div>
       <div className="show-lane-meta">
         <span>{formatTickets(racer.tickets)} tickets · {formatBps(share)} of the frozen book</span>
-        {racer.name !== `CHOG #${racer.tokenId.toString()}` && <span>IPFS NAME: {racer.name.toUpperCase()}</span>}
+        {name && <span>IPFS NAME: {name.toUpperCase()}</span>}
         {perk && <span className="show-perk">PERK: {perk.name.toUpperCase()} (SHOW ONLY)</span>}
       </div>
     </div>
@@ -287,79 +327,119 @@ function LaneRow({
 function Podium({
   bundle,
   replay,
-  winnerRacer,
+  winners,
   eventsLabel,
 }: {
   bundle: RaceBundle;
   replay: RaceReplay | null;
-  winnerRacer: RacerDisplay | null;
+  winners: WinnerView[];
   eventsLabel: string;
 }) {
-  const { draw, events, racers } = bundle;
-  const runners = replay ? replay.finishOrder.slice(1) : [];
+  const { draw, racers } = bundle;
+  const winnerKeys = new Set(draw.winners.map((w) => w.toString()));
+  const runners = replay ? replay.finishOrder.filter((t) => !winnerKeys.has(t.toString())) : [];
   return (
     <Panel className="podium">
       <div className="podium-head">
         <Badge tone="lime">PODIUM</Badge>
-        <h2>CHOG #{draw.winners[0]?.toString() ?? "?"} takes the race.</h2>
+        <h2>{winnerHeadline(draw.winners)}</h2>
       </div>
       <div className="podium-grid">
-        <div className="podium-winner">
-          {winnerRacer?.imageUrl && (
-            <img src={winnerRacer.imageUrl} alt={`CHOG #${draw.winners[0]?.toString()}`} className="podium-img" />
-          )}
-          <div>
-            <p className="kicker">ON-CHAIN WINNER · WINNERSOF({draw.drawId.toString()})</p>
-            <h3>
-              CHOG #{draw.winners[0]?.toString()}
-              {winnerRacer && winnerRacer.name !== `CHOG #${draw.winners[0]?.toString()}` ? ` · IPFS metadata name: ${winnerRacer.name}` : ""}
-            </h3>
-            {winnerRacer?.badge && winnerRacer.badge.badge !== 0 && (
-              <Badge tone={winnerRacer.badge.badge === 2 ? "lime" : "neutral"}>{winnerRacer.badge.badgeLabel}</Badge>
-            )}
-            <p className="muted">
-              Prize paid: {formatAsset(draw.potPerWinner)} straight from the yield-funded pot to the depositor
-              behind the position{winnerRacer?.team ? <> ({shortHex(winnerRacer.team, 10, 8)})</> : null}.
-              {eventsLabel ? ` ${eventsLabel}.` : ""}
-            </p>
-            {winnerRacer?.career && (
-              <p className="muted">
-                Trophy case after this race: {winnerRacer.career.gold} gold, {winnerRacer.career.silver} silver,{" "}
-                {winnerRacer.career.bronze} bronze across {winnerRacer.career.races} race
-                {winnerRacer.career.races === 1 ? "" : "s"}. Recorded by the CareerStore in the award transaction.
-              </p>
-            )}
-            {events && events.inscriptions.length > 0 && (
-              <p className="show-inscription">
-                INSCRIPTION EVENT: RaceRecorded at block {events.inscriptions[0].blockNumber.toString()} (tx{" "}
-                {shortHex(events.inscriptions[0].txHash, 10, 8)}), placement {events.inscriptions[0].placement}.
-              </p>
-            )}
-            <div className="hero-actions">
-              <Button onClick={() => navigate("/verify")}>Re-derive this result</Button>
-              <Button variant="outline" onClick={() => navigate("/spectator")}>Cheer the field</Button>
-            </div>
-          </div>
+        <div className="podium-winners">
+          {winners.map((view) => (
+            <WinnerBlock
+              key={view.tokenId.toString()}
+              view={view}
+              drawId={draw.drawId.toString()}
+              winnerTokens={draw.winners}
+              potLabel={formatAsset(draw.potPerWinner)}
+              eventsLabel={eventsLabel}
+            />
+          ))}
         </div>
         <div className="podium-rest">
           <p className="kicker">THE REST OF THE FIELD</p>
-          {runners.length === 0 && <p className="muted">A one-racer field: the book held a single racer this draw.</p>}
+          {runners.length === 0 && (
+            <p className="muted">
+              {racers.length === 1
+                ? "A one-racer field: the book held a single racer this draw."
+                : "Every racer in the book is a winner this draw."}
+            </p>
+          )}
           {runners.map((tokenId, i) => {
             const racer = racers.find((r) => r.tokenId === tokenId);
             return (
               <p className="podium-place" key={tokenId.toString()}>
-                <span>{i + 2}.</span> CHOG #{tokenId.toString()}
-                {racer && racer.name !== `CHOG #${tokenId.toString()}` ? <em>IPFS NAME: {racer.name.toUpperCase()}</em> : null}
+                <span>{i + draw.winners.length + 1}.</span> CHOG #{tokenId.toString()}
+                {racer && ipfsName(tokenId, racer.name, racer.metadataMissing) ? <em>IPFS NAME: {(ipfsName(tokenId, racer.name, racer.metadataMissing) ?? "").toUpperCase()}</em> : null}
                 <em> show order (presentation)</em>
               </p>
             );
           })}
           <p className="show-disclosure">
-            Only place 1 is decided on chain. The rest of the finishing order is deterministic show flavor from
-            the same seed, labeled wherever it appears.
+            {draw.winners.length === 1
+              ? "Only place 1 is decided on chain."
+              : `Only the ${draw.winners.length} winning places are decided on chain.`}{" "}
+            The rest of the finishing order is deterministic show flavor from the same seed, labeled wherever it
+            appears.
           </p>
         </div>
       </div>
     </Panel>
+  );
+}
+
+function WinnerBlock({
+  view,
+  drawId,
+  winnerTokens,
+  potLabel,
+  eventsLabel,
+}: {
+  view: WinnerView;
+  drawId: string;
+  winnerTokens: readonly bigint[];
+  potLabel: string;
+  eventsLabel: string;
+}) {
+  const racer = view.racer;
+  const name = racer ? ipfsName(view.tokenId, racer.name, racer.metadataMissing) : null;
+  const prizeSentence =
+    `Prize paid: ${prizePerWinner(winnerTokens, potLabel)}` +
+    (winnerTokens.length > 1 ? `, the pot split evenly across ${winnerTokens.length} winners` : "") +
+    `, straight from the yield-funded pot to the depositor behind the position${
+      racer?.team ? ` (${shortHex(racer.team, 10, 8)})` : ""
+    }.`;
+  return (
+    <div className="podium-winner">
+      {racer?.imageUrl && (
+        <img src={racer.imageUrl} alt={`CHOG #${view.tokenId.toString()}`} className="podium-img" />
+      )}
+      <div>
+        <p className="kicker">ON-CHAIN WINNER · WINNERSOF({drawId})</p>
+        <h3>
+          CHOG #{view.tokenId.toString()}
+          {name ? ` · IPFS metadata name: ${name}` : ""}
+        </h3>
+        {racer?.badge && racer.badge.badge !== 0 && (
+          <Badge tone={racer.badge.badge === 2 ? "lime" : "neutral"}>{racer.badge.badgeLabel}</Badge>
+        )}
+        <p className="muted">
+          {prizeSentence}
+          {eventsLabel ? ` ${eventsLabel}.` : ""}
+        </p>
+        {racer?.career && <p className="muted">{trophySentence(racer.career, view.inscription)}</p>}
+        {view.inscription && (
+          <p className="show-inscription">
+            INSCRIPTION EVENT: RaceRecorded at block {view.inscription.blockNumber.toString()} (tx{" "}
+            {shortHex(view.inscription.txHash, 10, 8)}), placement {view.inscription.placement}.
+          </p>
+        )}
+        <div className="hero-actions">
+          <Button onClick={() => navigate("/verify")}>Re-derive this result</Button>
+          <Button variant="outline" onClick={() => navigate("/spectator")}>Cheer the field</Button>
+        </div>
+      </div>
+    </div>
   );
 }

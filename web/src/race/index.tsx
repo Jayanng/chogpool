@@ -122,7 +122,7 @@ export default function Race() {
               They shape how the run looks and never who wins it.
             </li>
             <li>Confetti is seeded from the draw randomness. Sound is off until you turn it on.</li>
-            <li>The winner, the prize and the trophy case are read back from the chain after the race.</li>
+            <li>The winners, the prize and the trophy case are read back from the chain after the race.</li>
           </ul>
           <Badge tone="neutral">EVERY FRAME IS A FUNCTION OF THE PUBLISHED SEED</Badge>
         </Card>

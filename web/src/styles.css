@@ -176,6 +176,7 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 .podium { padding: 28px; display: grid; gap: 20px; position: relative; z-index: 1; }
 .podium-head { display: grid; gap: 10px; }
 .podium-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; }
+.podium-winners { display: grid; gap: 24px; align-content: start; }
 .podium-winner { display: grid; grid-template-columns: 180px 1fr; gap: 20px; align-items: start; }
 .podium-img { width: 180px; height: 180px; border-radius: 16px; object-fit: cover; border: 2px solid #c6ef6d; }
 .podium-winner h3 { margin: 4px 0 10px; font-size: 22px; }

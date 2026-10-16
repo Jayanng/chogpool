@@ -22,7 +22,7 @@ export function Countdown({ nextDrawAt, sourceLabel }: { nextDrawAt: number | nu
     return () => window.clearInterval(id);
   }, []);
 
-  if (nextDrawAt === null) {
+  if (nextDrawAt === null || nextDrawAt <= 0) {
     return (
       <div className="countdown">
         <div className="countdown-value">-- : -- : -- : --</div>
