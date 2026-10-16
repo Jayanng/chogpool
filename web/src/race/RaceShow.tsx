@@ -286,7 +286,7 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
 
       {decided && phase === "done" && (
         <div className="podium-wrap">
-          <Confetti seed={draw.finalRandomness} active />
+          <Confetti seed={draw.finalRandomness} active count={420} />
           <Podium bundle={bundle} replay={replay} winners={winnerViews} eventsLabel={eventsLabel(events)} />
         </div>
       )}
@@ -425,48 +425,69 @@ function Podium({
         <h2>{winnerHeadline(draw.winners)}</h2>
       </div>
       <div className="podium-grid">
-        <div className="podium-winners">
-          {winners.map((view, i) => (
-            <WinnerBlock
-              key={view.tokenId.toString()}
-              view={view}
-              place={i + 1}
-              drawId={draw.drawId.toString()}
-              winnerTokens={draw.winners}
-              potLabel={formatAsset(draw.potPerWinner)}
-              pot={draw.potPerWinner}
-              eventsLabel={eventsLabel}
-              zeroPot={zeroPot}
-              rehearsal={rehearsal}
-              careerSource={careerSource}
-            />
-          ))}
-        </div>
-        <div className="podium-rest">
-          <p className="kicker">THE REST OF THE FIELD</p>
-          {runners.length === 0 && (
-            <p className="muted">
-              {racers.length === 1
-                ? "A one-racer field: the book held a single racer this draw."
-                : "Every racer in the book is a winner this draw."}
-            </p>
-          )}
-          {runners.map((tokenId, i) => {
-            const racer = racers.find((r) => r.tokenId === tokenId);
-            return (
-              <p className="podium-place" key={tokenId.toString()}>
-                <span>{i + draw.winners.length + 1}.</span> CHOG #{tokenId.toString()}
-                {racer && ipfsName(tokenId, racer.name, racer.metadataMissing) ? <em>IPFS NAME: {(ipfsName(tokenId, racer.name, racer.metadataMissing) ?? "").toUpperCase()}</em> : null}
-                <em> show order (presentation)</em>
+        <div className="podium-stage">
+          <div className="podium-winners">
+            {winners.map((view, i) => (
+              <div className="podium-winner-slot" key={view.tokenId.toString()}>
+                <WinnerBlock
+                  view={view}
+                  place={i + 1}
+                  drawId={draw.drawId.toString()}
+                  winnerTokens={draw.winners}
+                  potLabel={formatAsset(draw.potPerWinner)}
+                  pot={draw.potPerWinner}
+                  eventsLabel={eventsLabel}
+                  zeroPot={zeroPot}
+                  rehearsal={rehearsal}
+                  careerSource={careerSource}
+                />
+                <span className={`podium-step ${i === 0 ? "podium-step--gold" : "podium-step--silver"}`} aria-hidden="true" />
+              </div>
+            ))}
+          </div>
+          <div className="podium-rest">
+            <p className="kicker">THE REST OF THE FIELD</p>
+            {runners.length === 0 && (
+              <p className="muted">
+                {racers.length === 1
+                  ? "A one-racer field: the book held a single racer this draw."
+                  : "Every racer in the book is a winner this draw."}
               </p>
-            );
-          })}
-          <p className="show-disclosure">
-            {podiumPlacesFooter(draw.winners.length, rehearsal)}{" "}
-            The rest of the finishing order is deterministic show flavor from the same seed, labeled wherever it
-            appears.
-          </p>
+            )}
+            {runners.length > 0 && (
+              <div className="podium-field">
+                {runners.map((tokenId, i) => {
+                  const racer = racers.find((r) => r.tokenId === tokenId);
+                  const name = racer ? ipfsName(tokenId, racer.name, racer.metadataMissing) : null;
+                  return (
+                    <div className="podium-field-slot" key={tokenId.toString()}>
+                      <div className={`podium-field-card${i === 0 ? " podium-field-card--runner-up" : ""}`}>
+                        <div className="podium-field-shot">
+                          <span className="podium-spotlight" aria-hidden="true" />
+                          {racer?.imageUrl && (
+                            <img src={racer.imageUrl} alt={`CHOG #${tokenId.toString()}`} className="podium-field-img" />
+                          )}
+                          <span className="podium-field-rank">{ordinalPlace(i + draw.winners.length + 1)}</span>
+                        </div>
+                        <div className="podium-field-body">
+                          <p className="podium-field-id">CHOG #{tokenId.toString()}</p>
+                          {name && <em>IPFS NAME: {name.toUpperCase()}</em>}
+                          <em className="podium-show-order">show order (presentation)</em>
+                        </div>
+                      </div>
+                      <span className={`podium-step ${i === 0 ? "podium-step--silver" : "podium-step--stone"}`} aria-hidden="true" />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
+        <p className="show-disclosure">
+          {podiumPlacesFooter(draw.winners.length, rehearsal)}{" "}
+          The rest of the finishing order is deterministic show flavor from the same seed, labeled wherever it
+          appears.
+        </p>
       </div>
     </Panel>
   );
@@ -475,7 +496,7 @@ function Podium({
 /** The prize number with its count-up. It lands on exactly the amount the
  *  prize sentence reports; the sentence below carries the wording and the
  *  caveats. Skipped entirely when the split came out to zero. */
-function PrizeAmount({ value }: { value: bigint }) {
+function PrizeAmount({ value, paid }: { value: bigint; paid: boolean }) {
   const [t, setT] = useState(0);
   useEffect(() => {
     let raf = 0;
@@ -488,7 +509,34 @@ function PrizeAmount({ value }: { value: bigint }) {
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
   }, [value]);
-  return <p className="podium-amount">{formatAsset(countUpValue(0n, value, t))}</p>;
+  return (
+    <p className="podium-prize-line">
+      <span className="podium-amount-glyph" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="34" height="34" fill="none">
+          <path d="M7 3h10v4a5 5 0 0 1-10 0V3Z" fill="url(#podiumTrophyGold)" />
+          <path d="M7 4.4H4.6a3.4 3.4 0 0 0 3.4 3.9M17 4.4h2.4a3.4 3.4 0 0 1-3.4 3.9" stroke="#facc15" strokeWidth="1.6" strokeLinecap="round" />
+          <path d="M12 12.2v3.9" stroke="#facc15" strokeWidth="2" strokeLinecap="round" />
+          <rect x="8.6" y="16" width="6.8" height="2.1" rx="1.05" fill="#f5c542" />
+          <rect x="7" y="18.9" width="10" height="2.3" rx="1.15" fill="#eab308" />
+          <defs>
+            <linearGradient id="podiumTrophyGold" x1="7" y1="3" x2="17" y2="12">
+              <stop stopColor="#ffe066" />
+              <stop offset="1" stopColor="#ff9d42" />
+            </linearGradient>
+          </defs>
+        </svg>
+      </span>
+      <span className="podium-amount">{formatAsset(countUpValue(0n, value, t))}</span>
+      {paid && (
+        <span className="podium-paid">
+          <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true" fill="none">
+            <path d="M1.5 6.2 4.4 9 10.5 2.6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          PAID
+        </span>
+      )}
+    </p>
+  );
 }
 
 function WinnerBlock({
@@ -528,8 +576,23 @@ function WinnerBlock({
     team: racer?.team ? shortHex(racer.team, 10, 8) : null,
   });
   return (
-    <div className={`podium-winner podium-winner--${accent}`} style={{ animationDelay: `${(place - 1) * 160}ms` }}>
+    <div className={`podium-winner podium-winner--${accent}${place === 1 ? " podium-winner--hero" : ""}`} style={{ animationDelay: `${(place - 1) * 160}ms` }}>
       <div className="podium-shot">
+        <span className="podium-spotlight" aria-hidden="true" />
+        {place === 1 && (
+          <span className="podium-crown" aria-hidden="true">
+            <svg viewBox="0 0 32 24" width="56" height="42" fill="none">
+              <path d="M3 19 1.5 7l7.2 4.6L16 3l7.3 8.6L30.5 7 29 19H3Z" fill="url(#podiumCrownGold)" stroke="#eab308" strokeWidth="1.2" strokeLinejoin="round" />
+              <rect x="3.4" y="19.6" width="25.2" height="3.4" rx="1.7" fill="#eab308" />
+              <defs>
+                <linearGradient id="podiumCrownGold" x1="2" y1="4" x2="30" y2="20">
+                  <stop stopColor="#ffe066" />
+                  <stop offset="1" stopColor="#ff9d42" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </span>
+        )}
         {racer?.imageUrl && (
           <img src={racer.imageUrl} alt={`CHOG #${view.tokenId.toString()}`} className="podium-img" />
         )}
@@ -544,7 +607,7 @@ function WinnerBlock({
         {racer?.badge && racer.badge.badge !== 0 && (
           <Badge tone={racer.badge.badge === 2 ? "lime" : "neutral"}>{racer.badge.badgeLabel}</Badge>
         )}
-        {!zeroPot && <PrizeAmount value={pot} />}
+        {!zeroPot && <PrizeAmount value={pot} paid={!rehearsal} />}
         <p className="muted podium-prize">
           {prizeSentence}
           {eventsLabel ? ` ${eventsLabel}.` : ""}

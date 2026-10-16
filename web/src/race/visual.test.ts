@@ -3,7 +3,18 @@
 // they produce are pinned here so the visual layer cannot drift them.
 
 import { describe, expect, it } from "vitest";
-import { countUpT, countUpValue, ordinalPlace, runnerLeft, trailWidth } from "./visual";
+import {
+  confettiDepthAlpha,
+  confettiDepthSize,
+  confettiDepthSpeed,
+  confettiField,
+  countUpT,
+  countUpValue,
+  ordinalPlace,
+  runnerLeft,
+  seededRandom,
+  trailWidth,
+} from "./visual";
 
 describe("runnerLeft", () => {
   it("keeps the runner inside the track and breaks the line at 1", () => {
@@ -68,5 +79,82 @@ describe("ordinalPlace", () => {
     expect(ordinalPlace(21)).toBe("21ST");
     expect(ordinalPlace(0)).toBe("1ST");
     expect(ordinalPlace(-4)).toBe("1ST");
+  });
+});
+
+/* The confetti scatter is pure draw-seeded layout: pinned here so the burst
+   cannot quietly turn back into wallpaper. */
+
+const SEED_A = `0x${"ab".repeat(32)}`;
+const SEED_B = `0x${"cd".repeat(32)}`;
+
+describe("seededRandom", () => {
+  it("replays the same stream for the same seed and salt", () => {
+    const a = seededRandom(SEED_A, 7);
+    const b = seededRandom(SEED_A, 7);
+    for (let i = 0; i < 20; i++) expect(a()).toBe(b());
+  });
+
+  it("scatters differently under a different seed or salt", () => {
+    const sameSalt = seededRandom(SEED_B, 7);
+    const otherSalt = seededRandom(SEED_A, 8);
+    const base = seededRandom(SEED_A, 7);
+    const draws = [base(), base(), base()];
+    expect([sameSalt(), sameSalt(), sameSalt()]).not.toEqual(draws);
+    expect([otherSalt(), otherSalt(), otherSalt()]).not.toEqual(draws);
+  });
+});
+
+describe("confettiField", () => {
+  it("lays out the same field from the same seed", () => {
+    const one = confettiField(seededRandom(SEED_A, 0), 1200, 600, 120, "fall");
+    const two = confettiField(seededRandom(SEED_A, 0), 1200, 600, 120, "fall");
+    expect(one).toEqual(two);
+  });
+
+  it("packs the field at the top and thins it downward", () => {
+    const field = confettiField(seededRandom(SEED_A, 0), 1200, 600, 400, "fall");
+    const meanY = field.reduce((acc, p) => acc + p.y, 0) / field.length;
+    const topHalf = field.filter((p) => p.y < 300).length;
+    expect(meanY).toBeLessThan(600 * 0.5);
+    expect(topHalf).toBeGreaterThan(field.length * 0.5);
+  });
+
+  it("layers near and far pieces with varied sizes and fall speeds", () => {
+    const field = confettiField(seededRandom(SEED_A, 0), 1200, 600, 300, "fall");
+    const sizes = new Set(field.map((p) => Math.round(p.size)));
+    const speeds = new Set(field.map((p) => p.vy));
+    const depths = new Set(field.map((p) => p.depth));
+    expect(Math.min(...sizes)).toBeLessThan(7);
+    expect(Math.max(...sizes)).toBeGreaterThan(12);
+    expect(speeds.size).toBeGreaterThan(10);
+    expect([...depths].sort()).toEqual([0, 1, 2]);
+  });
+
+  it("gives every piece a mount kick that flies outward from the top", () => {
+    const field = confettiField(seededRandom(SEED_A, 0), 1200, 600, 200, "fall");
+    expect(field.every((p) => p.kickY < 0)).toBe(true);
+    const left = field.find((p) => p.x < 600);
+    const right = field.find((p) => p.x >= 600);
+    if (left) expect(left.kickX).toBeLessThanOrEqual(0);
+    if (right) expect(right.kickX).toBeGreaterThanOrEqual(0);
+  });
+
+  it("explodes the finish burst from the crossing point", () => {
+    const field = confettiField(seededRandom(SEED_A, 0), 1200, 600, 80, "burst");
+    expect(field).toHaveLength(80);
+    expect(field.every((p) => p.x === 1200 * 0.9 && p.y === 600 * 0.5)).toBe(true);
+    expect(field.every((p) => p.kickX === 0 && p.kickY === 0)).toBe(true);
+  });
+});
+
+describe("confetti depth layers", () => {
+  it("makes far pieces small, slow and dim, near pieces big, fast and full", () => {
+    expect(confettiDepthSize(0)).toBeLessThan(confettiDepthSize(2));
+    expect(confettiDepthSpeed(0)).toBeLessThan(confettiDepthSpeed(2));
+    expect(confettiDepthAlpha(0)).toBeLessThan(confettiDepthAlpha(2));
+    expect(confettiDepthSize(9)).toBe(1);
+    expect(confettiDepthSpeed(9)).toBe(1);
+    expect(confettiDepthAlpha(9)).toBe(1);
   });
 });

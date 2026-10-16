@@ -483,23 +483,62 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 /* The ceremony panels sit above the confetti so the celebration wraps the
    payoff frame instead of covering the faces and numbers. */
 .podium-head, .podium-winner, .podium-rest { position: relative; z-index: 3; }
-.podium-head { display: grid; gap: 10px; }
+/* The headline stays legible over the confetti rain: it paints above the
+   canvas and carries its own soft shadow so pieces never clip the letters. */
+.podium-head { z-index: 4; display: grid; gap: 10px; text-shadow: 0 2px 18px rgba(13,16,20,.9), 0 0 30px rgba(13,16,20,.7); }
 .podium-head h2 { font-size: clamp(28px, 3.2vw, 42px); }
-.podium-grid { display: grid; grid-template-columns: 1fr; gap: 26px; }
-/* The champions stand side by side so the payoff frame holds every winner at
-   once; the rest of the field runs along the bottom. */
-.podium-winners { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 22px; align-content: start; }
+.podium-grid { display: grid; grid-template-columns: 1fr; gap: 22px; }
+/* One stage: the champion's card and the field's cards stand side by side on
+   one shadowed ground line, place 1 first and biggest. */
+.podium-stage {
+  position: relative; display: flex; flex-wrap: wrap; gap: 26px;
+  align-items: flex-end; padding-bottom: 12px;
+}
+/* The shared ground: one lit floor line under every step, with its shadow. */
+.podium-stage::after {
+  content: ""; position: absolute; left: -18px; right: -18px; bottom: 2px; height: 5px;
+  border-radius: 3px; pointer-events: none;
+  background: linear-gradient(90deg, rgba(250,204,21,.35), rgba(250,204,21,.13) 42%, rgba(215,222,230,.16));
+  box-shadow: 0 12px 28px rgba(0,0,0,.5), 0 0 22px rgba(250,204,21,.16);
+}
+.podium-winners { flex: 1.7 1 520px; display: grid; grid-template-columns: 1fr; gap: 22px; align-content: end; }
 .podium-winner {
-  display: grid; grid-template-columns: 200px 1fr; gap: 22px; align-items: start;
+  display: grid; grid-template-columns: var(--shot-w, 220px) 1fr; gap: 22px; align-items: start;
   padding: 20px; border-radius: 20px;
   background: linear-gradient(180deg, rgba(26,32,40,.97), rgba(19,24,30,.97));
   border: 1px solid rgba(255,255,255,.08);
   animation: podium-pop .55s cubic-bezier(.2,1.2,.3,1) both;
 }
+/* The champion's card: hero-scale art (320-420px on desktop), and the art
+   itself lands once with a small bounce as the card appears. */
+.podium-winner--hero {
+  --shot-w: clamp(320px, 21vw, 400px);
+  border-color: rgba(250,204,21,.34);
+  background:
+    radial-gradient(60% 130% at 24% 50%, rgba(250,204,21,.16), transparent 72%),
+    linear-gradient(180deg, rgba(40,34,20,.97), rgba(22,21,17,.97));
+}
+.podium-winner--hero .podium-shot { animation: hero-land .72s cubic-bezier(.22,1.25,.32,1) both; }
+@keyframes hero-land {
+  0% { opacity: 0; transform: translateY(18px) scale(.82); }
+  62% { opacity: 1; transform: translateY(0) scale(1.05); }
+  100% { transform: none; }
+}
 @keyframes podium-pop { from { opacity: 0; transform: translateY(22px) scale(.96); } to { opacity: 1; transform: none; } }
-.podium-shot { position: relative; width: 200px; }
+.podium-shot { position: relative; width: var(--shot-w, 220px); }
+/* Warm spotlight behind the art: a decorative glow layer only, kept strong
+   out to the image edge so it reads as light on the stage. */
+.podium-spotlight {
+  position: absolute; inset: -30%; z-index: 0; pointer-events: none; border-radius: 50%;
+  background: radial-gradient(closest-side,
+    rgba(250,204,21,.55), rgba(250,204,21,.4) 62%, rgba(250,204,21,.16) 82%, transparent 95%);
+  filter: blur(18px);
+}
+.podium-winner--silver .podium-spotlight { background: radial-gradient(closest-side, rgba(215,222,230,.32), rgba(215,222,230,.18) 62%, rgba(215,222,230,.06) 82%, transparent 95%); }
+.podium-winner--bronze .podium-spotlight { background: radial-gradient(closest-side, rgba(224,138,78,.34), rgba(224,138,78,.19) 62%, rgba(224,138,78,.07) 82%, transparent 95%); }
 .podium-img {
-  width: 200px; height: 200px; border-radius: 20px; object-fit: cover; display: block;
+  position: relative; z-index: 1;
+  width: 100%; height: auto; aspect-ratio: 1; border-radius: 20px; object-fit: cover; display: block;
   border: 3px solid #f4f6f8;
   box-shadow: 0 26px 52px rgba(0,0,0,.5);
 }
@@ -518,10 +557,26 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
   0%, 100% { opacity: .25; transform: scale(.7) rotate(0deg); }
   50% { opacity: 1; transform: scale(1.15) rotate(90deg); }
 }
+/* The champion's crown, floating over the art. Decorative only. */
+.podium-crown {
+  position: absolute; left: 50%; top: -20px; z-index: 3;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 6px 16px rgba(250,204,21,.5));
+  animation: crown-bob 3.2s ease-in-out infinite;
+}
+@keyframes crown-bob {
+  0%, 100% { transform: translateX(-50%) translateY(0) rotate(-2deg); }
+  50% { transform: translateX(-50%) translateY(-5px) rotate(2deg); }
+}
 .podium-winner--silver .podium-img { border-color: #d7dee6; box-shadow: 0 0 0 5px rgba(215,222,230,.16), 0 26px 52px rgba(215,222,230,.16); }
 .podium-winner--bronze .podium-img { border-color: #e08a4e; box-shadow: 0 0 0 5px rgba(224,138,78,.16), 0 26px 52px rgba(224,138,78,.18); }
+/* The champion's art carries a wider gold halo so the glow reads as a
+   spotlight on the stage, not a thin rim light. */
+.podium-winner--hero .podium-img {
+  box-shadow: 0 0 0 5px rgba(250,204,21,.2), 0 34px 80px rgba(250,204,21,.3), 0 26px 52px rgba(0,0,0,.55);
+}
 .podium-rank {
-  position: absolute; left: -8px; top: -10px;
+  position: absolute; left: -8px; top: -10px; z-index: 3;
   padding: 6px 14px; border-radius: 10px;
   background: #f4f6f8; color: #241a02;
   font: 800 14px 'Plus Jakarta Sans', system-ui, sans-serif; letter-spacing: .12em;
@@ -532,29 +587,139 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 .podium-winner--silver .podium-rank { background: linear-gradient(180deg, #f4f6f8, #d7dee6 60%, #b9c4cf); }
 .podium-winner--bronze .podium-rank { background: linear-gradient(180deg, #f2b27e, #e08a4e 60%, #c96f33); }
 @keyframes rank-snap { from { transform: scale(.5) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }
-.podium-amount {
+/* The prize is the win, not a balance: display sans, gold gradient like the
+   hero headline, a trophy glyph and a PAID stamp. The evidence lines below
+   keep their mono style; only the number itself gets the ceremony. */
+.podium-prize-line {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   margin: 12px 0 8px;
-  font: 700 clamp(26px, 2.6vw, 38px) 'DM Mono', ui-monospace, monospace;
-  letter-spacing: -.01em; color: #f4f6f8; white-space: nowrap;
+}
+.podium-amount-glyph { display: inline-flex; filter: drop-shadow(0 4px 14px rgba(250,204,21,.45)); }
+.podium-amount {
+  margin: 0;
+  font: 800 clamp(28px, 2.6vw, 40px) 'Plus Jakarta Sans', system-ui, sans-serif;
+  letter-spacing: -.035em; white-space: nowrap;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.32), rgba(255,255,255,0) 44%),
+    linear-gradient(92deg, #ff7a2f 4%, #ff9d42 46%, #ffe066 98%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: none;
   animation: amount-glow 2.6s ease-in-out infinite;
 }
 @keyframes amount-glow {
-  0%, 100% { text-shadow: 0 4px 24px rgba(255,138,61,.18); }
-  50% { text-shadow: 0 6px 34px rgba(250,204,21,.45); }
+  0%, 100% { filter: drop-shadow(0 1px 0 rgba(255,255,255,.28)) drop-shadow(0 4px 22px rgba(255,138,61,.22)); }
+  50% { filter: drop-shadow(0 1px 0 rgba(255,255,255,.28)) drop-shadow(0 6px 32px rgba(250,204,21,.5)); }
 }
-.podium-winner--gold .podium-amount { text-shadow: 0 6px 34px rgba(250,204,21,.4); }
+.podium-winner--gold .podium-amount { filter: drop-shadow(0 6px 30px rgba(250,204,21,.42)); }
+.podium-paid {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 10px; transform: rotate(-5deg);
+  border: 2px solid rgba(250,204,21,.75);
+  background: rgba(13,16,20,.82);
+  color: #facc15;
+  font: 800 12px 'Plus Jakarta Sans', system-ui, sans-serif; letter-spacing: .22em;
+  box-shadow:
+    inset 0 0 0 1.5px rgba(250,204,21,.35), inset 0 -8px 18px rgba(0,0,0,.45),
+    0 10px 26px rgba(250,204,21,.22);
+}
 .podium-prize { border-left: 3px solid rgba(255,138,61,.55); padding-left: 14px; font-size: 14px; }
 .podium-winner h3 { margin: 4px 0 10px; font-size: 22px; }
-.podium-rest { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; align-content: start; }
-.podium-rest .kicker { flex-basis: 100%; margin: 0 0 4px; }
-.podium-rest .muted, .podium-rest .show-disclosure { flex-basis: 100%; margin: 0; }
-.podium-place {
-  display: flex; gap: 10px; margin: 0; padding: 8px 12px; border-radius: 10px;
-  background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.06);
-  font-size: 14px; color: #f4f6f8;
+.podium-rest { flex: 1 1 300px; display: flex; flex-direction: column; gap: 12px; justify-content: flex-end; align-items: flex-start; }
+.podium-rest .kicker { margin: 0; }
+.podium-rest .muted { margin: 0; max-width: 380px; }
+/* The field's own podium: tiered mini-cards with real art, clearly smaller
+   than the champion, each standing on its own step of the shared base
+   (the 2ND slot on silver-grey and higher, the rest on stone and lower).
+   Every card keeps its "show order (presentation)" chip. */
+.podium-field {
+  position: relative; display: flex; flex-wrap: wrap; gap: 18px;
+  align-items: flex-end; max-width: 100%;
+  padding: 10px 10px 0;
 }
-.podium-place span { color: #ff8a3d; font: 500 12px 'DM Mono', ui-monospace, monospace; }
-.podium-place em { font-style: normal; color: #68737e; font: 500 11px 'DM Mono', ui-monospace, monospace; letter-spacing: .06em; }
+.podium-winner-slot, .podium-field-slot { display: grid; gap: 0; position: relative; z-index: 3; }
+.podium-winner-slot .podium-winner { border-bottom: 0; border-radius: 20px 20px 0 0; }
+/* Each card stands on its own step of one base: the champion's gold step is
+   the tall one, the field's silver-grey steps sit lower, and the leading
+   field slot rides above the rest. Steps meet the card edge flush, carry a
+   lit top edge and a contact shadow so the cards rest with real mass. */
+.podium-step {
+  position: relative; overflow: hidden;
+  margin-top: -1px;
+  border: 1px solid rgba(255,255,255,.1); border-top: 0;
+  border-radius: 0 0 8px 8px;
+}
+/* Volume: a lit left edge and top face, a shaded right side, so each step
+   reads as a block of stage instead of a flat gradient bar. */
+.podium-step::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.16), transparent 8%, transparent 92%, rgba(0,0,0,.28)),
+    linear-gradient(180deg, rgba(255,255,255,.14), transparent 38%);
+}
+.podium-step--gold {
+  height: 78px;
+  background: linear-gradient(180deg, rgba(253,230,138,.95) 0 3px, rgba(250,204,21,.62) 3px 42%, rgba(250,204,21,.16) 100%);
+  border-color: rgba(250,204,21,.42);
+  box-shadow: 0 22px 42px rgba(0,0,0,.5), inset 0 -14px 22px -8px rgba(0,0,0,.55), inset 0 20px 26px -14px rgba(0,0,0,.75);
+}
+.podium-step--silver {
+  height: 48px;
+  background: linear-gradient(180deg, rgba(240,244,248,.95) 0 3px, rgba(215,222,230,.55) 3px 42%, rgba(215,222,230,.16) 100%);
+  border-color: rgba(215,222,230,.4);
+  box-shadow: 0 18px 34px rgba(0,0,0,.42), inset 0 -12px 20px -8px rgba(0,0,0,.5), inset 0 18px 24px -13px rgba(0,0,0,.7);
+}
+.podium-step--stone {
+  height: 34px;
+  background: linear-gradient(180deg, rgba(206,213,221,.8) 0 3px, rgba(170,180,190,.38) 3px 42%, rgba(170,180,190,.12) 100%);
+  border-color: rgba(170,180,190,.28);
+  box-shadow: 0 16px 28px rgba(0,0,0,.38), inset 0 -11px 18px -8px rgba(0,0,0,.46), inset 0 16px 22px -12px rgba(0,0,0,.66);
+}
+.podium-field-card {
+  position: relative; z-index: 1;
+  display: grid; gap: 10px; justify-items: center; text-align: center;
+  padding: 14px 18px 16px; min-width: 168px;
+  background: linear-gradient(180deg, rgba(26,32,40,.97), rgba(19,24,30,.97));
+  border: 1px solid rgba(255,255,255,.08);
+  border-bottom: 0; border-radius: 16px 16px 0 0;
+  animation: podium-pop .55s cubic-bezier(.2,1.2,.3,1) both;
+}
+.podium-field-card--runner-up { border-color: rgba(215,222,230,.55); }
+.podium-field-shot { position: relative; width: 104px; }
+.podium-field-card--runner-up .podium-field-shot { width: 180px; }
+/* A soft spotlight behind the field art too: same stage light, smaller pool. */
+.podium-field-card .podium-spotlight {
+  background: radial-gradient(closest-side, rgba(215,222,230,.32), rgba(215,222,230,.12) 55%, transparent 80%);
+  filter: blur(10px);
+}
+.podium-field-img {
+  position: relative; z-index: 1;
+  width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; display: block;
+  border-radius: 12px; border: 2px solid rgba(244,246,248,.8);
+  box-shadow: 0 14px 30px rgba(0,0,0,.45);
+}
+.podium-field-card--runner-up .podium-field-img {
+  border-color: #e8edf2;
+  box-shadow: 0 0 0 4px rgba(215,222,230,.22), 0 0 42px rgba(215,222,230,.16), 0 16px 34px rgba(0,0,0,.5);
+}
+.podium-field-rank {
+  position: absolute; left: -8px; top: -8px; z-index: 2;
+  padding: 3px 9px; border-radius: 8px;
+  background: linear-gradient(180deg, #f4f6f8, #d7dee6 60%, #b9c4cf); color: #241a02;
+  font: 800 11px 'Plus Jakarta Sans', system-ui, sans-serif; letter-spacing: .12em;
+}
+.podium-field-body { display: grid; gap: 6px; justify-items: center; }
+.podium-field-id {
+  margin: 0; color: #f4f6f8;
+  font: 500 12px 'DM Mono', ui-monospace, monospace; letter-spacing: .08em;
+}
+.podium-field-body em {
+  font-style: normal; color: #68737e;
+  font: 500 10px 'DM Mono', ui-monospace, monospace; letter-spacing: .06em;
+}
+.podium-show-order {
+  padding: 3px 10px; border-radius: 999px;
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12);
+}
 .show-inscription { font: 500 12px 'DM Mono', ui-monospace, monospace; color: #c6ef6d; line-height: 1.6; }
 
 /* ---------------------------------------------- race page compact head */
@@ -608,6 +773,7 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 
 @media (max-width: 1024px) {
   .podium-grid, .podium-winner { grid-template-columns: 1fr; }
+  .podium-stage { flex-direction: column; align-items: stretch; }
   .draft-grid { grid-template-columns: 1fr; }
 }
 
@@ -633,4 +799,20 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
   .podium-img { width: 100%; height: auto; aspect-ratio: 1; }
   .podium-amount { font-size: 30px; }
   .race-picker { padding: 12px 14px; }
+}
+
+/* Ceremony motion is a garnish: when the OS asks for less motion, every
+   entrance, bounce and shimmer resolves to its finished state at once. */
+@media (prefers-reduced-motion: reduce) {
+  .podium-winner,
+  .podium-field-card,
+  .podium-winner--hero .podium-shot,
+  .podium-crown,
+  .podium-rank,
+  .podium-amount,
+  .podium-spotlight,
+  .podium-winner--gold .podium-shot::before,
+  .podium-winner--gold .podium-shot::after {
+    animation: none !important;
+  }
 }
