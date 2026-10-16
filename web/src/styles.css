@@ -1,11 +1,26 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700;800;900&display=swap');
 
 :root {
-  font-family: 'Plus Jakarta Sans', 'Manrope', system-ui, sans-serif;
+  font-family: 'Inter', 'Plus Jakarta Sans', system-ui, sans-serif;
   color: #f4f6f8;
   background: #0d1014;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+
+  /* Candy sticker palette (the reference brand language: flat fields + pops) */
+  --c-blue: #2b4af6;
+  --c-blue-deep: #1c2fb0;
+  --c-pink: #f3a0c9;
+  --c-pink-hot: #ff2d87;
+  --c-pink-soft: #f7bfe0;
+  --c-sky: #a5dbf6;
+  --c-yellow: #ffd84d;
+  --c-yellow-deep: #f5c21f;
+  --c-green: #3ccb7f;
+  --c-magenta: #e85c8a;
+  --c-ink: #111111;
+  --c-cream: #faf7f2;
+  --c-white: #ffffff;
 }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; }
@@ -820,3 +835,95 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
     animation: none !important;
   }
 }
+
+/* ===================== CANDY STICKER HERO (Batch 1) =====================
+   Reference language (from the brand reel): a flat candy color field, a giant
+   rounded-geometric headline with a yellow pop, die-cut sticker chogs, pill
+   chips with colored dots, and flat sticker confetti. Scoped to .hero-scene so
+   every other surface keeps working untouched. */
+.hero-scene h1, .hero-scene h2, .hero-scene h3 {
+  font-family: 'Poppins', system-ui, sans-serif;
+}
+
+/* flat electric-blue field replaces the old dark brand band */
+.hero-scene::before {
+  content: ""; position: absolute; inset: -70px -100vw -40px; z-index: -2;
+  background: var(--c-blue);
+}
+.hero-glow { display: none; }
+
+/* flat sticker confetti layer */
+.hero-confetti { position: absolute; inset: 0; z-index: 1; pointer-events: none; overflow: visible; }
+.hero-confetti svg { position: absolute; }
+
+.hero-copy { position: relative; z-index: 3; }
+.hero-stage { position: relative; z-index: 2; }
+
+.hero-scene .kicker {
+  display: inline-flex; align-items: center; gap: 8px; width: fit-content;
+  padding: 9px 18px; border-radius: 999px; margin: 0 0 18px;
+  background: var(--c-ink); color: var(--c-yellow);
+  font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: .14em;
+}
+
+.hero-scene h1 {
+  color: var(--c-white); font-weight: 900; line-height: .9; letter-spacing: -.04em;
+  font-size: clamp(52px, 7vw, 108px); margin: 0;
+}
+.hero-scene h1 em { font-style: normal; color: var(--c-yellow); }
+
+.hero-scene .catchphrase {
+  display: inline-block; width: fit-content; margin: 22px 0 4px; padding: 12px 22px;
+  background: var(--c-yellow); color: var(--c-ink); border: 0; border-left: 0;
+  border-radius: 18px; box-shadow: 4px 4px 0 var(--c-ink);
+  font-family: 'Poppins', sans-serif; font-weight: 800;
+  font-size: clamp(18px, 2vw, 25px); letter-spacing: -.02em; text-shadow: none;
+}
+
+.hero-scene .lede {
+  color: rgba(255,255,255,.96); font-family: 'Inter', sans-serif; font-size: 20px;
+  line-height: 1.55; font-weight: 500; letter-spacing: -.012em; max-width: 520px; margin: 26px 0;
+}
+
+.hero-scene .network-note { color: rgba(255,255,255,.9); }
+
+/* pill buttons, scoped to the hero */
+.hero-scene .ui-button {
+  border-radius: 999px; font-family: 'Poppins', sans-serif; font-weight: 700;
+  padding: 16px 28px; letter-spacing: -.01em; border: 0;
+}
+.hero-scene .ui-button--primary { background: var(--c-white); color: var(--c-ink); box-shadow: 3px 3px 0 var(--c-ink); }
+.hero-scene .ui-button--quiet { background: var(--c-ink); color: var(--c-white); box-shadow: 3px 3px 0 rgba(0,0,0,.35); }
+.hero-scene .ui-button:hover:not(:disabled) { transform: translateY(-2px); }
+
+/* die-cut sticker chogs */
+.hero-tile {
+  border: 9px solid var(--c-white); border-radius: 30px;
+  box-shadow: 0 0 0 5px var(--c-ink), 0 22px 46px rgba(20,20,50,.32), 0 5px 12px rgba(20,20,50,.18);
+}
+.tile-crowned { right: 34px !important; top: -28px !important; }
+.tile-third { right: 30px !important; bottom: -18px !important; }
+
+/* candy app card */
+.track-card {
+  background: var(--c-cream); border: 5px solid var(--c-ink); border-radius: 28px;
+  box-shadow: 0 28px 60px rgba(20,20,50,.30); color: var(--c-ink);
+}
+.track-card .card-top { color: var(--c-ink); }
+.track-card .card-top .ui-badge { background: rgba(17,17,17,.08); color: var(--c-ink); }
+.lane { background: var(--c-white); border: 3px solid var(--c-ink); border-radius: 18px; }
+.lane-label { color: var(--c-ink); }
+.lane-label span { color: #6b4a5c; }
+.track-footer { color: var(--c-ink); border-top: 2px dashed rgba(17,17,17,.15); }
+.track-footer strong { color: var(--c-ink); font-family: 'Poppins', sans-serif; }
+.track-note { color: #8b7280; }
+
+/* countdown inside the candy card */
+.track-card .countdown-value { color: var(--c-ink); }
+.track-card .countdown-note { color: #8b7280; }
+.track-card .standby-chip { background: var(--c-white); color: var(--c-ink); border-color: rgba(17,17,17,.12); }
+.track-card .standby-dot { background: var(--c-magenta); box-shadow: none; }
+
+/* pill chips in the hero */
+.hero-scene .ui-badge { border-radius: 999px; font-family: 'Inter', sans-serif; font-weight: 600; }
+.hero-scene .ui-badge--accent { background: var(--c-white); color: var(--c-ink); }

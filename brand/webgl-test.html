@@ -1,0 +1,6 @@
+<!doctype html><html><body style="margin:0"><canvas id="c" width="300" height="200"></canvas>
+<script>
+const gl = document.getElementById('c').getContext('webgl');
+document.title = gl ? 'WEBGL_OK' : 'WEBGL_FAIL';
+if (gl) { gl.clearColor(0.15, 0.4, 0.9, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
+</script></body></html>

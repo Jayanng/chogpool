@@ -1,0 +1,28 @@
+<!doctype html><html><body><canvas id="c"></canvas><script src="three.min.js"></script>
+<script>
+try {
+  document.title = 'S1_three_loaded';
+  const renderer = new THREE.WebGLRenderer({canvas: document.getElementById('c'), alpha:true});
+  document.title = 'S2_renderer';
+  renderer.setSize(200, 100, false);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  document.title = 'S3_pmrem';
+  const cc = document.createElement('canvas'); cc.width = 64; cc.height = 32;
+  const x = cc.getContext('2d'); x.fillStyle = '#2255ff'; x.fillRect(0,0,64,32);
+  const envTex = new THREE.CanvasTexture(cc);
+  envTex.mapping = THREE.EquirectangularReflectionMapping;
+  document.title = 'S4_envtex';
+  const env = pmrem.fromEquirectangular(envTex).texture;
+  document.title = 'S5_from_eq';
+  const scene = new THREE.Scene();
+  scene.environment = env;
+  const m = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshPhysicalMaterial({metalness:1, roughness:0.3}));
+  scene.add(m);
+  const cam = new THREE.PerspectiveCamera(40, 2, 0.1, 100); cam.position.z = 4;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({color: 0xffaa00, transparent:true, opacity:0.5, blending: THREE.AdditiveBlending, depthWrite:false}));
+  scene.add(s);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.render(scene, cam);
+  document.title = 'ALL_OK';
+} catch(e) { document.title = 'ERR:' + e.message; }
+</script></body></html>
