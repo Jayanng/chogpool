@@ -37,17 +37,103 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 .kicker { font: 500 11px 'DM Mono', ui-monospace, monospace; letter-spacing: .15em; color: #ff8a3d; margin: 28px 0 14px; }
 .hero h1 { font-size: clamp(52px, 6.5vw, 88px); letter-spacing: -.065em; line-height: .94; margin: 0; font-weight: 700; }
 .hero h1 em, .page-head h1 em { font-style: normal; color: #ff8a3d; }
-.lede { max-width: 560px; color: #aab4be; line-height: 1.7; font-size: 16px; margin: 24px 0; }
+.lede { max-width: 560px; color: #b7c1cb; line-height: 1.7; font-size: 17px; margin: 24px 0; }
 .hero-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 22px 0; }
 .network-note { display: flex; align-items: center; gap: 8px; font: 500 11px 'DM Mono', ui-monospace, monospace; letter-spacing: .05em; color: #68737e; }
 .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #c6ef6d; box-shadow: 0 0 10px rgba(198,239,109,.8); }
 
 .track-card { padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+
+/* Hero scene: the brand's vibrant band over the graphite product UI. The
+   cobalt-to-magenta field and yellow pops match the brand art; the card and
+   every word of copy stay in the product's own voice and honesty rules. */
+.hero-scene { position: relative; isolation: isolate; overflow-x: clip; }
+.hero-scene::before {
+  content: ""; position: absolute; inset: -70px -100vw -40px; z-index: -2;
+  background:
+    radial-gradient(1100px 520px at 12% -10%, rgba(37, 99, 235, .38), transparent 62%),
+    radial-gradient(900px 560px at 108% 24%, rgba(236, 72, 153, .30), transparent 64%),
+    radial-gradient(760px 420px at 60% 110%, rgba(79, 70, 229, .26), transparent 66%),
+    linear-gradient(180deg, #172033 0%, rgba(23, 32, 51, .55) 72%, transparent 100%);
+}
+.hero-glow {
+  position: absolute; inset: -70px -100vw -40px; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(2.5px 2.5px at 18% 22%, rgba(250, 204, 21, .85), transparent 70%),
+    radial-gradient(2px 2px at 32% 64%, rgba(250, 204, 21, .55), transparent 70%),
+    radial-gradient(3px 3px at 78% 14%, rgba(255, 255, 255, .5), transparent 70%),
+    radial-gradient(2px 2px at 88% 58%, rgba(250, 204, 21, .6), transparent 70%),
+    radial-gradient(2px 2px at 8% 82%, rgba(255, 255, 255, .35), transparent 70%);
+}
+.hero h1 em {
+  background: linear-gradient(92deg, #ff7a2f 4%, #ff9d42 46%, #ffe066 98%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 3px 0 rgba(146, 64, 14, .55)) drop-shadow(0 14px 34px rgba(250, 204, 21, .28));
+}
+.catchphrase {
+  display: block; width: fit-content; margin: 18px 0 4px; padding: 4px 0 4px 18px;
+  background: none; color: #facc15;
+  border-left: 6px solid #facc15; border-radius: 0 6px 6px 0;
+  font-weight: 700; font-size: clamp(18px, 2vw, 25px); letter-spacing: -.02em;
+  text-shadow: 0 2px 24px rgba(250, 204, 21, .35);
+  transition: transform .18s ease;
+}
+.catchphrase:hover { transform: translateX(3px); }
+.hero-stage { position: relative; }
+/* Tile system: every tile breaks exactly one card corner, one scale ladder
+   (128 / 104 / 82), alternating tilt, warm double-ring instead of a flat
+   white frame. */
+.hero-tile {
+  position: absolute; width: 104px; height: 104px; border-radius: 24px;
+  object-fit: cover; z-index: 3; border: 0;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .88), 0 0 0 5px rgba(255, 138, 61, .32),
+    0 26px 52px rgba(2, 6, 23, .72), inset 0 -14px 26px rgba(2, 6, 23, .18);
+  transition: transform .22s ease;
+}
+.hero-tile:hover { transform: translateY(-7px) rotate(0deg) scale(1.05); }
+.tile-crowned { top: -34px; right: 12px; width: 128px; height: 128px; transform: rotate(5deg); }
+.tile-hoodie { bottom: -34px; left: -86px; transform: rotate(-5deg); }
+.tile-third { bottom: -66px; right: -16px; width: 82px; height: 82px; transform: rotate(4deg); border-radius: 19px; }
+@keyframes hero-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -7px; } }
+.tile-crowned { animation: hero-float 6.5s ease-in-out infinite; }
+.tile-hoodie { animation: hero-float 7.5s ease-in-out 1.2s infinite; }
 .card-top { display: flex; align-items: center; justify-content: space-between; font: 500 11px 'DM Mono', ui-monospace, monospace; letter-spacing: .12em; color: #68737e; }
-.track-note { margin: 0; font-size: 11px; color: #68737e; }
+.track-note { margin: 0; font-size: 11px; color: #7e8994; }
+/* Soft dissolve at both ends so the ticker reads as endless, not clipped. */
+.ui-marquee {
+  mask-image: linear-gradient(90deg, transparent 0, #000 56px, #000 calc(100% - 56px), transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 56px, #000 calc(100% - 56px), transparent 100%);
+}
 .countdown { text-align: center; padding: 6px 0 12px; }
 .countdown-value { font: 500 clamp(30px, 3.4vw, 46px) 'DM Mono', ui-monospace, monospace; letter-spacing: .04em; color: #f4f6f8; }
-.countdown-note { font: 500 10px 'DM Mono', ui-monospace, monospace; letter-spacing: .12em; color: #68737e; margin-top: 6px; }
+.countdown-empty .countdown-value {
+  color: #55616d; opacity: .85;
+  text-shadow: 0 0 22px rgba(250, 204, 21, .18);
+  animation: standby-breathe 3.2s ease-in-out infinite;
+}
+@keyframes standby-breathe {
+  0%, 100% { text-shadow: 0 0 22px rgba(250, 204, 21, .14); opacity: .85; }
+  50% { text-shadow: 0 0 34px rgba(250, 204, 21, .3); opacity: 1; }
+}
+.standby-chip {
+  display: inline-flex; align-items: center; gap: 8px; margin-bottom: 10px;
+  padding: 5px 12px; border-radius: 999px;
+  background: rgba(250, 204, 21, .1); border: 1px solid rgba(250, 204, 21, .32);
+  font: 500 9.5px 'DM Mono', ui-monospace, monospace; letter-spacing: .16em; color: #facc15;
+}
+.standby-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: #facc15;
+  animation: standby-pulse 1.6s ease-in-out infinite;
+}
+@keyframes standby-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(250, 204, 21, .5); opacity: .75; }
+  50% { box-shadow: 0 0 0 6px rgba(250, 204, 21, 0); opacity: 1; }
+}
+.countdown-empty .countdown-note {
+  max-width: 320px; margin: 8px auto 0; line-height: 1.7; letter-spacing: .08em;
+}
+.countdown-note { font: 500 10px 'DM Mono', ui-monospace, monospace; letter-spacing: .12em; color: #7e8994; margin-top: 6px; }
 .lane { position: relative; height: 64px; border-radius: 14px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); display: flex; align-items: center; padding: 0 16px; overflow: hidden; }
 .lane-label { font: 500 11px 'DM Mono', ui-monospace, monospace; letter-spacing: .1em; color: #68737e; display: flex; gap: 10px; }
 .lane-label span { color: #aab4be; }
@@ -135,6 +221,10 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 @media (max-width: 1024px) {
   .app-shell { padding: 0 24px; }
   .hero, .proof-grid, .deposit-grid, .viewer-result { grid-template-columns: 1fr; }
+  .hero-stage { margin-top: 40px; }
+  .tile-crowned { top: -28px; right: 10px; }
+  .tile-hoodie { bottom: -26px; left: -12px; }
+  .tile-third { display: none; }
   .guide-grid { grid-template-columns: 1fr; }
   .viewer-image, .viewer-noimage { width: 100%; height: auto; aspect-ratio: 1; }
 }

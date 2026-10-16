@@ -52,7 +52,8 @@ export function Countdown({
 
   if (nextDrawAt === null || nextDrawAt <= 0) {
     return (
-      <div className="countdown">
+      <div className="countdown countdown-empty">
+        <div className="standby-chip"><span className="standby-dot" />NO ACTIVE DRAW · STANDBY</div>
         <div className="countdown-value">-- : -- : -- : --</div>
         <div className="countdown-note">
           No draw scheduled yet. Draws are opened by the pool operator, not on a timer: the countdown appears
