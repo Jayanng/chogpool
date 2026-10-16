@@ -55,7 +55,8 @@ export type RaceBundleState = {
   reload: () => void;
 };
 
-async function loadRacer(tokenId: bigint, draw: DrawRecord): Promise<RacerDisplay> {
+/** One racer's display record. Exported for the three-state read tests. */
+export async function loadRacer(tokenId: bigint, draw: DrawRecord): Promise<RacerDisplay> {
   const recordedCareer = draw.recordedCareers?.[tokenId.toString()] ?? null;
   const [chog, reads, career] = await Promise.all([
     readChog(tokenId).catch(() => null),
