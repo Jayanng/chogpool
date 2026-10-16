@@ -10,7 +10,7 @@ import { Badge, Button, Panel, tokens } from "@chogpool/ui";
 import { buildRaceReplay, type RaceReplay } from "../lib/race-engine";
 import { perkEffectFor } from "../lib/draft";
 import { isSoundMuted, playCue, setSoundMuted } from "../lib/sound";
-import { formatAsset, formatBps, formatTickets, shortHex } from "../lib/format";
+import { formatAsset, formatBps, formatTickets, hexIsNonZero, shortHex } from "../lib/format";
 import { getRaceSource } from "../lib/game";
 import { navigate } from "../lib/router";
 import {
@@ -21,6 +21,7 @@ import {
   prizePerWinner,
   trophySentence,
   winnerHeadline,
+  type CareerSource,
   type InscriptionEvidence,
 } from "../lib/result-copy";
 import { Countdown } from "../components/Countdown";
@@ -49,7 +50,8 @@ type WinnerView = {
 
 export function RaceShow({ bundle }: { bundle: RaceBundle }) {
   const { draw, events, racers } = bundle;
-  const decided = (draw.state === "awarded" || draw.state === "finalized") && BigInt(draw.finalRandomness) !== 0n;
+  // "0x" is the soft-read fallback, not a number: never hand it to BigInt().
+  const decided = (draw.state === "awarded" || draw.state === "finalized") && hexIsNonZero(draw.finalRandomness);
 
   const replay: RaceReplay | null = useMemo(() => {
     if (!decided) return null;
@@ -67,7 +69,7 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
       })),
     });
     // The replay is a pure function of these exact inputs.
-  }, [draw.drawId, draw.finalRandomness, draw.winners, decided]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [draw.drawId, draw.finalRandomness, draw.winners, decided, racers]);
 
   const [phase, setPhase] = useState<Phase>("gates");
   const [progress, setProgress] = useState<Record<string, number>>({});
@@ -142,6 +144,7 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
   }, [phase, replay, winnerIndexInLanes]);
 
   const totalTickets = racers.reduce((acc, r) => acc + r.tickets, 0n);
+  const zeroPot = draw.potPerWinner === 0n;
   const shareResult: ShareCardResult | null =
     decided && winnerViews.length > 0
       ? {
@@ -152,6 +155,7 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
             imageUrl: view.racer?.imageUrl ?? null,
           })),
           potLabel: formatAsset(draw.potPerWinner),
+          zeroPot,
         }
       : null;
 
@@ -231,10 +235,13 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
           <Badge tone="lime">ON-CHAIN RESULT</Badge>
           <span>
             The chain already recorded this race: {winnerViews.length === 1 ? "winner" : "winners"}{" "}
-            {joinWithAnd(winnerViews.map((view) => displayLabel(view)))}, paid{" "}
-            {prizePerWinner(draw.winners, formatAsset(draw.potPerWinner))}
-            {winnerViews.length > 1 ? ", the pot split evenly across the winners" : ""}. The replay on screen is
-            that result, frame for frame, every time.
+            {joinWithAnd(winnerViews.map((view) => displayLabel(view)))},{" "}
+            {zeroPot
+              ? `with no prize to pay out (the pot's split came out to ${formatAsset(draw.potPerWinner)} per winner)`
+              : `paid ${prizePerWinner(draw.winners, formatAsset(draw.potPerWinner))}${
+                  winnerViews.length > 1 ? ", the pot split evenly across the winners" : ""
+                }`}
+            . The replay on screen is that result, frame for frame, every time.
           </span>
           <Button variant="outline" onClick={() => navigate("/verify")}>Verify the draw</Button>
         </Panel>
@@ -338,6 +345,8 @@ function Podium({
   const { draw, racers } = bundle;
   const winnerKeys = new Set(draw.winners.map((w) => w.toString()));
   const runners = replay ? replay.finishOrder.filter((t) => !winnerKeys.has(t.toString())) : [];
+  const zeroPot = draw.potPerWinner === 0n;
+  const careerSource: CareerSource = draw.recordedCareers ? "draw-record" : "live-read";
   return (
     <Panel className="podium">
       <div className="podium-head">
@@ -354,6 +363,8 @@ function Podium({
               winnerTokens={draw.winners}
               potLabel={formatAsset(draw.potPerWinner)}
               eventsLabel={eventsLabel}
+              zeroPot={zeroPot}
+              careerSource={careerSource}
             />
           ))}
         </div>
@@ -395,28 +406,35 @@ function WinnerBlock({
   winnerTokens,
   potLabel,
   eventsLabel,
+  zeroPot,
+  careerSource,
 }: {
   view: WinnerView;
   drawId: string;
   winnerTokens: readonly bigint[];
   potLabel: string;
   eventsLabel: string;
+  zeroPot: boolean;
+  careerSource: CareerSource;
 }) {
   const racer = view.racer;
   const name = racer ? ipfsName(view.tokenId, racer.name, racer.metadataMissing) : null;
-  const prizeSentence =
-    `Prize paid: ${prizePerWinner(winnerTokens, potLabel)}` +
-    (winnerTokens.length > 1 ? `, the pot split evenly across ${winnerTokens.length} winners` : "") +
-    `, straight from the yield-funded pot to the depositor behind the position${
-      racer?.team ? ` (${shortHex(racer.team, 10, 8)})` : ""
-    }.`;
+  // A zero split is not a payment: the sentence says so instead of claiming
+  // one. With prize money the copy names the per-winner share and its source.
+  const prizeSentence = zeroPot
+    ? `No prize to pay out this draw: the pot's split came out to ${potLabel} per winner.`
+    : `Prize paid: ${prizePerWinner(winnerTokens, potLabel)}` +
+      (winnerTokens.length > 1 ? `, the pot split evenly across ${winnerTokens.length} winners` : "") +
+      `, straight from the yield-funded pot to the depositor behind the position${
+        racer?.team ? ` (${shortHex(racer.team, 10, 8)})` : ""
+      }.`;
   return (
     <div className="podium-winner">
       {racer?.imageUrl && (
         <img src={racer.imageUrl} alt={`CHOG #${view.tokenId.toString()}`} className="podium-img" />
       )}
       <div>
-        <p className="kicker">ON-CHAIN WINNER · WINNERSOF({drawId})</p>
+        <p className="kicker">ON-CHAIN WINNER · winnersOf({drawId})</p>
         <h3>
           CHOG #{view.tokenId.toString()}
           {name ? ` · IPFS metadata name: ${name}` : ""}
@@ -428,7 +446,7 @@ function WinnerBlock({
           {prizeSentence}
           {eventsLabel ? ` ${eventsLabel}.` : ""}
         </p>
-        {racer?.career && <p className="muted">{trophySentence(racer.career, view.inscription)}</p>}
+        {racer?.career && <p className="muted">{trophySentence(racer.career, view.inscription, careerSource)}</p>}
         {view.inscription && (
           <p className="show-inscription">
             INSCRIPTION EVENT: RaceRecorded at block {view.inscription.blockNumber.toString()} (tx{" "}

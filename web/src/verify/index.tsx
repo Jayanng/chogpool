@@ -16,6 +16,7 @@ export default function Verify() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<Verification | null>(null);
+  const [noDraws, setNoDraws] = useState(false);
 
   const run = useCallback(async (drawId: bigint) => {
     setBusy(true);
@@ -34,9 +35,12 @@ export default function Verify() {
     let cancelled = false;
     readCurrentRaceId()
       .then((id) => {
-        if (!cancelled && id !== null) {
+        if (cancelled) return;
+        if (id !== null) {
           setInput(id.toString());
           void run(id);
+        } else {
+          setNoDraws(true);
         }
       })
       .catch(() => {});
@@ -83,6 +87,18 @@ export default function Verify() {
         {error && <p className="viewer-error" role="alert">{error}</p>}
       </Panel>
 
+      {noDraws && (
+        <Panel className="feature-panel">
+          <Card title="No draws to verify yet" footer="THE VERIFIER WALKS REAL DRAWS ONLY">
+            <p className="muted">
+              The draw engine holds no races on chain yet, so there is nothing to re-derive. The moment
+              the operator awards one, its race ID here walks the published seed and the exact formula,
+              step by step.
+            </p>
+          </Card>
+        </Panel>
+      )}
+
       {busy && (
         <Panel className="feature-panel">
           <Skeleton variant="block" height={120} />
@@ -109,30 +125,35 @@ export default function Verify() {
               <Card
                 title="The frozen ticket walk"
                 aside={<Badge tone="neutral">READ FROM THE CHAIN, NOT FROM US</Badge>}
-                footer="EVERY WINNER SLOT LANDS SOMEWHERE IN THIS TABLE"
+                footer="EVERY WINNER SLOT'S INDEX FALLS INSIDE THESE RANGES"
               >
-                <table className="verify-table">
-                  <thead>
-                    <tr><th>RACER</th><th>TICKETS</th><th>FROM (CUMULATIVE)</th><th>TO (CUMULATIVE)</th></tr>
-                  </thead>
-                  <tbody>
-                    {report.walk.map((row) => {
-                      const hit = report.steps.some((s) => s.picked === row.tokenId);
-                      return (
-                        <tr key={row.tokenId.toString()} className={hit ? "verify-table__hit" : ""}>
-                          <td>CHOG #{row.tokenId.toString()}</td>
-                          <td>{formatTickets(row.tickets)}</td>
-                          <td>{row.from.toString()}</td>
-                          <td>{row.to.toString()}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                <div className="verify-table-wrap">
+                  <table className="verify-table">
+                    <thead>
+                      <tr><th>RACER</th><th>TICKETS</th><th>FROM (CUMULATIVE)</th><th>TO (CUMULATIVE)</th></tr>
+                    </thead>
+                    <tbody>
+                      {report.walk.map((row) => {
+                        const hit = report.steps.some((s) => s.picked === row.tokenId);
+                        return (
+                          <tr key={row.tokenId.toString()} className={hit ? "verify-table__hit" : ""}>
+                            <td data-label="RACER">CHOG #{row.tokenId.toString()}</td>
+                            <td data-label="TICKETS">{formatTickets(row.tickets)}</td>
+                            <td data-label="FROM">{row.from.toString()}</td>
+                            <td data-label="TO">{row.to.toString()}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
                 <p className="viewer-note">
-                  The draw's racer list, in the order the pool froze it, with each racer's cumulative ticket
-                  range. A winner slot's index falls inside exactly one row; the rows highlighted in green hold
-                  this race's winners.
+                  The draw's racer list, in the order the pool froze it, with each racer's cumulative
+                  ticket range. A winner slot's index falls inside exactly one row. When a slot repeats a
+                  racer an earlier slot already picked, the contract walks forward to the next unpicked
+                  racer instead, and that fallback can land on a racer with no row here if it holds zero
+                  tickets. The rows highlighted in green hold the racers this race's slots picked. On
+                  narrow screens the rows stack with every column labeled.
                 </p>
               </Card>
             </Panel>
@@ -153,11 +174,12 @@ function CheckCard({ check }: { check: Check }) {
         title={check.title}
         aside={<Badge tone={tone}>{label}</Badge>}
         footer={
-          check.status === "fail"
+          check.footer ??
+          (check.status === "fail"
             ? "THIS STEP DISAGREES WITH THE CHAIN"
             : check.status === "unavailable"
               ? "STATED PLAINLY WHERE THIS ANSWER COMES FROM"
-              : "REAL CONTRACT READS AND REAL KECCAK256"
+              : "REAL CONTRACT READS AND REAL KECCAK256")
         }
       >
         <ul className={`verify-lines verify-lines--${check.status}`}>

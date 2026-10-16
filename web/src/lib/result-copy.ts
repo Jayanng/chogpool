@@ -20,6 +20,9 @@ export type CareerCounts = {
   placementInRace: number;
 };
 
+/** Where the career counts on screen came from. */
+export type CareerSource = "live-read" | "draw-record";
+
 /** True when the chain recorded this token among the draw's winners. */
 export function isWinnerToken(winners: readonly bigint[], tokenId: bigint): boolean {
   const key = tokenId.toString();
@@ -55,13 +58,15 @@ export function prizePerWinner(winners: readonly bigint[], potLabel: string): st
   return winners.length > 1 ? `${potLabel} each` : potLabel;
 }
 
-/** Share card prize line. */
-export function prizeCanvasLabel(winners: readonly bigint[], potLabel: string): string {
+/** Share card prize line. A zero split is not a payment and never claims one. */
+export function prizeCanvasLabel(winners: readonly bigint[], potLabel: string, zeroPot = false): string {
+  if (zeroPot) return "No prize to pay out this draw";
   return winners.length > 1 ? `Prize ${potLabel} each` : `Prize ${potLabel}`;
 }
 
 /** Share card line for where the prize came from. */
-export function splitCanvasLabel(winners: readonly bigint[]): string {
+export function splitCanvasLabel(winners: readonly bigint[], zeroPot = false): string {
+  if (zeroPot) return "The pot split to zero per winner";
   return winners.length > 1
     ? `Pot split evenly across ${winners.length} winners`
     : "Paid from the yield-funded pot";
@@ -78,24 +83,36 @@ export function inscriptionFor(
 
 /**
  * The trophy line. It may claim an on-chain recording only when the page holds
- * the RaceRecorded event for this token in this draw AND the store's own counts
- * back it up; otherwise the numbers are reported as the plain live read they
- * are.
+ * the RaceRecorded event for this token in this draw, the store's own counts
+ * back it up, AND the event's placement agrees with the recorded placement;
+ * otherwise the numbers are reported as the plain read they are.
  */
-export function trophySentence(career: CareerCounts, inscription: InscriptionEvidence | null): string {
+export function trophySentence(
+  career: CareerCounts,
+  inscription: InscriptionEvidence | null,
+  source: CareerSource = "live-read",
+): string {
   const counts =
     `${career.gold} gold, ${career.silver} silver, ${career.bronze} bronze ` +
     `across ${career.races} race${career.races === 1 ? "" : "s"}`;
-  const recorded = inscription !== null && career.races > 0 && career.placementInRace > 0;
+  const recorded =
+    inscription !== null &&
+    career.races > 0 &&
+    career.placementInRace > 0 &&
+    inscription.placement === career.placementInRace;
   return recorded
     ? `Trophy case after this race: ${counts}. Recorded on chain in the RaceRecorded event below.`
-    : `Career on record so far: ${counts}. Read live from the CareerStore.`;
+    : `Career on record so far: ${counts}. ${
+        source === "live-read" ? "Read live from the CareerStore." : "Carried in this draw's own record."
+      }`;
 }
 
 /**
  * The racer's real IPFS metadata name, or null when what the record holds is
- * just the tokenId fallback (metadata missing or unnamed). Keeps the page from
- * calling a fallback an IPFS name.
+ * not a name at all. The collection numbers its metadata files differently
+ * from tokenIds (token 1462 resolves to 954.json, so its name reads
+ * "CHOG #954"), so any "CHOG #NNN" name is the collection's own numbering and
+ * is treated as absent on every surface. Token IDs lead.
  */
 export function ipfsName(
   tokenId: bigint | string,
@@ -103,5 +120,5 @@ export function ipfsName(
   metadataMissing = false,
 ): string | null {
   if (metadataMissing || !name) return null;
-  return name.toUpperCase() === `CHOG #${tokenId.toString()}` ? null : name;
+  return /^CHOG #\d+$/i.test(name.trim()) ? null : name;
 }

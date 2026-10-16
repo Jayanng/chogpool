@@ -227,9 +227,10 @@ function CheerBoard({ racers, drawId }: { racers: RacerDisplay[]; drawId: string
         footer="EACH CHEER IS A REAL ERC-20 TRANSFER TO THE RACER'S TEAM WALLET"
       >
         <p className="muted">
-          Cheering is how the crowd votes for the best-dressed racer. Your Test $CHOG leaves your wallet and
-          lands in the team wallet behind that racer the moment the transaction is mined. Nothing is held in
-          between and nothing here is a mock: the biggest cheer pile takes the crown, and the pile is the prize.
+          Cheering is how the crowd backs a racer. Your Test $CHOG leaves your wallet and lands in the
+          team wallet behind that racer the moment the transaction is mined. Nothing is held in between
+          and nothing here is a mock: each racer's backing figure below is the live Test $CHOG balance
+          of its team wallet, and every cheer is a real transfer you can find on chain.
         </p>
 
         <div className="cheer-amount">

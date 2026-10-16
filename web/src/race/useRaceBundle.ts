@@ -21,7 +21,7 @@ import type { DrawEventRecord, DrawRecord } from "../types/race";
 export type RacerDisplay = {
   tokenId: bigint;
   tickets: bigint;
-  /** On-chain trait boost in 1e18, as recorded for this draw. */
+  /** On-chain trait boost in 1e18, as the live boostOf mapping reads it now. */
   boost: bigint;
   /** Real Tier trait value from IPFS metadata, "" when unknown. */
   tier: string;
@@ -51,11 +51,12 @@ export type RaceBundleState = {
 };
 
 async function loadRacer(tokenId: bigint, draw: DrawRecord): Promise<RacerDisplay> {
+  const recordedCareer = draw.recordedCareers?.[tokenId.toString()] ?? null;
   const [chog, badge, team, career] = await Promise.all([
     readChog(tokenId).catch(() => null),
     readMirrorBadge(tokenId).catch(() => null),
     readTeamWallet(tokenId).catch(() => null),
-    readCareer(tokenId, draw.drawId).catch(() => null),
+    recordedCareer ? Promise.resolve(recordedCareer) : readCareer(tokenId, draw.drawId).catch(() => null),
   ]);
   const frozen = draw.racers.find((r) => r.tokenId === tokenId);
   const record: ChogRecord | null = chog;
@@ -97,9 +98,22 @@ export function useRaceBundle(drawId: bigint | null): RaceBundleState {
         const source = getRaceSource();
         const draw = source ? await source.getDraw(drawId) : null;
         if (!draw) throw new Error(`No draw ${drawId.toString()} exists on chain.`);
+        // A dev draw can carry its own RaceRecorded trail; live draws get theirs
+        // from the real event-log scan.
+        const recorded = draw.recordedInscriptions;
         const [racers, events] = await Promise.all([
           Promise.all(draw.racers.map((r) => loadRacer(r.tokenId, draw))),
-          draw.revealBlock > 0n ? readDrawEvents(draw).catch(() => null) : Promise.resolve(null),
+          recorded
+            ? Promise.resolve<DrawEventRecord>({
+                scannedFrom: 0n,
+                scannedTo: 0n,
+                revealedAt: null,
+                awardedAt: null,
+                inscriptions: recorded,
+              })
+            : draw.revealBlock > 0n
+              ? readDrawEvents(draw).catch(() => null)
+              : Promise.resolve(null),
         ]);
         if (cancelled) return;
         setBundle({ draw, events, racers });

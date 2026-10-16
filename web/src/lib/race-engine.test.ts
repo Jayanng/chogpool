@@ -115,6 +115,43 @@ describe("presentation cap", () => {
     const withPerk = buildRaceReplay(drafted);
     expect(withPerk.winner).toBe(plain.winner);
     expect(withPerk.finishOrder).toEqual(plain.finishOrder);
+    // The look side of the claim: the drafted lane really runs differently.
+    // Finish times are pinned to the chain's order; the perk moves the pace.
+    expect(withPerk.lanes[1].paceBoost).not.toBe(plain.lanes[1].paceBoost);
+    expect(withPerk.progressAt(0.5)[1]).not.toBe(plain.progressAt(0.5)[1]);
+  });
+});
+
+function multiInput(finalRandomness: Hex): RaceInput {
+  return {
+    drawId: 1n,
+    finalRandomness,
+    winners: [1462n, 954n],
+    lanes: [
+      lane(1462n, 52934966n, { Tier: "Uncommon", Eyes: "BTC Glass", Form: "Chog" }),
+      lane(954n, 18251120n, { Tier: "Common", Eyes: "Green laser", Form: "Chog" }),
+      lane(7n, 1n, { Tier: "Common", Eyes: "Sleepy", Form: "Chog" }),
+    ],
+  };
+}
+
+describe("a multi-winner replay (winners [1462, 954])", () => {
+  it("keeps both on-chain winners at the front, in payout order", () => {
+    for (const seed of [SEED_A, SEED_B]) {
+      const replay = buildRaceReplay(multiInput(seed));
+      expect(replay.winner).toBe(1462n);
+      expect(replay.finishOrder[0]).toBe(1462n);
+      expect(replay.finishOrder[1]).toBe(954n);
+      expect(replay.finishOrder).toHaveLength(3);
+      expect(new Set(replay.finishOrder.map(String))).toEqual(new Set(["1462", "954", "7"]));
+    }
+  });
+
+  it("replays identically every time", () => {
+    const a = buildRaceReplay(multiInput(SEED_A));
+    const b = buildRaceReplay(multiInput(SEED_A));
+    expect(a.frames(60)).toEqual(b.frames(60));
+    expect(a.lanes.map((l) => [l.finishTime, l.paceBoost])).toEqual(b.lanes.map((l) => [l.finishTime, l.paceBoost]));
   });
 });
 

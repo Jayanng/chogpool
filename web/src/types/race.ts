@@ -21,10 +21,35 @@ export type RacerRecord = {
   tokenId: bigint;
   /** Frozen TWAB tickets for this draw (DrawEngine.ticketsOf). */
   tickets: bigint;
-  /** Trait tier recorded at freeze (0 when never set). */
+  /** Trait tier from the live boostOf mapping, read now (0 when never set).
+   *  The draw's frozen boost snapshot has no getter, so this is not a
+   *  freeze-time value. Display only: winners use raw tickets. */
   tier: number;
-  /** Trait boost in 1e18 fixed point, capped at 0.25e18 on chain. */
+  /** Trait boost in 1e18 fixed point, capped at 0.25e18 on chain. Read live
+   *  from boostOf, so it is the racer's current on-chain boost, not the draw's
+   *  frozen one. Display only: winners use raw tickets. */
   boost: bigint;
+};
+
+/** One racer's CareerStore row, exactly as the store reads it back. */
+export type CareerSnapshot = {
+  gold: number;
+  silver: number;
+  bronze: number;
+  races: number;
+  wins: number;
+  fatigue: bigint;
+  /** 0 when this race is not recorded for the racer. */
+  placementInRace: number;
+};
+
+/** One RaceRecorded line, as the logs or a draw's own record hold it. */
+export type RaceRecordedLine = {
+  tokenId: bigint;
+  placement: number;
+  fatigueDelta: bigint;
+  blockNumber: bigint;
+  txHash: Hex;
 };
 
 /** One draw, exactly as the chain records it. */
@@ -47,6 +72,14 @@ export type DrawRecord = {
   /** Winners in payout order. Empty until award() runs. */
   winners: bigint[];
   racers: RacerRecord[];
+  /** Dev draws only: the CareerStore rows this draw carries. Live reads leave
+   *  this out and the page reads the deployed CareerStore instead. */
+  recordedCareers?: Record<string, CareerSnapshot>;
+  /** Dev draws only: the RaceRecorded lines this draw carries. Live reads
+   *  leave this out and the page scans real event logs instead. */
+  recordedInscriptions?: RaceRecordedLine[];
+  /** Dev draws only: one honest line about where this record came from. */
+  sourceNote?: string;
 };
 
 /** The award trail of a draw, read from real event logs where the public RPC allows. */
@@ -57,7 +90,7 @@ export type DrawEventRecord = {
   revealedAt: { blockNumber: bigint; txHash: Hex } | null;
   awardedAt: { blockNumber: bigint; txHash: Hex; potPerWinner: bigint } | null;
   /** CareerStore inscriptions for this draw (RaceRecorded logs found in range). */
-  inscriptions: Array<{ tokenId: bigint; placement: number; fatigueDelta: bigint; blockNumber: bigint; txHash: Hex }>;
+  inscriptions: RaceRecordedLine[];
 };
 
 export interface RaceSource {

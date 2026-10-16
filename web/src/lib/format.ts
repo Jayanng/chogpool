@@ -29,6 +29,13 @@ export function shortHex(value: string, head = 8, tail = 6): string {
   return `${value.slice(0, head)}…${value.slice(-tail)}`;
 }
 
+/** True when a hex value carries at least one nonzero digit. A soft read
+ *  failure falls back to "0x", which is not a number at all and must never
+ *  reach BigInt(): it counts as zero here instead of white-screening. */
+export function hexIsNonZero(value: string): boolean {
+  return /^0x[0-9a-fA-F]*[1-9a-fA-F]/.test(value);
+}
+
 export function formatTime(unixSeconds: number): string {
   return new Date(unixSeconds * 1000).toLocaleString(undefined, {
     year: "numeric",

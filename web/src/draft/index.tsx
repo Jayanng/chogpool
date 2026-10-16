@@ -3,6 +3,7 @@ import { Badge, Button, Card, Panel, Skeleton } from "@chogpool/ui";
 import { ipfsToGateway, readChog, type ChogRecord } from "../lib/chog";
 import { perkOffers, traitsOf, tierOf, type Perk } from "../lib/traits";
 import { clearPick, loadPick, savePick, type DraftPick } from "../lib/draft";
+import { ipfsName } from "../lib/result-copy";
 import { readCurrentRaceId } from "../lib/game";
 import { navigate } from "../lib/router";
 
@@ -17,6 +18,9 @@ export default function Draft() {
   const [input, setInput] = useState("");
   const [state, setState] = useState<{ phase: "idle" | "loading" | "ready" | "error"; record?: ChogRecord; message?: string }>({ phase: "idle" });
   const [pick, setPick] = useState<DraftPick | null>(null);
+  // A pick is only ever saved under a real race ID: under "next" it would
+  // silently never apply to any replay.
+  const hasRace = drawKey !== "next";
 
   useEffect(() => {
     let cancelled = false;
@@ -40,17 +44,18 @@ export default function Draft() {
     try {
       const record = await readChog(BigInt(raw));
       setState({ phase: "ready", record });
-      setPick(loadPick(drawKey, record.tokenId.toString()));
+      setPick(hasRace ? loadPick(drawKey, record.tokenId.toString()) : null);
     } catch (e) {
       setState({
         phase: "error",
         message: e instanceof Error ? e.message : "That Chog could not be loaded from IPFS.",
       });
     }
-  }, [input, drawKey]);
+  }, [input, drawKey, hasRace]);
 
   const record = state.phase === "ready" ? state.record : undefined;
   const traits = record ? traitsOf(record.metadata) : {};
+  const shownName = record ? ipfsName(record.tokenId, record.metadata.name) : null;
   const offers: Perk[] = record ? perkOffers(BigInt(drawKey === "next" ? "0" : drawKey), record.tokenId, traits) : [];
   const tier = tierOf(traits);
 
@@ -60,10 +65,11 @@ export default function Draft() {
         <p className="kicker">DRAFT NIGHT</p>
         <h1>Pick your perk.</h1>
         <p className="lede">
-          Before each race, pick 1-of-3 trait-derived perks. Perks are cosmetic pace flavor within the
-          capped boost and side prizes only. They never change the on-chain winner.
+          Before each race, pick 1-of-3 trait-derived perks. Each perk is cosmetic pace flavor for the
+          replay, inside the same +25% presentation cap the contracts use, and it never changes the
+          on-chain winner.
         </p>
-        <Badge tone="accent">{drawKey === "next" ? "DRAFTING FOR THE NEXT RACE" : `DRAFTING FOR RACE ${drawKey}`}</Badge>
+        <Badge tone="accent">{drawKey === "next" ? "NO RACE OPEN ON CHAIN YET" : `DRAFTING FOR RACE ${drawKey}`}</Badge>
       </section>
 
       <Panel className="feature-panel">
@@ -101,8 +107,8 @@ export default function Draft() {
             )}
             <div className="viewer-meta">
               <h3>CHOG #{record.tokenId.toString()}</h3>
-              {record.metadata.name && record.metadata.name !== `CHOG #${record.tokenId.toString()}` && (
-                <p className="viewer-line"><span>IPFS NAME</span><strong>{record.metadata.name}</strong></p>
+              {shownName && (
+                <p className="viewer-line"><span>IPFS NAME</span><strong>{shownName}</strong></p>
               )}
               {tier && <p className="viewer-line"><span>TIER</span><strong>{tier}</strong></p>}
               <div className="viewer-traits">
@@ -134,7 +140,14 @@ export default function Draft() {
                         Change my pick
                       </Button>
                     ) : (
-                      <Button onClick={() => setPick(savePick(drawKey, record.tokenId.toString(), { id: offer.id, name: offer.name, paceDelta: offer.paceDelta }))}>
+                      <Button
+                        disabled={!hasRace}
+                        title={hasRace ? undefined : "No race is open on chain yet"}
+                        onClick={() => {
+                          if (!hasRace) return;
+                          setPick(savePick(drawKey, record.tokenId.toString(), { id: offer.id, name: offer.name, paceDelta: offer.paceDelta }));
+                        }}
+                      >
                         Draft {offer.name}
                       </Button>
                     )}
@@ -143,6 +156,13 @@ export default function Draft() {
               );
             })}
           </div>
+          {!hasRace && (
+            <p className="viewer-note">
+              A pick is saved against a real race ID and only ever applies to that race's replay. No race
+              is open on chain right now, so nothing can be drafted yet; the three perks above show what
+              will be dealt when one opens.
+            </p>
+          )}
 
           {pick && (
             <p className="share-status">
@@ -163,15 +183,15 @@ export default function Draft() {
           </ul>
         </Card>
         <Card
-          title="Best-dressed: voted by the crowd"
+          title="Cheering: the crowd's Test $CHOG"
           aside={<Badge tone="accent">TEST $CHOG · PLAY MONEY ON TESTNET</Badge>}
-          footer="THE CROWD'S CHEERS ARE THE SIDE PRIZE"
+          footer="EVERY CHEER IS A REAL TRANSFER, RECORDED ON CHAIN"
         >
           <p className="muted">
-            Spectators vote with Test $CHOG cheers. Each cheer is a real transfer on Monad testnet from the
-            fan's wallet to the racer's team wallet, so the side prize is not a promise: it is the crowd's
-            play money, delivered on chain as it is sent. The most-backed racer of the night takes the
-            best-dressed crown.
+            Spectators cheer with Test $CHOG. Each cheer is a real transfer on Monad testnet from the
+            fan's wallet to the racer's team wallet, delivered on chain as it is sent, so the side
+            prize is not a promise: it is the crowd's play money, moving in public. The spectator
+            board shows each racer's backing total and logs every cheer as it lands.
           </p>
           <div className="hero-actions">
             <Button onClick={() => navigate("/spectator")}>Open the spectator board</Button>

@@ -193,10 +193,21 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 .verify-lines { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: 13px; line-height: 1.7; color: #aab4be; overflow-wrap: anywhere; }
 .verify-lines--fail li::marker { color: #ff6e6e; }
 .verify-lines--pass li::marker { color: #c6ef6d; }
-.verify-table { width: 100%; border-collapse: collapse; font: 500 12px 'DM Mono', ui-monospace, monospace; }
+.verify-table-wrap { overflow-x: auto; }
+.verify-table { width: 100%; min-width: 430px; border-collapse: collapse; font: 500 12px 'DM Mono', ui-monospace, monospace; }
 .verify-table th { text-align: left; color: #68737e; letter-spacing: .1em; font-weight: 500; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.12); }
 .verify-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.06); color: #aab4be; }
 .verify-table__hit td { color: #c6ef6d; background: rgba(198,239,109,.06); }
+
+@media (max-width: 560px) {
+  /* Narrow screens: the walk stacks into one labeled column per racer, so
+     every value (RACER, TICKETS, FROM, TO) stays visible with no clipping. */
+  .verify-table { min-width: 0; }
+  .verify-table thead { display: none; }
+  .verify-table tr { display: grid; grid-template-columns: 1fr; gap: 2px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
+  .verify-table td { display: flex; gap: 8px; padding: 3px 10px; border-bottom: 0; }
+  .verify-table td::before { content: attr(data-label); color: #68737e; letter-spacing: .08em; min-width: 88px; }
+}
 
 /* ------------------------------------------------------------- draft */
 .draft-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 18px 0; }

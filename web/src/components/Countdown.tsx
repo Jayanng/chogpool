@@ -34,7 +34,19 @@ export function Countdown({ nextDrawAt, sourceLabel }: { nextDrawAt: number | nu
     );
   }
 
-  const remaining = Math.max(0, nextDrawAt - now);
+  const remaining = nextDrawAt - now;
+  if (remaining <= 0) {
+    // The close time passed without a close on chain. Say so instead of
+    // freezing on zeroes with the source label as if a countdown were running.
+    return (
+      <div className="countdown">
+        <div className="countdown-value">00:00:00:00</div>
+        <div className="countdown-note">
+          The commit window has ended. The field locks when the operator closes the draw on chain. {sourceLabel}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="countdown">
       <div className="countdown-value">{format(remaining)}</div>

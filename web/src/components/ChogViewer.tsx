@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Badge, Button, Card, Skeleton } from "@chogpool/ui";
 import { ipfsToGateway, readChog, type ChogRecord } from "../lib/chog";
+import { ipfsName } from "../lib/result-copy";
 
 type State =
   | { phase: "idle" }
@@ -80,13 +81,19 @@ export function ChogViewer({ onRecord }: { onRecord?: (record: ChogRecord) => vo
             <img
               className="viewer-image"
               src={ipfsToGateway(state.record.metadata.image)}
-              alt={state.record.metadata.name ?? `Chog #${state.record.tokenId.toString()}`}
+              alt={`Chog #${state.record.tokenId.toString()}`}
             />
           ) : (
             <div className="viewer-noimage">Metadata has no image field.</div>
           )}
           <div className="viewer-meta">
-            <h3>{state.record.metadata.name ?? `Chog #${state.record.tokenId.toString()}`}</h3>
+            <h3>CHOG #{state.record.tokenId.toString()}</h3>
+            {ipfsName(state.record.tokenId, state.record.metadata.name) && (
+              <p className="viewer-line">
+                <span>IPFS NAME</span>
+                <strong>{ipfsName(state.record.tokenId, state.record.metadata.name)}</strong>
+              </p>
+            )}
             <p className="viewer-line"><span>OWNER</span><code>{state.record.owner}</code></p>
             <p className="viewer-line"><span>TOKEN URI</span><code>{state.record.tokenURI}</code></p>
             {tier ? <p className="viewer-line"><span>TIER</span><strong>{String(tier.value)}</strong></p> : null}

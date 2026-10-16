@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import QRCode from "qrcode";
 import { Badge, Button, Card, tokens } from "@chogpool/ui";
-import { prizeCanvasLabel, splitCanvasLabel } from "../lib/result-copy";
+import { ipfsName, prizeCanvasLabel, splitCanvasLabel } from "../lib/result-copy";
 
 /**
  * Post-race share card. Renders ONLY real data we hold: the brand, the draw
@@ -13,7 +13,9 @@ import { prizeCanvasLabel, splitCanvasLabel } from "../lib/result-copy";
  */
 export type ShareCardWinner = {
   tokenId: string;
-  /** Real IPFS metadata name, or null when metadata has none or is unreachable. */
+  /** IPFS metadata name as recorded, or null when metadata has none or is
+   *  unreachable. Names like "CHOG #954" are collection numbering, not names,
+   *  and render as absent. */
   name: string | null;
   imageUrl: string | null;
 };
@@ -24,6 +26,9 @@ export type ShareCardResult = {
   winners: ShareCardWinner[];
   /** Per-winner prize text, already formatted and labeled (e.g. "0.022941 USDC"). */
   potLabel: string;
+  /** True when the per-winner prize is zero: the card then says so instead of
+   *  claiming a payment. */
+  zeroPot: boolean;
 };
 
 export function ShareCard({
@@ -64,53 +69,99 @@ export function ShareCard({
       : chog;
 
     if (result && result.winners.length > 1) {
-      // Several winners: every one gets named and pictured. The prize line
-      // says the per-winner share, never the whole pot.
+      // Several winners: every winner stays visible. Up to six are pictured in
+      // the left margin and every winner is named on the right, packed tighter
+      // as the field grows so no line ever touches the prize copy. Only a field
+      // too large for any legible list falls back to a count line that points
+      // at the podium and the verifier, which name every winner between them.
+      // The prize line says the per-winner share, never the whole pot.
       ctx.fillStyle = tokens.color.accent;
       ctx.font = "700 30px 'Plus Jakarta Sans', system-ui, sans-serif";
       ctx.fillText("WINNERS", 348, 300);
 
-      const spacing = Math.min(38, 150 / result.winners.length);
-      for (let i = 0; i < result.winners.length; i++) {
+      // Thumbnails wrap down the left margin, capped at six: the name list
+      // beside them is what keeps every winner on the card.
+      const thumbSize = 72;
+      const thumbStep = 84;
+      const thumbsShown = Math.min(result.winners.length, 6);
+      for (let i = 0; i < thumbsShown; i++) {
         const winner = result.winners[i];
-        const label = winner.name
-          ? `CHOG #${winner.tokenId} · IPFS NAME: ${winner.name.toUpperCase()}`
-          : `CHOG #${winner.tokenId}`;
-        const y = 348 + i * spacing;
-        // Thumbnails wrap down the left margin so every winner stays visible.
-        const size = result.winners.length > 4 ? 88 : 112;
-        const thumbY = 280 + Math.floor(i / 2) * (size + 12);
+        const x = 72 + (i % 2) * thumbStep;
+        const y = 284 + Math.floor(i / 2) * thumbStep;
+        let drawn = false;
         if (winner.imageUrl) {
           try {
             const img = await loadImage(winner.imageUrl);
-            ctx.drawImage(img, 72 + (i % 2) * (size + 12), thumbY, size, size);
+            ctx.drawImage(img, x, y, thumbSize, thumbSize);
+            drawn = true;
           } catch {
-            ctx.fillStyle = tokens.color.panel;
-            ctx.fillRect(72 + (i % 2) * (size + 12), thumbY, size, size);
+            drawn = false;
           }
-        } else {
-          ctx.fillStyle = tokens.color.panel;
-          ctx.fillRect(72 + (i % 2) * (size + 12), thumbY, size, size);
         }
-        ctx.fillStyle = tokens.color.ink;
+        if (!drawn) {
+          ctx.fillStyle = tokens.color.panel;
+          ctx.fillRect(x, y, thumbSize, thumbSize);
+        }
+      }
+
+      // Name list, right of the thumbnails (x 348..920 keeps clear of the QR).
+      const nameOf = (winner: ShareCardWinner): string | null =>
+        ipfsName(winner.tokenId, winner.name);
+      ctx.fillStyle = tokens.color.ink;
+      if (result.winners.length <= 4) {
         ctx.font = "500 24px 'DM Mono', monospace";
-        ctx.fillText(label, 348, y);
+        for (let i = 0; i < result.winners.length; i++) {
+          const winner = result.winners[i];
+          const name = nameOf(winner);
+          const label = name
+            ? `CHOG #${winner.tokenId} · IPFS NAME: ${name.toUpperCase()}`
+            : `CHOG #${winner.tokenId}`;
+          ctx.fillText(label, 348, 344 + i * 36);
+        }
+      } else if (result.winners.length <= 10) {
+        ctx.font = "500 18px 'DM Mono', monospace";
+        // Two balanced columns: the split is even so no lone entry sits in a
+        // column of its own.
+        const perCol = Math.ceil(result.winners.length / 2);
+        for (let i = 0; i < result.winners.length; i++) {
+          const winner = result.winners[i];
+          const name = nameOf(winner);
+          const label = name
+            ? `CHOG #${winner.tokenId} · ${name.toUpperCase()}`
+            : `CHOG #${winner.tokenId}`;
+          ctx.fillText(label, 348 + Math.floor(i / perCol) * 302, 338 + (i % perCol) * 28);
+        }
+      } else {
+        const fontSize = result.winners.length > 40 ? 10 : result.winners.length > 27 ? 12 : 16;
+        const lineHeight = Math.round(fontSize * 1.45);
+        ctx.font = `500 ${fontSize}px 'DM Mono', monospace`;
+        const lines = wrapLabels(
+          ctx,
+          result.winners.map((w) => `CHOG #${w.tokenId}`),
+          572,
+          Math.floor(118 / lineHeight),
+        );
+        lines.forEach((line, i) => ctx.fillText(line, 348, 338 + i * lineHeight));
       }
 
       ctx.fillStyle = tokens.color.accent;
       ctx.font = "700 30px 'Plus Jakarta Sans', system-ui, sans-serif";
-      ctx.fillText(prizeCanvasLabel(drawWinners(result), result.potLabel).toUpperCase(), 348, 482);
+      ctx.fillText(prizeCanvasLabel(drawWinners(result), result.potLabel, result.zeroPot).toUpperCase(), 348, 482);
       ctx.fillStyle = tokens.color.muted;
       ctx.font = "500 24px 'DM Mono', monospace";
-      ctx.fillText(splitCanvasLabel(drawWinners(result)).toUpperCase(), 348, 518);
+      ctx.fillText(splitCanvasLabel(drawWinners(result), result.zeroPot).toUpperCase(), 348, 518);
     } else if (subject) {
-      const winner = result?.winners[0];
-      const bigLabel = result && winner ? `CHOG #${winner.tokenId}` : subject.name ?? `CHOG #${subject.tokenId}`;
-      const subLabel = result
-        ? winner?.name
-          ? `IPFS NAME: ${winner.name.toUpperCase()}`
-          : "ON-CHAIN WINNER"
-        : `CHOG #${subject.tokenId}`;
+      const winner = result?.winners[0] ?? null;
+      const name = winner
+        ? ipfsName(winner.tokenId, winner.name)
+        : ipfsName(subject.tokenId, subject.name);
+      // Token IDs lead; the IPFS name, when there is a real one, rides beneath.
+      const bigLabel = `CHOG #${winner ? winner.tokenId : subject.tokenId}`;
+      const subLabel = name
+        ? `IPFS NAME: ${name.toUpperCase()}`
+        : result
+          ? "ON-CHAIN WINNER"
+          : "";
       if (subject.imageUrl) {
         try {
           const img = await loadImage(subject.imageUrl);
@@ -126,9 +177,11 @@ export function ShareCard({
       ctx.fillStyle = tokens.color.ink;
       ctx.font = "700 42px 'Plus Jakarta Sans', system-ui, sans-serif";
       ctx.fillText(bigLabel, 348, 380);
-      ctx.fillStyle = tokens.color.lime;
-      ctx.font = "500 26px 'DM Mono', monospace";
-      ctx.fillText(subLabel, 348, 430);
+      if (subLabel) {
+        ctx.fillStyle = tokens.color.lime;
+        ctx.font = "500 26px 'DM Mono', monospace";
+        ctx.fillText(subLabel, 348, 430);
+      }
 
       if (result) {
         ctx.fillStyle = tokens.color.accent;
@@ -136,8 +189,8 @@ export function ShareCard({
         ctx.fillText("WINNER", 348, 300);
         ctx.fillStyle = tokens.color.muted;
         ctx.font = "500 24px 'DM Mono', monospace";
-        ctx.fillText(prizeCanvasLabel(drawWinners(result), result.potLabel).toUpperCase(), 348, 482);
-        ctx.fillText(splitCanvasLabel(drawWinners(result)).toUpperCase(), 348, 518);
+        ctx.fillText(prizeCanvasLabel(drawWinners(result), result.potLabel, result.zeroPot).toUpperCase(), 348, 482);
+        ctx.fillText(splitCanvasLabel(drawWinners(result), result.zeroPot).toUpperCase(), 348, 518);
       }
     } else {
       ctx.fillStyle = tokens.color.faint;
@@ -206,6 +259,34 @@ export function ShareCard({
  *  one winner took a pot that was actually split. */
 function drawWinners(result: ShareCardResult): bigint[] {
   return result.winners.map((w) => BigInt(w.tokenId));
+}
+
+/** Greedy wrap of the packed winner list, one whole "CHOG #id" per unit so an
+ *  id never tears across lines. When even the tightest list cannot fit, the
+ *  last line counts the rest instead of overlapping anything. */
+function wrapLabels(
+  ctx: CanvasRenderingContext2D,
+  units: string[],
+  maxWidth: number,
+  maxLines: number,
+): string[] {
+  const lines: string[] = [];
+  let line = "";
+  for (const unit of units) {
+    const probe = line ? `${line} · ${unit}` : unit;
+    if (line && ctx.measureText(probe).width > maxWidth) {
+      lines.push(line);
+      line = unit;
+    } else {
+      line = probe;
+    }
+  }
+  if (line) lines.push(line);
+  if (lines.length <= maxLines) return lines;
+  const kept = lines.slice(0, maxLines);
+  const shown = kept.join(" ").split(" ").filter((w) => w.startsWith("#")).length;
+  kept[maxLines - 1] += ` · and ${units.length - shown} more`;
+  return kept;
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {

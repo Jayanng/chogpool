@@ -23,8 +23,8 @@ import {
 import { readDrawEvents, readMirrorBadge, type CareerRecord, readCareer } from "../lib/draw";
 import { getRaceSource } from "../lib/game";
 import { readChog } from "../lib/chog";
-import type { DrawRecord } from "../types/race";
-import { formatAsset, formatTickets, shortHex } from "../lib/format";
+import type { DrawRecord, RaceRecordedLine } from "../types/race";
+import { formatAsset, formatTickets, hexIsNonZero, shortHex } from "../lib/format";
 
 export type CheckStatus = "pass" | "fail" | "info" | "unavailable";
 
@@ -33,6 +33,8 @@ export type Check = {
   title: string;
   status: CheckStatus;
   lines: string[];
+  /** Card footer; defaults to the status's usual provenance line. */
+  footer?: string;
 };
 
 export type MirrorUriCheck = {
@@ -53,13 +55,6 @@ export type Verification = {
   walk: WalkRow[];
   steps: DerivedWinner[];
   racerTable: RacerTickets[];
-  /** One mirror URI record per winner the chain recorded. */
-  mirrors: MirrorUriCheck[];
-  /** One CareerStore record per winner the chain recorded. */
-  careers: Array<{ tokenId: bigint; record: CareerRecord }>;
-  /** Every RaceRecorded line the log scan found for this draw. */
-  inscriptionLines: string[];
-  scanNote: string | null;
   verdict: "verified" | "mismatch" | "incomplete";
   verdictLine: string;
 };
@@ -78,9 +73,10 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
     title: "What the chain records for this race",
     status: "info",
     lines: [
-      live
-        ? "Source: the deployed contracts (live reads)."
-        : "Source: a recorded draw from the first real testnet run, used in this dev build so the derivation can be walked before the live stack has draws of its own.",
+      draw.sourceNote ??
+        (live
+          ? "Source: the deployed contracts (live reads)."
+          : "Source: a recorded draw from the first real testnet run, used in this dev build so the derivation can be walked before the live stack has draws of its own."),
       `Draw state: ${draw.state}`,
       `Commit window closed at: unix ${draw.closeAt}`,
       `Operator commit: ${draw.commitHash}`,
@@ -93,7 +89,8 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
     ],
   });
 
-  const revealed = BigInt(draw.seed) !== 0n;
+  // "0x" is the soft-read fallback, not a number: never hand it to BigInt().
+  const revealed = hexIsNonZero(draw.seed);
   const awarded = draw.winners.length > 0;
 
   // ---- 2. the commit binds the seed ---------------------------------
@@ -199,34 +196,56 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
       derived.winners.length === draw.winners.length &&
       derived.winners.every((w, i) => w === draw.winners[i]);
 
-    // The contract's own re-derivation, when the deployment can answer it.
-    let contractLine = "";
+    // The contract's own deriveWinners() view only answers for the CURRENT
+    // draw: its racer walk reads the current draw's racer set whatever drawId
+    // it is handed, so for a past draw that view can return the wrong winners.
+    // It is consulted and printed only when this race IS the current draw;
+    // winnersOf() is the real per-draw getter and is what the check above
+    // holds the recomputation against.
+    const contractLines: string[] = [];
+    let viewDisagrees = false;
     if (live) {
-      try {
-        const onChainDerived = await testnetReadClient.readContract({
-          address: DEPLOYED.drawEngine as Address,
-          abi: drawEngineAbi,
-          functionName: "deriveWinners",
-          args: [draw.drawId, BigInt(draw.winners.length)],
-        });
-        const arr = (onChainDerived as bigint[]).map((w) => w.toString());
-        contractLine = `The contract's own deriveWinners() view returns [${arr.join(", ")}].`;
-      } catch {
-        contractLine =
-          "The contract's own deriveWinners() view did not answer for this race (it walks the current draw's racer set), so the walk above is shown from the draw's own frozen book instead.";
+      const currentId = source ? await source.currentDrawId().catch(() => null) : null;
+      if (currentId !== draw.drawId) {
+        contractLines.push(
+          "The engine's deriveWinners() view only answers for the current draw (it walks the current draw's racer set), and this race is not the current draw, so its output would not answer for this race and is not printed here. winnersOf() above is the chain's per-draw getter and is the record this page checks against.",
+        );
+      } else {
+        try {
+          const onChainDerived = await testnetReadClient.readContract({
+            address: DEPLOYED.drawEngine as Address,
+            abi: drawEngineAbi,
+            functionName: "deriveWinners",
+            args: [draw.drawId, BigInt(draw.winners.length)],
+          });
+          const arr = (onChainDerived as bigint[]).map((w) => w.toString());
+          viewDisagrees =
+            arr.length !== draw.winners.length || arr.some((v, i) => v !== draw.winners[i].toString());
+          contractLines.push(
+            viewDisagrees
+              ? `LOUD DISAGREEMENT: this race IS the current draw, so deriveWinners() answers for it, but the view returns [${arr.join(", ")}] while winnersOf(${draw.drawId.toString()}) records [${draw.winners.map((w) => w.toString()).join(", ")}]. Two on-chain answers disagree; treat this draw as suspect until the difference is explained.`
+              : `The contract's own deriveWinners() view returns [${arr.join(", ")}]. This race is the current draw, so the view answers for it, and it agrees with winnersOf() and with the recomputation above.`,
+          );
+        } catch {
+          contractLines.push(
+            "The contract's own deriveWinners() view did not answer for this race (it walks the current draw's racer set), so the walk above is shown from the draw's own frozen book instead.",
+          );
+        }
       }
     }
 
     checks.push({
       key: "match",
       title: "Recomputed vs the on-chain record",
-      status: exact ? "pass" : "fail",
+      status: exact && !viewDisagrees ? "pass" : "fail",
       lines: [
         `Recomputed winners: [${derived.winners.map((w) => w.toString()).join(", ")}]`,
         `winnersOf(${draw.drawId.toString()}) : [${draw.winners.map((w) => w.toString()).join(", ")}]`,
-        contractLine,
+        ...contractLines,
         exact
-          ? "Exact match. Anyone running this page or this formula against the same published seed gets the same winners."
+          ? viewDisagrees
+            ? "The recomputation matches winnersOf(), but the deriveWinners() view above does not. The disagreement is the view's, and it is flagged in red on purpose."
+            : "Exact match. Anyone running this page or this formula against the same published seed gets the same winners."
           : "LOUD MISMATCH: the published seed does not reproduce the recorded winners. Do not trust this draw until the difference is explained.",
       ],
     });
@@ -292,10 +311,10 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
 
   // ---- 7 + 8. mirror URI records and trophy inscriptions, per winner ----
   const mirrors: MirrorUriCheck[] = [];
-  const careers: Array<{ tokenId: bigint; record: CareerRecord }> = [];
-  const inscriptionLines: string[] = [];
   let scanNote: string | null = null;
-  let scannedInscriptions: Array<{ tokenId: bigint; placement: number; blockNumber: bigint; txHash: Hex }> = [];
+  // A dev draw can carry its own RaceRecorded trail; live draws get theirs
+  // from a real event-log scan below.
+  let scannedInscriptions: RaceRecordedLine[] = draw.recordedInscriptions ?? [];
 
   if (awarded && live) {
     for (const winner of draw.winners) {
@@ -330,12 +349,7 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
     try {
       const events = await readDrawEvents(draw);
       scannedInscriptions = events.inscriptions;
-      for (const ins of events.inscriptions) {
-        inscriptionLines.push(
-          `RaceRecorded(CHOG #${ins.tokenId.toString()}, race ${draw.drawId.toString()}, placement ${ins.placement}) at block ${ins.blockNumber.toString()}, tx ${shortHex(ins.txHash, 10, 8)}.`,
-        );
-      }
-      scanNote = `Event logs scanned for blocks ${events.scannedFrom.toString()} to ${events.scannedTo.toString()} (the public RPC caps log ranges at 100 blocks per call).`;
+      scanNote = `Event logs scanned for blocks ${events.scannedFrom.toString()} to ${events.scannedTo.toString()} (the public RPC caps log ranges at 100 blocks per call); events outside that window are not scanned.`;
     } catch {
       scanNote = "The event log scan did not answer on this RPC; the CareerStore's own reads above still stand.";
     }
@@ -372,7 +386,6 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
       let record: CareerRecord | null = null;
       try {
         record = await readCareer(winner, draw.drawId);
-        careers.push({ tokenId: winner, record });
       } catch {
         record = null;
       }
@@ -400,6 +413,42 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
         ].filter(Boolean),
       });
     }
+  } else if (awarded && draw.recordedCareers) {
+    // A dev draw that carries its own trophy record: every winner gets its own
+    // card from that record, with the source spelled out on the record card at
+    // the top of this page. No second on-chain race is invented here.
+    for (const winner of draw.winners) {
+      const record = draw.recordedCareers[winner.toString()] ?? null;
+      if (!record) {
+        checks.push({
+          key: `career-${winner.toString()}`,
+          title: `Trophy inscription in the CareerStore for CHOG #${winner.toString()}`,
+          status: "unavailable",
+          lines: ["This draw's record carries no trophy row for this winner."],
+        });
+        continue;
+      }
+      const inscription = scannedInscriptions.find((i) => i.tokenId.toString() === winner.toString());
+      checks.push({
+        key: `career-${winner.toString()}`,
+        title: `Trophy inscription in the CareerStore for CHOG #${winner.toString()}`,
+        status: record.placementInRace > 0 ? "pass" : "fail",
+        footer: "READ FROM THIS DRAW'S OWN RECORD",
+        lines: [
+          `Placement of CHOG #${winner.toString()} in this draw's record: ${record.placementInRace}`,
+          `Career after this race: ${record.gold} gold, ${record.silver} silver, ${record.bronze} bronze, ${record.races} race(s) recorded.`,
+          inscription
+            ? `RaceRecorded(CHOG #${inscription.tokenId.toString()}, race ${draw.drawId.toString()}, placement ${inscription.placement}) at block ${inscription.blockNumber.toString()}, tx ${shortHex(inscription.txHash, 10, 8)}.`
+            : "This draw's record carries no RaceRecorded event for this winner; the placement above is the record.",
+        ],
+      });
+    }
+    checks.push({
+      key: "mirror",
+      title: "The mirror's URI record for the winners",
+      status: "unavailable",
+      lines: ["The mirror records for these winners live on the deployed mirror, and this dev record predates it. The check runs in full against live draws."],
+    });
   } else if (awarded) {
     checks.push({
       key: "mirror",
@@ -416,20 +465,30 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
   }
 
   // ---- verdict -------------------------------------------------------
-  const mustPass = checks.filter((c) => c.key === "commit" || c.key === "randomness" || c.key === "match");
-  const failed = mustPass.filter((c) => c.status === "fail");
-  const unavailable = mustPass.filter((c) => c.status === "unavailable");
+  // The banner is honest about the WHOLE page: any failing check, cross-check
+  // included, downgrades the verdict. A green VERIFIED never sits over a red
+  // card. Checks that could not run are named in the line instead of hidden.
+  const failed = checks.filter((c) => c.status === "fail");
+  const coreKeys = new Set(["commit", "randomness", "match"]);
+  const coreUnavailable = checks.filter((c) => coreKeys.has(c.key) && c.status === "unavailable");
+  const extraUnavailable = checks.filter((c) => !coreKeys.has(c.key) && c.status === "unavailable");
   let verdict: Verification["verdict"];
   let verdictLine: string;
   if (failed.length > 0) {
     verdict = "mismatch";
-    verdictLine = "MISMATCH: this race's published seed does not reproduce the chain's own record. The steps above say exactly where.";
-  } else if (unavailable.length > 0 || !awarded) {
+    verdictLine = failed.some((c) => coreKeys.has(c.key))
+      ? "MISMATCH: this race's published seed does not reproduce the chain's own record. The steps below say exactly where."
+      : "MISMATCH: the seed re-derives the recorded winners exactly, but a cross-check on this page does not line up. The red card below names the step; treat that part of the record as suspect.";
+  } else if (coreUnavailable.length > 0 || !awarded) {
     verdict = "incomplete";
-    verdictLine = "Not verifiable yet: this race has not published both a seed and a result. Everything above is what the chain really holds today.";
+    verdictLine = "Not verifiable yet: this race has not published both a seed and a result. Everything on this page is what the chain really holds today.";
   } else {
     verdict = "verified";
-    verdictLine = "VERIFIED: the published seed re-derives the on-chain record exactly. Same seed, same winners, for anyone who checks.";
+    verdictLine =
+      "VERIFIED: the published seed re-derives the on-chain record exactly. Same seed, same winners, for anyone who checks." +
+      (extraUnavailable.length > 0
+        ? " The checks marked NOT AVAILABLE above could not run on this read; everything that could run, passed."
+        : "");
   }
 
   return {
@@ -438,10 +497,6 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
     walk,
     steps: derived ? derived.steps : [],
     racerTable,
-    mirrors,
-    careers,
-    inscriptionLines,
-    scanNote,
     verdict,
     verdictLine,
   };

@@ -42,6 +42,13 @@ describe("draw 1 re-derivation (real chain vectors)", () => {
     expect(derived.steps).toHaveLength(1);
     expect(derived.steps[0].walked).toBe(false);
   });
+
+  it("caps winnerCount at the racer count, like the chain does", () => {
+    // The live chain answered deriveWinners(1, 5) with 2 winners (n = 2).
+    const derived = deriveWinners(ON_CHAIN_FINAL_RANDOMNESS, RACERS, TOTAL_TICKETS, 5);
+    expect(derived.winners.map(String)).toEqual(["1462", "954"]);
+    expect(derived.steps).toHaveLength(2);
+  });
 });
 
 describe("the cumulative ticket walk", () => {

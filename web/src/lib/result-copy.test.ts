@@ -104,6 +104,26 @@ describe("the trophy line only claims what the screen can show", () => {
     expect(line).toContain("across 0 races");
   });
 
+  it("never claims a recording when only placementInRace is zero", () => {
+    const line = trophySentence({ ...career, placementInRace: 0 }, inscription);
+    expect(line).not.toContain("Recorded");
+    expect(line).toContain("Read live from the CareerStore");
+    expect(line).toContain("across 3 races");
+  });
+
+  it("never claims a recording when the event's placement disagrees with the store", () => {
+    const line = trophySentence(career, { ...inscription, placement: 2 });
+    expect(line).not.toContain("Recorded");
+    expect(line).toContain("Read live from the CareerStore");
+  });
+
+  it("says where the counts came from when the draw carries them", () => {
+    const line = trophySentence(career, null, "draw-record");
+    expect(line).not.toContain("Recorded");
+    expect(line).toContain("Carried in this draw's own record");
+    expect(line).not.toContain("Read live");
+  });
+
   it("finds the right winner's inscription among several", () => {
     const inscriptions: InscriptionEvidence[] = [
       inscription,
@@ -123,5 +143,31 @@ describe("IPFS names are only claimed from real metadata", () => {
     expect(ipfsName(1462n, "Moss King", true)).toBeNull();
     expect(ipfsName(1462n, null)).toBeNull();
     expect(ipfsName(1462n, undefined)).toBeNull();
+  });
+
+  it("drops the real mainnet quirk: token 1462's metadata name is literally CHOG #954", () => {
+    // Real data: tokenURI(1462) resolves to 954.json, whose name field reads
+    // "CHOG #954". That is the collection's own file numbering, not a name.
+    expect(ipfsName(1462n, "CHOG #954")).toBeNull();
+    expect(ipfsName("1462", "Chog #954")).toBeNull();
+    expect(ipfsName(954n, "CHOG #1462")).toBeNull();
+  });
+});
+
+describe("three winners read with clean grammar", () => {
+  it("joins the list with commas and one 'and'", () => {
+    expect(winnerListLabel([1462n, 954n, 7n])).toBe("CHOG #1462, CHOG #954 and CHOG #7");
+    expect(winnerHeadline([1462n, 954n, 7n])).toBe("CHOG #1462, CHOG #954 and CHOG #7 take the race.");
+  });
+});
+
+describe("a zero pot is never a payment claim", () => {
+  it("says so on the canvas labels", () => {
+    expect(prizeCanvasLabel([1462n], "0 USDC", true)).toBe("No prize to pay out this draw");
+    expect(splitCanvasLabel([1462n], true)).toBe("The pot split to zero per winner");
+    expect(prizeCanvasLabel([1462n, 954n], "0 USDC", true)).toBe("No prize to pay out this draw");
+    expect(splitCanvasLabel([1462n, 954n], true)).toBe("The pot split to zero per winner");
+    // A funded pot keeps the normal wording.
+    expect(prizeCanvasLabel([1462n], "0.022941 USDC")).toBe("Prize 0.022941 USDC");
   });
 });

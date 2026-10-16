@@ -14,6 +14,7 @@ import { testnetReadClient } from "./wallet";
 import { careerStoreAbi, drawEngineAbi, mirrorAbi, poolAbi } from "./abi";
 import {
   DRAW_STATE_NAMES,
+  type CareerSnapshot,
   type DrawEventRecord,
   type DrawRecord,
   type DrawStateName,
@@ -70,6 +71,9 @@ export async function readDraw(drawId: bigint): Promise<DrawRecord | null> {
   if (state === 0) return null; // DrawState.None: no draw with this id
 
   const racerIds = (values[9] as bigint[] | undefined) ?? [];
+  // Tier and boost come from the live boostOf mapping. The draw's frozen boost
+  // snapshot has no getter, so these are the racer's current on-chain values,
+  // not anything frozen when the draw closed. Winners use raw tickets only.
   const racerReads = await Promise.all(
     racerIds.flatMap((tokenId) => [
       call(drawEngine, drawEngineAbi, "ticketsOf", [drawId, tokenId]),
@@ -126,7 +130,9 @@ export async function readDrawEvents(draw: DrawRecord): Promise<DrawEventRecord>
   if (draw.revealBlock === 0n) return empty;
 
   // The operator reveals and awards in one run in practice; the window covers
-  // the reveal block plus the blocks around it.
+  // the reveal block plus the blocks around it. The window is bounded on
+  // purpose: an award landing more than 600 blocks after the reveal falls
+  // outside it, and every caller's scan note says the window it really read.
   const from = draw.revealBlock > 200n ? draw.revealBlock - 100n : 0n;
   const to = draw.revealBlock + 600n;
 
@@ -196,15 +202,7 @@ export async function readDrawEvents(draw: DrawRecord): Promise<DrawEventRecord>
 }
 
 /** One racer's CareerStore record as the store reads it back today. */
-export type CareerRecord = {
-  gold: number;
-  silver: number;
-  bronze: number;
-  races: number;
-  wins: number;
-  fatigue: bigint;
-  placementInRace: number; // 0 when this race is not recorded for the racer
-};
+export type CareerRecord = CareerSnapshot;
 
 export async function readCareer(tokenId: bigint, raceId: bigint): Promise<CareerRecord> {
   const [career, placement] = await Promise.all([
