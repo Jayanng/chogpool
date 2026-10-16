@@ -11,12 +11,12 @@
 - Everything else can move freely inside your own zones.
 
 ### Shared surfaces (current)
-- `web/src/types/game.ts`, the `GameSource` TS type is a frozen shared surface. It currently covers only 4 of `IChogPool`'s methods (`nextDrawAt`, `potBalance`, `depositOf`, `deposit`). **It must be extended with `twabOf`, `oddsBpsOf` and `withdrawAll` before Phase 3/4 work can use them**, those three are needed by the race view (odds), the deposit dashboard (time-weighted odds) and the withdraw-all action. Extending it is a shared-surface change: heads-up in chat first, both sides agree the signature matches the Solidity interface exactly, then it lands.
+- `web/src/types/game.ts`, the `GameSource` TS type is a frozen shared surface. It currently covers only 4 of `IChogPool`'s methods (`nextDrawAt`, `potBalance`, `depositOf`, `deposit`). **It must be extended with `twabOf`, `oddsBpsOf` and `withdrawAll` before the race and money-path work can use them**, those three are needed by the race view (odds), the deposit dashboard (time-weighted odds) and the withdraw-all action. Extending it is a shared-surface change: heads-up in chat first, both sides agree the signature matches the Solidity interface exactly, then it lands.
 
 ## Branching
 - Trunk-based: `main` is always green (CI).
 - Feature branches `feat/<zone>-<thing>`, lifetime ≤ 2 days, merged via PR.
-- The other person's coding agent reviews first (against docs/RULES.md and the phase gate), then a human glance.
+- The other person's coding agent reviews first (against the team rules and the gate protocol), then a human glance.
 - No long-lived parallel branches.
 
 ## The design system

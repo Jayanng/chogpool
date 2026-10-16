@@ -281,7 +281,7 @@ contract PuddleLpAdapter is IYieldAdapter, ReentrancyGuard {
     ///      reserve ratio, because getAmountsOut charges the pair's 0.3% fee. Using
     ///      the raw ratio would overstate the position by roughly that fee on every
     ///      call, which shows up as phantom yield at harvest time, exactly the paper
-    ///      profit RULES.md #4 forbids.
+    ///      profit the rules forbid.
     /// @dev LP redemption value of a SPECIFIC slice, in asset units. Both sides of the
     ///      pair are valued at the live reserves, with the quote side converted through
     ///      the router's own quote function, no simulated swaps, no paper accounting.

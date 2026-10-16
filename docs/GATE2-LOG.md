@@ -1,7 +1,7 @@
 # GATE 2 AUDIT LOG, design base + app shell
 
-Audited: 2026-10-15 by a fresh agent pass (no prior context on the Phase 2 code), per the
-GATE PROTOCOL in docs/PLAN.md. This log is evidence, not source: it quotes the real addresses
+Audited: 2026-10-15 by a fresh agent pass (no prior context on the code), per the
+team's gate protocol. This log is evidence, not source: it quotes the real addresses
 and values the checks actually produced.
 
 ## Gate 2 criteria, verdicts
@@ -27,19 +27,19 @@ and values the checks actually produced.
 
 ## Defects found by this audit, fixed before close
 
-1. **Production countdown was dead copy.** With fixtures off, the landing said "Schedule
-   announced when the pool contract goes live (Phase 1)", stale since Gate 1 deployed the
-   pool (`0x50E326283BbF7eeC51dB4f1552945a75457e331b`). Fixed: new `web/src/lib/live.ts`, a
+1. **Production countdown was dead copy.** With fixtures off, the landing promised a
+   schedule announcement when the pool contract goes live, stale since the first live run
+   deployed the pool (`0x50E326283BbF7eeC51dB4f1552945a75457e331b`). Fixed: new `web/src/lib/live.ts`, a
    read-only GameSource reading `nextDrawAt()` / `potBalance()` / `depositOf()` from the
    deployed pool (contract semantics: `nextDrawAt() == 0` → "not scheduled", never a made-up
    schedule). The landing countdown and prize pot are now live in production builds.
 2. **Deposit page would have offered a write form against the live source.** The form was
    gated on "any game source"; with a live source that would fake a working write path.
    Fixed: the form renders only in fixture mode; the live state is read-only (live pot +
-   next-draw stats) with the honest Phase 4 money-path boundary in copy.
-3. **Stale copy**: "AWAITING PHASE 1 CONTRACTS" badge and "goes live with the pool contract
-   (Phase 1)" → replaced with the actual boundary (pool live on testnet; wallet money path
-   lands Phase 4). Countdown null-state copy now matches the contract's own semantics.
+   next-draw stats) with the honest money-path boundary in copy.
+3. **Stale copy**: a badge and headline that promised the contracts were coming,
+   replaced with the actual boundary (pool live on testnet; wallet money path lands with
+   the money-path workstream). Countdown null-state copy now matches the contract's own semantics.
 
 No defects found in: `/style` completeness, fixture isolation, Chog read layer, wallet state
 machine, share-card stub, check-addresses/check-fixtures enforcement.
@@ -79,4 +79,4 @@ chain re-read → "Monad Testnet" → `accountsChanged` resets to "Connect walle
 7. **Exit-code discipline**, every command in this audit was run without output pipes
    masking status; statuses echoed verbatim.
 8. **User sign-off**, pending: the design lead verifies `/style`, landing and the fixture
-   deposit flow in a browser before Phase 2 is declared closed.
+   deposit flow in a browser before this milestone is declared closed.

@@ -1,6 +1,6 @@
 # Gate 1: End-to-End Run (recorded, on a local FORK of Monad testnet)
 
-**What this is:** the Gate 1 checklist from PLAN.md, executed for real against a
+**What this is:** the end-to-end checklist, executed for real against a
 fresh anvil fork of Monad testnet. Every number below was read from chain state
 during the run by `contracts/script/Gate1.s.sol`. The faucet, router, pair and LP
 are the real testnet contracts; the Chog stack is deployed into the fork, because

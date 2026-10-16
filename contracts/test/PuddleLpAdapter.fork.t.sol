@@ -436,7 +436,7 @@ contract PuddleLpAdapterForkTest is Test {
 
     // ---------- the honest-money property ----------
 
-    /// The core RULES.md #4 claim: the pot grows only from value realized through
+    /// The core claim: the pot grows only from value realized through
     /// actual removeLiquidity/swap transactions, never from a paper calculation.
     function test_Fork_NoPaperYield_ValueTracksRealReserves() public needsFork {
         vm.prank(pool);

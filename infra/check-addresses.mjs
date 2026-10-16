@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Chog Pool address-registry enforcement.
 // RULE: no 0x{40-hex} literal may appear in source files outside infra/verified.json
-// (allowlisted locations: infra/deployments.json, PLAN.md, lockfiles, generated files).
+// (allowlisted locations: infra/deployments.json, the root plan doc, lockfiles, generated files).
 // Scanned: the SCAN_DIRS trees PLUS root-level tracked files (via git ls-files, so
 // local and CI runs see exactly the same set).
 // CI fails if a hardcoded address is found anywhere else.

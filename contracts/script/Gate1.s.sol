@@ -30,7 +30,7 @@ interface IStableFaucet {
 }
 
 /// @title Gate1.s.sol, the Gate 1 end-to-end run, as an executable log.
-/// @notice This script IS the recorded demo log the plan requires.
+/// @notice This script IS the recorded demo log for the end-to-end run.
 ///
 /// @dev CRITICAL, how this achieves REAL testnet transactions.
 ///
