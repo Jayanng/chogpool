@@ -13,6 +13,7 @@ import { useState } from "react";
 import { Badge, Button, Card, Panel, Skeleton, Stat, Toast } from "@chogpool/ui";
 import { navigate } from "../lib/router";
 import { useWallet } from "../lib/useWallet";
+import { busyStates } from "../lib/tx-pending";
 import {
   MAX_SUPPLY,
   lookupChog,
@@ -48,11 +49,17 @@ function isZeroHash(hash: string): boolean {
   return /^0x0+$/.test(hash);
 }
 
+// Each mint page action, for per-button pending tracking. One action in flight
+// marks only its own button; the others keep their labels and stay usable.
+const MINT_ACTIONS = ["lookup", "sign", "mint", "test-drive"] as const;
+type MintAction = (typeof MINT_ACTIONS)[number];
+
 export default function Mint() {
   const wallet = useWallet();
   const [input, setInput] = useState("");
   const [lookup, setLookup] = useState<MirrorLookup | null>(null);
-  const [phase, setPhase] = useState<"idle" | "loading" | "signing" | "minting" | "done">("idle");
+  // Which action is in flight, so only its own button shows a pending label.
+  const [pending, setPending] = useState<MintAction | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [remaining, setRemaining] = useState<bigint | null>(null);
   const [hasTestDrive, setHasTestDrive] = useState<boolean | null>(null);
@@ -68,17 +75,17 @@ export default function Mint() {
       setMessage("Enter a Chog ID from 1 to 1,969.");
       return;
     }
-    setPhase("loading");
+    setPending("lookup");
     setMessage(null);
     setLookup(null);
     try {
       const found = await lookupChog(tokenId);
       setLookup(found);
-      setPhase("idle");
     } catch (error) {
-      setPhase("idle");
       const text = error instanceof Error ? error.message : "Lookup failed.";
       setMessage(text.includes("Failed to fetch") ? "Network or RPC unavailable. Check your connection and try again." : text);
+    } finally {
+      setPending(null);
     }
   }
 
@@ -103,7 +110,7 @@ export default function Mint() {
     const { record, status } = lookup;
     if (status !== "unclaimed") return;
 
-    setPhase("signing");
+    setPending("sign");
     setMessage(null);
     try {
       const nonce = await readNonce(record.owner);
@@ -120,7 +127,7 @@ export default function Mint() {
         digest,
       });
 
-      setPhase("minting");
+      setPending("mint");
       const ok = await wallet.runTx(async (walletClient, account) => {
         const hash = await walletClient.writeContract({
           address: DEPLOYED.mirror as `0x${string}`,
@@ -133,16 +140,14 @@ export default function Mint() {
         return { ok: true as const, hash, detail: "Mint sent." };
       });
       if (ok) {
-        setPhase("done");
         setMessage(`Chog #${record.tokenId} is mirrored. Its stored URI is now provably the one its mainnet owner signed.`);
         setLookup(await lookupChog(record.tokenId));
         void loadSupplyAndTestDrive();
-      } else {
-        setPhase("idle");
       }
     } catch (error) {
-      setPhase("idle");
       setMessage(error instanceof Error ? error.message : "The mint was not sent.");
+    } finally {
+      setPending(null);
     }
   }
 
@@ -153,30 +158,33 @@ export default function Mint() {
   async function mintTestDrive() {
     if (!lookup || !wallet.walletClient) return;
     const { record } = lookup;
-    setPhase("minting");
+    setPending("test-drive");
     setMessage(null);
-    const ok = await wallet.runTx(async (walletClient, account) => {
-      const hash = await walletClient.writeContract({
-        address: DEPLOYED.mirror as `0x${string}`,
-        abi: mirrorAbi,
-        functionName: "mintTestDrive",
-        args: [record.tokenId, record.tokenURI],
-        account,
-        chain: walletClient.chain,
-      } as never);
-      return { ok: true as const, hash, detail: "Test Drive mint sent." };
-    });
-    if (ok) {
-      setPhase("done");
-      setMessage(`Chog #${record.tokenId} is mirrored as a Test Drive. Nobody signed anything for it, that is what the label means.`);
-      setLookup(await lookupChog(record.tokenId));
-      void loadSupplyAndTestDrive();
-    } else {
-      setPhase("idle");
+    try {
+      const ok = await wallet.runTx(async (walletClient, account) => {
+        const hash = await walletClient.writeContract({
+          address: DEPLOYED.mirror as `0x${string}`,
+          abi: mirrorAbi,
+          functionName: "mintTestDrive",
+          args: [record.tokenId, record.tokenURI],
+          account,
+          chain: walletClient.chain,
+        } as never);
+        return { ok: true as const, hash, detail: "Test Drive mint sent." };
+      });
+      if (ok) {
+        setMessage(`Chog #${record.tokenId} is mirrored as a Test Drive. Nobody signed anything for it, that is what the label means.`);
+        setLookup(await lookupChog(record.tokenId));
+        void loadSupplyAndTestDrive();
+      }
+    } finally {
+      setPending(null);
     }
   }
 
-  const busy = phase === "loading" || phase === "signing" || phase === "minting";
+  // Each button is busy only while its own action is in flight. A mint
+  // waiting on its receipt says nothing about the lookup button above it.
+  const busy = busyStates(pending, MINT_ACTIONS);
   const ownerIsConnected =
     lookup !== null && wallet.address !== null && lookup.record.owner.toLowerCase() === wallet.address.toLowerCase();
 
@@ -231,13 +239,13 @@ export default function Mint() {
             <span>CHOG ID (1–{MAX_SUPPLY.toLocaleString()})</span>
             <input inputMode="numeric" placeholder="1462" value={input} onChange={(e) => setInput(e.target.value)} />
           </label>
-          <Button onClick={() => void lookupToken()} disabled={busy}>
-            {phase === "loading" ? "Reading mainnet…" : "Look up Chog"}
+          <Button onClick={() => void lookupToken()} disabled={busy.lookup}>
+            {busy.lookup ? "Reading mainnet…" : "Look up Chog"}
           </Button>
         </Card>
       </Panel>
 
-      {phase === "loading" && (
+      {pending === "lookup" && (
         <Panel className="feature-panel"><Card title="Reading mainnet"><Skeleton variant="block" /><Skeleton variant="text" /><Skeleton variant="text" width={200} /></Card></Panel>
       )}
 
@@ -293,11 +301,11 @@ export default function Mint() {
                 )}
 
                 <div className="button-row">
-                  <Button onClick={() => void mintVerified()} disabled={busy}>
-                    {phase === "signing" ? "Waiting for signature…" : phase === "minting" ? "Minting…" : "Sign & mint (verified)"}
+                  <Button onClick={() => void mintVerified()} disabled={busy.sign || busy.mint}>
+                    {busy.sign ? "Waiting for signature…" : busy.mint ? "Minting…" : "Sign & mint (verified)"}
                   </Button>
-                  <Button variant="outline" onClick={() => void mintTestDrive()} disabled={busy || hasTestDrive === true}>
-                    {hasTestDrive === true ? "Test Drive already used" : "Test Drive (no signature)"}
+                  <Button variant="outline" onClick={() => void mintTestDrive()} disabled={busy["test-drive"] || hasTestDrive === true}>
+                    {hasTestDrive === true ? "Test Drive already used" : busy["test-drive"] ? "Minting…" : "Test Drive (no signature)"}
                   </Button>
                 </div>
 

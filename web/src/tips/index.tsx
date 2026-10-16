@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from "react";
 import { type Address, isAddress } from "viem";
 import { Badge, Button, Card, Panel, Stat, Toast } from "@chogpool/ui";
 import { useWallet } from "../lib/useWallet";
+import { busyStates } from "../lib/tx-pending";
 import {
   TEST_CHOG_DECIMALS,
   claimTestChog,
@@ -49,6 +50,11 @@ type TokenState = {
   totalSupply: bigint;
 };
 
+// Each tips page action, for per-button pending tracking. One action in flight
+// marks only its own button; the other keeps its label and stays usable.
+const TIP_ACTIONS = ["claim", "tip"] as const;
+type TipAction = (typeof TIP_ACTIONS)[number];
+
 export default function Tips() {
   const wallet = useWallet();
   const [state, setState] = useState<TokenState | null>(null);
@@ -56,6 +62,8 @@ export default function Tips() {
   const [to, setTo] = useState("");
   const [amountText, setAmountText] = useState("");
   const [note, setNote] = useState<string | null>(null);
+  // Which action is in flight, so only its own button says "Sending...".
+  const [pending, setPending] = useState<TipAction | null>(null);
 
   useEffect(() => {
     if (!DEPLOYED) {
@@ -112,23 +120,36 @@ export default function Tips() {
 
   async function claim() {
     setNote(null);
-    const ok = await wallet.runTx(claimTestChog, () => setNote("Claimed Test CHOG. Spend it on tips."));
-    if (ok) void wallet.refresh();
+    setPending("claim");
+    try {
+      const ok = await wallet.runTx(claimTestChog, () => setNote("Claimed Test CHOG. Spend it on tips."));
+      if (ok) void wallet.refresh();
+    } finally {
+      setPending(null);
+    }
   }
 
   async function tip() {
     if (recipient === null || amount === null) return;
     setNote(null);
-    const ok = await wallet.runTx(
-      (walletClient, account) => tipTestChog(walletClient, account, recipient, amount),
-      () => setNote(`Tipped ${formatTestChog(amount)} Test CHOG to ${shortAddress(recipient)}.`),
-    );
-    if (ok) {
-      void wallet.refresh();
-      setTo("");
-      setAmountText("");
+    setPending("tip");
+    try {
+      const ok = await wallet.runTx(
+        (walletClient, account) => tipTestChog(walletClient, account, recipient, amount),
+        () => setNote(`Tipped ${formatTestChog(amount)} Test CHOG to ${shortAddress(recipient)}.`),
+      );
+      if (ok) {
+        void wallet.refresh();
+        setTo("");
+        setAmountText("");
+      }
+    } finally {
+      setPending(null);
     }
   }
+
+  // Each button is busy only while its own action is in flight.
+  const busy = busyStates(pending, TIP_ACTIONS);
 
   return (
     <>
@@ -160,10 +181,10 @@ export default function Tips() {
           </div>
 
           <div className="button-row">
-            <Button onClick={() => void claim()} disabled={!wallet.connected || wallet.onWrongChain || onCooldown || wallet.txStage === "pending"}>
+            <Button onClick={() => void claim()} disabled={!wallet.connected || wallet.onWrongChain || onCooldown || busy.claim}>
               {onCooldown
                 ? `Ready in ${cooldownLabel(state?.nextClaimAt ?? 0, now)}`
-                : wallet.txStage === "pending" ? "Sending…" : "Claim Test CHOG"}
+                : busy.claim ? "Sending…" : "Claim Test CHOG"}
             </Button>
           </div>
 
@@ -193,8 +214,8 @@ export default function Tips() {
             {tooMuch && balance !== null && <p className="muted small">You hold {formatTestChog(balance)} Test CHOG. Claim more or send less.</p>}
 
             <div className="button-row">
-              <Button onClick={() => void tip()} disabled={!canTip || wallet.txStage === "pending"}>
-                {wallet.txStage === "pending" ? "Sending…" : "Send tip"}
+              <Button onClick={() => void tip()} disabled={!canTip || busy.tip}>
+                {busy.tip ? "Sending…" : "Send tip"}
               </Button>
               <Button variant="outline" onClick={() => navigate("/race")}>See the race ↗</Button>
             </div>

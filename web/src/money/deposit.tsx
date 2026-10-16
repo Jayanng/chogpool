@@ -14,6 +14,7 @@ import { useEffect, useMemo, useState } from "react";
 import { type Address } from "viem";
 import { Badge, Button, Card, Panel, Stat, Toast } from "@chogpool/ui";
 import { useWallet, type MoneyBalances } from "../lib/useWallet";
+import { busyStates } from "../lib/tx-pending";
 import {
   ASSET,
   approveAsset,
@@ -57,6 +58,11 @@ const poolReadAbi = [
 
 const pool = () => DEPLOYED.pool as Address;
 
+// Every money button on this page, for per-button pending tracking. One
+// transaction in flight marks only its own button as sending.
+const MONEY_ACTIONS = ["claim", "swap", "approve", "deposit", "withdraw"] as const;
+type MoneyAction = (typeof MONEY_ACTIONS)[number];
+
 type Position = {
   shares: bigint;
   principal: bigint;
@@ -72,6 +78,8 @@ export default function Deposit() {
   const [poolStats, setPoolStats] = useState<{ totalShares: bigint; totalPrincipal: bigint; pot: bigint; nextDrawAt: number } | null>(null);
   const [quote, setQuote] = useState<bigint | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  // Which action is in flight, so only its own button says "Sending...".
+  const [pending, setPending] = useState<MoneyAction | null>(null);
   // Whether the connected wallet holds the mirror for the entered Chog. The
   // pool rejects deposits against a Chog the depositor does not hold, so this
   // is read up front rather than discovered by a reverted transaction.
@@ -166,64 +174,92 @@ export default function Deposit() {
 
   async function claimFaucet() {
     setNote(null);
-    const ok = await wallet.runTx(claimStableFaucet, () => {
-      setNote("Claimed. Swap it into the pool's USDC, then deposit.");
-    });
-    if (ok) void wallet.refresh();
+    setPending("claim");
+    try {
+      const ok = await wallet.runTx(claimStableFaucet, () => {
+        setNote("Claimed. Swap it into the pool's USDC, then deposit.");
+      });
+      if (ok) void wallet.refresh();
+    } finally {
+      setPending(null);
+    }
   }
 
   async function swapQuote() {
     setNote(null);
-    // The router pulls the quote token with transferFrom, so it needs an
-    // allowance first. A swap without one reverts on chain every time.
-    if (wallet.address && quoteBalance > 0n) {
-      const granted = await readQuoteRouterAllowance(testnetReadClient, wallet.address as Address);
-      if (granted < quoteBalance) {
-        const approved = await wallet.runTx(
-          (walletClient, account) => approveQuoteForRouter(walletClient, account, quoteBalance),
-          () => setNote("Approved the router to take the USDT. Sending the swap now."),
-        );
-        if (!approved) return;
+    setPending("swap");
+    try {
+      // The router pulls the quote token with transferFrom, so it needs an
+      // allowance first. A swap without one reverts on chain every time.
+      if (wallet.address && quoteBalance > 0n) {
+        const granted = await readQuoteRouterAllowance(testnetReadClient, wallet.address as Address);
+        if (granted < quoteBalance) {
+          const approved = await wallet.runTx(
+            (walletClient, account) => approveQuoteForRouter(walletClient, account, quoteBalance),
+            () => setNote("Approved the router to take the USDT. Sending the swap now."),
+          );
+          if (!approved) return;
+        }
       }
+      const ok = await wallet.runTx(
+        (walletClient, account) => swapQuoteToAsset(walletClient, account, quoteBalance, quote ?? 0n, testnetReadClient),
+        () => setNote("Swapped. Your wallet now holds the pool's USDC."),
+      );
+      if (ok) void wallet.refresh();
+    } finally {
+      setPending(null);
     }
-    const ok = await wallet.runTx(
-      (walletClient, account) => swapQuoteToAsset(walletClient, account, quoteBalance, quote ?? 0n, testnetReadClient),
-      () => setNote("Swapped. Your wallet now holds the pool's USDC."),
-    );
-    if (ok) void wallet.refresh();
   }
 
   async function approve() {
     if (amount === null) return;
     setNote(null);
-    const ok = await wallet.runTx(
-      (walletClient, account) => approveAsset(walletClient, account, amount),
-      () => setNote("Approved. You can deposit now."),
-    );
-    if (ok) void wallet.refresh();
+    setPending("approve");
+    try {
+      const ok = await wallet.runTx(
+        (walletClient, account) => approveAsset(walletClient, account, amount),
+        () => setNote("Approved. You can deposit now."),
+      );
+      if (ok) void wallet.refresh();
+    } finally {
+      setPending(null);
+    }
   }
 
   async function deposit() {
     if (amount === null || tokenId === null) return;
     setNote(null);
-    const ok = await wallet.runTx(
-      (walletClient, account) => depositToPool(walletClient, account, tokenId, amount),
-      () => setNote(`Deposited against Chog #${tokenId}. Time in the pool is what earns odds.`),
-    );
-    if (ok) void wallet.refresh();
+    setPending("deposit");
+    try {
+      const ok = await wallet.runTx(
+        (walletClient, account) => depositToPool(walletClient, account, tokenId, amount),
+        () => setNote(`Deposited against Chog #${tokenId}. Time in the pool is what earns odds.`),
+      );
+      if (ok) void wallet.refresh();
+    } finally {
+      setPending(null);
+    }
   }
 
   async function withdrawAll() {
     if (tokenId === null) return;
     setNote(null);
-    const ok = await wallet.runTx(
-      (walletClient, account) => withdrawAllFromPool(walletClient, account, tokenId),
-      () => setNote("Withdrawn. Principal returns in full; only the yield stays in the pot."),
-    );
-    if (ok) void wallet.refresh();
+    setPending("withdraw");
+    try {
+      const ok = await wallet.runTx(
+        (walletClient, account) => withdrawAllFromPool(walletClient, account, tokenId),
+        () => setNote("Withdrawn. Principal returns in full; only the yield stays in the pot."),
+      );
+      if (ok) void wallet.refresh();
+    } finally {
+      setPending(null);
+    }
   }
 
-  const busy = wallet.txStage === "pending";
+  // Each button is busy only while its own action is in flight. A claim
+  // waiting on its receipt says nothing about the deposit button, so the
+  // others keep their real labels and stay usable.
+  const busy = busyStates(pending, MONEY_ACTIONS);
 
   return (
     <>
@@ -276,17 +312,17 @@ export default function Deposit() {
               </div>
 
               <div className="button-row">
-                <Button onClick={() => void claimFaucet()} disabled={busy || stableReady > now}>
+                <Button onClick={() => void claimFaucet()} disabled={busy.claim || stableReady > now}>
                   {stableReady > now
                     ? `Faucet ready in ${cooldownLabel(stableReady, now)}`
-                    : busy ? "Sending…" : "Claim 1,000 USDT"}
+                    : busy.claim ? "Sending…" : "Claim 1,000 USDT"}
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => void swapQuote()}
-                  disabled={busy || quoteBalance === 0n}
+                  disabled={busy.swap || quoteBalance === 0n}
                 >
-                  {busy ? "Sending…" : `Swap ${formatUsdc(quoteBalance)} USDT → USDC`}
+                  {busy.swap ? "Sending…" : `Swap ${formatUsdc(quoteBalance)} USDT → USDC`}
                 </Button>
               </div>
 
@@ -327,20 +363,20 @@ export default function Deposit() {
 
               <div className="button-row">
                 {needsApproval ? (
-                  <Button onClick={() => void approve()} disabled={busy}>
-                    {busy ? "Sending…" : `Approve ${formatUsdc(amount ?? 0n)} USDC`}
+                  <Button onClick={() => void approve()} disabled={busy.approve}>
+                    {busy.approve ? "Sending…" : `Approve ${formatUsdc(amount ?? 0n)} USDC`}
                   </Button>
                 ) : (
                   <Button
                     onClick={() => void deposit()}
-                    disabled={busy || !canDeposit || tokenId === null || holdsMirror === false}
+                    disabled={busy.deposit || !canDeposit || tokenId === null || holdsMirror === false}
                   >
-                    {busy ? "Sending…" : "Deposit"}
+                    {busy.deposit ? "Sending…" : "Deposit"}
                   </Button>
                 )}
                 {position && position.shares > 0n && (
-                  <Button variant="outline" onClick={() => void withdrawAll()} disabled={busy}>
-                    {busy ? "Sending…" : "Withdraw all"}
+                  <Button variant="outline" onClick={() => void withdrawAll()} disabled={busy.withdraw}>
+                    {busy.withdraw ? "Sending…" : "Withdraw all"}
                   </Button>
                 )}
               </div>
