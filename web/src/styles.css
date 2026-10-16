@@ -927,3 +927,59 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 /* pill chips in the hero */
 .hero-scene .ui-badge { border-radius: 999px; font-family: 'Inter', sans-serif; font-weight: 600; }
 .hero-scene .ui-badge--accent { background: var(--c-white); color: var(--c-ink); }
+
+/* ===================== CANDY NAVBAR (Batch 2) =====================
+   The brand reel language applied to the shared top chrome: a clean cream bar
+   with ink type, a candy wordmark pop, pill active states with colored dots,
+   and a solid mobile sheet so the close control stays pinned and nothing bleeds
+   through. Shared chrome, so this reads on every page. */
+.topbar {
+  background: rgba(250, 247, 242, .94);
+  border-bottom: 3px solid var(--c-ink);
+  backdrop-filter: blur(12px);
+}
+.brand {
+  font-family: 'Poppins', system-ui, sans-serif; font-weight: 800; font-size: 17px;
+  color: var(--c-ink); letter-spacing: .02em;
+}
+.brand span { color: var(--c-blue); margin-left: 6px; }
+
+.nav-links a {
+  color: #6b4a5c; font-family: 'Inter', sans-serif; font-weight: 600; letter-spacing: -.01em;
+  border-bottom: 0; border-radius: 999px; padding: 8px 14px;
+}
+.nav-links a:hover { color: var(--c-ink); background: rgba(17,17,17,.06); }
+.nav-links a.nav-active { color: var(--c-ink); background: var(--c-yellow); border-bottom: 0; }
+
+.nav-toggle {
+  background: var(--c-white); border: 3px solid var(--c-ink); border-radius: 12px;
+  box-shadow: 2px 2px 0 var(--c-ink);
+}
+.nav-toggle span { background: var(--c-ink); }
+
+/* ---- mobile sheet: solid, full-width, close pinned above ---- */
+@media (max-width: 860px) {
+  .topbar { flex-wrap: nowrap; }
+  .nav-links--open {
+    position: absolute; top: calc(100% + 10px); left: 10px; right: 10px; width: auto;
+    display: flex; flex-direction: column; gap: 0; opacity: 1;
+    background: var(--c-cream); border: 3px solid var(--c-ink); border-radius: 20px;
+    padding: 10px 14px 14px; margin: 0;
+    box-shadow: 0 28px 56px rgba(20,20,50,.32); z-index: 11; text-align: center;
+    animation: sheet-in .22s ease both;
+  }
+  .nav-links a {
+    color: var(--c-ink); padding: 13px 8px; font-size: 15px;
+    border-bottom: 1px solid rgba(17,17,17,.1); border-radius: 12px;
+  }
+  .nav-links a:last-of-type { border-bottom: 0; }
+  .nav-links a.nav-active { background: var(--c-yellow); border-bottom: 0; }
+  .nav-menu-wallet { border-top: 2px dashed rgba(17,17,17,.15); }
+  .nav-scrim {
+    position: fixed; inset: 64px 0 0 0; opacity: 1;
+    background: rgba(17,17,17,.42); backdrop-filter: blur(2px); z-index: 9;
+  }
+}
+
+/* transform-only sheet entrance (opacity held by the rule, not the animation) */
+@keyframes sheet-in { from { transform: translateY(-10px); } to { transform: none; } }
