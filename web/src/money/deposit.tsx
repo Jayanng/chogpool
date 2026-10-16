@@ -355,11 +355,21 @@ export default function Deposit() {
                 <span>AMOUNT (USDC)</span>
                 <input inputMode="decimal" placeholder="10.00" value={amountText} onChange={(e) => setAmountText(e.target.value)} />
               </label>
+              <p className="muted small">
+                Getting back is the position's value at the time, not the number you type.
+                LP entry and exit cost are real and can be visible in a small pool.
+                {poolStats ? ` The pool's whole position is worth about ${formatUsdc(poolStats.totalShares)} USDC right now.` : ""}
+              </p>
 
               {position && (
                 <div className="stat-row">
-                  <Stat label="YOUR SHARES" value={wallet.reading ? "…" : formatUsdc(position.shares)} tone="lime" />
-                  <Stat label="YOUR PRINCIPAL" value={formatUsdc(position.principal)} note="What you can withdraw, in full." />
+                  <Stat
+                    label="YOUR SHARES"
+                    value={wallet.reading ? "…" : formatUsdc(position.shares)}
+                    note={`Withdraw all pays this: about ${formatUsdc(position.shares)} USDC right now. Shares are the position's value, not the number you deposited.`}
+                    tone="lime"
+                  />
+                  <Stat label="YOUR PRINCIPAL" value={formatUsdc(position.principal)} note="What you put in. What comes back is your shares." />
                   <Stat
                     label="YOUR ODDS"
                     value={position.oddsBps === 0n ? ": " : `${(Number(position.oddsBps) / 100).toFixed(2)}%`}
