@@ -288,7 +288,7 @@ contract DrawEngine is IDrawEngine, Ownable2Step, ReentrancyGuard {
         if (d.totalTickets == 0) revert NoTickets();
         if (d.winners.length != 0) revert NoWinners();
 
-        uint256[] memory winners = _deriveWinners(d, d.finalRandomness, winnerCount);
+        uint256[] memory winners = _deriveWinners(drawId, d.finalRandomness, winnerCount);
         for (uint256 i = 0; i < winners.length; i++) {
             d.winners.push(winners[i]);
         }
@@ -344,14 +344,17 @@ contract DrawEngine is IDrawEngine, Ownable2Step, ReentrancyGuard {
     /// @dev Reads ONLY the draw's frozen snapshot (tickets + boosts), never the live
     ///      `boostOf` mapping, so a boost changed after close cannot alter the result
     ///      and an off-chain re-derivation from the published seed matches exactly.
-    function _deriveWinners(Draw storage d, bytes32 randomness, uint256 winnerCount)
+    /// @dev `drawId` is passed explicitly rather than read from `currentDrawId`, so a
+    ///      past draw derives from ITS OWN racer book. Deriving a closed draw against
+    ///      the live book would answer a different question than the one asked.
+    function _deriveWinners(uint256 drawId, bytes32 randomness, uint256 winnerCount)
         internal
         view
         returns (uint256[] memory winners)
     {
         // The racer set for a draw is the tokens with non-zero tickets. We keep the
         // list in the draw so derivation is self-contained.
-        uint256[] memory racers = _racerSet(d);
+        uint256[] memory racers = _racerSet(drawId);
         uint256 n = racers.length;
         if (n == 0) revert NoTickets();
         if (winnerCount > n) winnerCount = n;
@@ -363,8 +366,8 @@ contract DrawEngine is IDrawEngine, Ownable2Step, ReentrancyGuard {
         for (uint256 i = 0; i < winnerCount; i++) {
             // Derive a fresh index per winner from the draw randomness + attempt index.
             bytes32 h = keccak256(abi.encodePacked(randomness, i));
-            uint256 idx = uint256(h) % d.totalTickets;
-            uint256 tokenId = _tokenAtCumulativeIndex(d, racers, idx);
+            uint256 idx = uint256(h) % _draws[drawId].totalTickets;
+            uint256 tokenId = _tokenAtCumulativeIndex(_draws[drawId], racers, idx);
             // Skip duplicates.
             bool dup = false;
             for (uint256 j = 0; j < pickedCount; j++) {
@@ -415,15 +418,21 @@ contract DrawEngine is IDrawEngine, Ownable2Step, ReentrancyGuard {
     /// @dev The racer set for a draw: every tokenId that has tickets recorded.
     ///      The pool is the source of truth for WHICH tokens have tickets, so we
     ///      read the frozen book back rather than tracking a set ourselves.
-    function _racerSet(Draw storage) internal view returns (uint256[] memory) {
-        return IChogPool(pool).frozenRacers(currentDrawId);
+    /// @dev Takes `drawId` as an argument and MUST NOT fall back to
+    ///      `currentDrawId`: `deriveWinners(drawId, n)` is a public view anyone can
+    ///      call on any past draw, and answering from the live book would return
+    ///      the wrong racers for that draw. The earlier version ignored its
+    ///      argument, which was invisible with one draw and wrong the moment a
+    ///      second one opened.
+    function _racerSet(uint256 drawId) internal view returns (uint256[] memory) {
+        return IChogPool(pool).frozenRacers(drawId);
     }
 
     /// @inheritdoc IDrawEngine
     function deriveWinners(uint256 drawId, uint256 winnerCount) external view returns (uint256[] memory) {
         Draw storage d = _draws[drawId];
         if (d.finalRandomness == bytes32(0)) revert NoWinners();
-        return _deriveWinners(d, d.finalRandomness, winnerCount);
+        return _deriveWinners(drawId, d.finalRandomness, winnerCount);
     }
 
     // ---------------- views ----------------

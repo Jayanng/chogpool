@@ -49,8 +49,9 @@ interface IChogMirror {
     ///      over the "ChogMirror"/"1" domain. `uriHash` is keccak256(bytes(realURI)),
     ///      so the metadata the contract stores is bound to the signature: a caller
     ///      cannot submit a valid signature alongside a different URI. Verify a stored
-    ///      token by recomputing the digest from tokenURI() and comparing with
-    ///      uriHashOf(tokenId).
+    ///      token by recomputing the digest from realURIOf() and comparing with
+    ///      uriHashOf(tokenId). Do NOT hash tokenURI() for this: it adds a display
+    ///      prefix for Test Drive tokens that was never part of the signed bytes.
     function mintWithSig(
         uint256 tokenId,
         address mainnetOwner,
@@ -77,6 +78,15 @@ interface IChogMirror {
 
     /// @notice tokenId => true if minted via Test Drive (no ownership proof).
     function isTestDrive(uint256 tokenId) external view returns (bool);
+
+    /// @notice The real metadata URI recorded at mint, with no display prefix.
+    /// @dev This is the value whose bytes were hashed into the recorded digest, so
+    ///      `keccak256(bytes(realURIOf(tokenId)))` is what must be compared against
+    ///      `uriHashOf(tokenId)`. `tokenURI()` deliberately adds a `test-chog:`
+    ///      prefix for Test Drive tokens, so hashing *its* output gives a false
+    ///      negative for exactly those tokens. Anyone running the verification
+    ///      check must hash this value, not tokenURI()'s.
+    function realURIOf(uint256 tokenId) external view returns (string memory);
 
     /// @notice keccak256(bytes(realURI)) recorded at mint, so the stored URI can be
     ///         checked against the digest the owner signed.

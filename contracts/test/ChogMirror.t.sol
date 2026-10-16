@@ -200,6 +200,38 @@ contract ChogMirrorTest is Test {
         assertEq(mirror.nonces(REAL_OWNER), 2);
     }
 
+    /// The verification check hashes the REAL URI, not what tokenURI() returns.
+    /// tokenURI() prepends a display prefix to Test Drive tokens, and that prefix
+    /// was never part of the signed bytes, so hashing it would report a false
+    /// negative for exactly the tokens that carry no signature. This pins the
+    /// property the /verify page and any external checker depend on.
+    function test_VerificationCheck_HashesTheRealURI_NotTheDisplayedOne() public {
+        vm.prank(OTHER_USER);
+        mirror.mintTestDrive(OTHER_TOKEN, REAL_URI);
+
+        bytes32 recorded = mirror.uriHashOf(OTHER_TOKEN);
+        bytes32 realHash = keccak256(bytes(mirror.realURIOf(OTHER_TOKEN)));
+        bytes32 displayedHash = keccak256(bytes(mirror.tokenURI(OTHER_TOKEN)));
+
+        assertEq(realHash, recorded, "the real URI hashes to the recorded digest");
+        assertTrue(displayedHash != recorded, "the displayed URI does NOT match: it carries the prefix");
+        assertTrue(bytes(mirror.tokenURI(OTHER_TOKEN)).length > bytes(mirror.realURIOf(OTHER_TOKEN)).length,
+            "tokenURI is longer, by exactly the display prefix");
+        assertEq(mirror.realURIOf(OTHER_TOKEN), REAL_URI, "realURIOf returns the URI as submitted");
+    }
+
+    /// The same holds for a verified token, where the prefix is absent: both
+    /// readings agree, so the check is unambiguous either way.
+    function test_VerificationCheck_VerifiedToken_BothReadingsAgree() public {
+        (uint8 v, bytes32 r, bytes32 s) = _signWithLiveNonce(TOKEN, REAL_OWNER, REAL_OWNER, OWNER_KEY);
+        vm.prank(REAL_OWNER);
+        mirror.mintWithSig(TOKEN, REAL_OWNER, REAL_URI, v, r, s);
+
+        bytes32 recorded = mirror.uriHashOf(TOKEN);
+        assertEq(keccak256(bytes(mirror.realURIOf(TOKEN))), recorded, "real URI matches the digest");
+        assertEq(keccak256(bytes(mirror.tokenURI(TOKEN))), recorded, "no prefix on verified tokens either");
+    }
+
     /// ATTACK 5: Test Drive one-per-wallet cap.
     function test_ATTACK_SecondTestDrive_Reverts() public {
         vm.prank(OTHER_USER);

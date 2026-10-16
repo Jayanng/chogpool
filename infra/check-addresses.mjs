@@ -33,6 +33,11 @@ const ALLOW_FILES = [
   "web/src/lib/derive.test.ts",
   "web/src/lib/race-engine.test.ts",
   "web/src/fixtures/index.ts", // dev fixture quoting the recorded Draw 1 values, same rule as above
+  "docs/MIRROR-VERIFY-LOG.md", // recorded live result of the TESTING.md §5 check:
+                         // same rule as the gate logs — evidence, not source. It
+                         // must quote the real hash the chain returned, or it is
+                         // not a record of anything. The check itself is documented
+                         // in TESTING.md §5 with no address literals.
   "package-lock.json",
   "pnpm-lock.yaml",
 ];

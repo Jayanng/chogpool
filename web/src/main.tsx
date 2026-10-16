@@ -12,6 +12,9 @@ const Landing = lazy(() => import("./landing"));
 const Deposit = lazy(() => import("./money/deposit"));
 const Race = lazy(() => import("./race"));
 const Draft = lazy(() => import("./draft"));
+const Mint = lazy(() => import("./mint"));
+const Yield = lazy(() => import("./yield"));
+const Tips = lazy(() => import("./tips"));
 const Verify = lazy(() => import("./verify"));
 const Spectator = lazy(() => import("./spectator"));
 const StyleGuide = lazy(() => import("./style-guide"));
@@ -21,6 +24,9 @@ const routes: Array<{ path: string; label: string; Component: LazyExoticComponen
   { path: "/deposit", label: "Deposit", Component: Deposit },
   { path: "/race", label: "Race", Component: Race },
   { path: "/draft", label: "Draft", Component: Draft },
+  { path: "/mint", label: "Mint", Component: Mint },
+  { path: "/yield", label: "Yield", Component: Yield },
+  { path: "/tips", label: "Tips", Component: Tips },
   { path: "/verify", label: "Verify", Component: Verify },
   { path: "/spectator", label: "Spectate", Component: Spectator },
   // Design tool for the team, not user-facing. Reachable only by URL.
