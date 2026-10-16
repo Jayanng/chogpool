@@ -8,7 +8,7 @@
 // the range it actually scanned. Anything the logs cannot reach is answered
 // from contract view calls instead, and the UI says which is which.
 
-import { parseAbiItem, type Address, type Hex } from "viem";
+import { keccak256, parseAbiItem, toBytes, type Address, type Hex } from "viem";
 import { DEPLOYED } from "../generated/addresses.gen";
 import { testnetReadClient } from "./wallet";
 import { careerStoreAbi, drawEngineAbi, mirrorAbi, poolAbi } from "./abi";
@@ -229,8 +229,11 @@ export type MirrorBadge = {
   badgeLabel: string;
   isTestDrive: boolean;
   storedUri: string;
-  /** keccak256(bytes(storedUri)) the mirror recorded at mint, when the
-   *  deployed mirror exposes it. Old deployments revert on this read. */
+  /** keccak256 of the URI bytes the mirror recorded at mint, when the
+   *  deployed mirror exposes it. The contract hashes the URI WITHOUT the
+   *  Test Drive label (ChogMirror hashes bytes(realURI)), so this digest only
+   *  lines up with a recomputation over the same unprefixed bytes. Old
+   *  deployments revert on this read. */
   recordedUriHash: Hex | null;
   mainnetOwner: Address;
 };
@@ -262,6 +265,35 @@ export async function readMirrorBadge(tokenId: bigint): Promise<MirrorBadge> {
     recordedUriHash,
     mainnetOwner: (mainnetOwner as Address | undefined) ?? "0x",
   };
+}
+
+/** The label mintTestDrive prepends to a Test Drive token's URI. */
+export const TEST_DRIVE_URI_PREFIX = "test-chog:";
+
+/**
+ * The bytes ChogMirror hashes at mint. The contract hashes keccak256 of the
+ * UNPREFIXED uri, while tokenURI() returns the string with the Test Drive
+ * label in front of it. Every digest comparison must therefore hash the
+ * labelled string's bytes AFTER stripping that label; a Verified Holder URI
+ * carries no label and passes through untouched.
+ */
+export function mirrorHashUri(storedUri: string): string {
+  return storedUri.startsWith(TEST_DRIVE_URI_PREFIX)
+    ? storedUri.slice(TEST_DRIVE_URI_PREFIX.length)
+    : storedUri;
+}
+
+/** A mirror URI digest check, recomputed over exactly the bytes the contract
+ *  hashed at mint. hashMatch stays null when the deployment records no digest. */
+export function checkMirrorUriHash(
+  storedUri: string,
+  recordedUriHash: Hex | null,
+): { hashedUri: string; computedHash: Hex; hashMatch: boolean | null } {
+  const hashedUri = mirrorHashUri(storedUri);
+  const computedHash = keccak256(toBytes(hashedUri));
+  const hashMatch =
+    recordedUriHash === null ? null : recordedUriHash.toLowerCase() === computedHash.toLowerCase();
+  return { hashedUri, computedHash, hashMatch };
 }
 
 /** The depositor wallet behind a racer's position (the team the pot pays). */

@@ -18,9 +18,15 @@ import {
   ipfsName,
   isWinnerToken,
   joinWithAnd,
+  podiumPlacesFooter,
+  podiumPrizeSentence,
   prizePerWinner,
+  replayDisclosure,
+  replayHeadline,
+  resultStripCopy,
   trophySentence,
   winnerHeadline,
+  winnerKickerLabel,
   type CareerSource,
   type InscriptionEvidence,
 } from "../lib/result-copy";
@@ -85,6 +91,9 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
   }));
   const winnerIndexInLanes = replay ? replay.lanes.findIndex((l) => l.tokenId === replay.winner) : -1;
   const liveSource = getRaceSource()?.kind === "live";
+  // A rehearsal draw exists only in this draw's record. It drops the on-chain
+  // wording everywhere it shows; real draws keep the chain wording untouched.
+  const rehearsal = draw.rehearsal === true;
 
   function progressSnapshot(t: number): Record<string, number> {
     if (!replay) return {};
@@ -156,8 +165,18 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
           })),
           potLabel: formatAsset(draw.potPerWinner),
           zeroPot,
+          rehearsal,
         }
       : null;
+
+  const strip = resultStripCopy({
+    rehearsal,
+    winnersLabel: joinWithAnd(winnerViews.map((view) => displayLabel(view))),
+    winnerCount: winnerViews.length,
+    prizeLabel: prizePerWinner(draw.winners, formatAsset(draw.potPerWinner)),
+    potLabel: formatAsset(draw.potPerWinner),
+    zeroPot,
+  });
 
   return (
     <div className="show">
@@ -165,7 +184,7 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
         <div className="show-top">
           <div>
             <p className="kicker">RACE {draw.drawId.toString()} · {stateLabel(draw.state)}</p>
-            <h2 className="show-title">{decided ? "The replay of the real result." : gatesTitle(draw.state)}</h2>
+            <h2 className="show-title">{decided ? replayHeadline(rehearsal) : gatesTitle(draw.state)}</h2>
           </div>
           <div className="show-controls">
             {decided && (
@@ -181,6 +200,7 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
           <div className="show-status">
             <Countdown
               nextDrawAt={draw.closeAt > 0 ? draw.closeAt : null}
+              fieldLocked={false}
               sourceLabel={liveSource ? "LIVE FROM THE DRAW ENGINE (drawCloseAt)" : "FROM THE RECORDED DRAW (drawCloseAt)"}
             />
             <p className="muted">
@@ -216,10 +236,7 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
 
         <div className="show-foot">
           <Badge tone={slowmo ? "accent" : "neutral"}>{slowmo ? "PHOTO FINISH" : phase === "done" ? "RACE COMPLETE" : phase === "running" ? "RACING" : "AT THE GATES"}</Badge>
-          <span className="show-disclosure">
-            Pace, style and shape are our design, derived from each Chog's real IPFS traits and capped at +25% for
-            the show. The draw itself is decided on chain; this replay reproduces that result and nothing else.
-          </span>
+          <span className="show-disclosure">{replayDisclosure(rehearsal)}</span>
         </div>
       </Panel>
 
@@ -232,17 +249,8 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
 
       {decided && phase !== "done" && winnerViews.length > 0 && (
         <Panel className="truth-strip">
-          <Badge tone="lime">ON-CHAIN RESULT</Badge>
-          <span>
-            The chain already recorded this race: {winnerViews.length === 1 ? "winner" : "winners"}{" "}
-            {joinWithAnd(winnerViews.map((view) => displayLabel(view)))},{" "}
-            {zeroPot
-              ? `with no prize to pay out (the pot's split came out to ${formatAsset(draw.potPerWinner)} per winner)`
-              : `paid ${prizePerWinner(draw.winners, formatAsset(draw.potPerWinner))}${
-                  winnerViews.length > 1 ? ", the pot split evenly across the winners" : ""
-                }`}
-            . The replay on screen is that result, frame for frame, every time.
-          </span>
+          <Badge tone={rehearsal ? "neutral" : "lime"}>{strip.badge}</Badge>
+          <span>{strip.body}</span>
           <Button variant="outline" onClick={() => navigate("/verify")}>Verify the draw</Button>
         </Panel>
       )}
@@ -346,6 +354,7 @@ function Podium({
   const winnerKeys = new Set(draw.winners.map((w) => w.toString()));
   const runners = replay ? replay.finishOrder.filter((t) => !winnerKeys.has(t.toString())) : [];
   const zeroPot = draw.potPerWinner === 0n;
+  const rehearsal = draw.rehearsal === true;
   const careerSource: CareerSource = draw.recordedCareers ? "draw-record" : "live-read";
   return (
     <Panel className="podium">
@@ -364,6 +373,7 @@ function Podium({
               potLabel={formatAsset(draw.potPerWinner)}
               eventsLabel={eventsLabel}
               zeroPot={zeroPot}
+              rehearsal={rehearsal}
               careerSource={careerSource}
             />
           ))}
@@ -388,9 +398,7 @@ function Podium({
             );
           })}
           <p className="show-disclosure">
-            {draw.winners.length === 1
-              ? "Only place 1 is decided on chain."
-              : `Only the ${draw.winners.length} winning places are decided on chain.`}{" "}
+            {podiumPlacesFooter(draw.winners.length, rehearsal)}{" "}
             The rest of the finishing order is deterministic show flavor from the same seed, labeled wherever it
             appears.
           </p>
@@ -407,6 +415,7 @@ function WinnerBlock({
   potLabel,
   eventsLabel,
   zeroPot,
+  rehearsal,
   careerSource,
 }: {
   view: WinnerView;
@@ -415,26 +424,28 @@ function WinnerBlock({
   potLabel: string;
   eventsLabel: string;
   zeroPot: boolean;
+  rehearsal: boolean;
   careerSource: CareerSource;
 }) {
   const racer = view.racer;
   const name = racer ? ipfsName(view.tokenId, racer.name, racer.metadataMissing) : null;
   // A zero split is not a payment: the sentence says so instead of claiming
-  // one. With prize money the copy names the per-winner share and its source.
-  const prizeSentence = zeroPot
-    ? `No prize to pay out this draw: the pot's split came out to ${potLabel} per winner.`
-    : `Prize paid: ${prizePerWinner(winnerTokens, potLabel)}` +
-      (winnerTokens.length > 1 ? `, the pot split evenly across ${winnerTokens.length} winners` : "") +
-      `, straight from the yield-funded pot to the depositor behind the position${
-        racer?.team ? ` (${shortHex(racer.team, 10, 8)})` : ""
-      }.`;
+  // one. With prize money the copy names the per-winner share and its source;
+  // a rehearsal says what award() would have done and that no money moved.
+  const prizeSentence = podiumPrizeSentence({
+    rehearsal,
+    winners: winnerTokens,
+    potLabel,
+    zeroPot,
+    team: racer?.team ? shortHex(racer.team, 10, 8) : null,
+  });
   return (
     <div className="podium-winner">
       {racer?.imageUrl && (
         <img src={racer.imageUrl} alt={`CHOG #${view.tokenId.toString()}`} className="podium-img" />
       )}
       <div>
-        <p className="kicker">ON-CHAIN WINNER · winnersOf({drawId})</p>
+        <p className="kicker">{winnerKickerLabel(drawId, rehearsal)}</p>
         <h3>
           CHOG #{view.tokenId.toString()}
           {name ? ` · IPFS metadata name: ${name}` : ""}

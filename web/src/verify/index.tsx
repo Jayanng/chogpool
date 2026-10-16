@@ -17,6 +17,7 @@ export default function Verify() {
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<Verification | null>(null);
   const [noDraws, setNoDraws] = useState(false);
+  const [lookupNote, setLookupNote] = useState<string | null>(null);
 
   const run = useCallback(async (drawId: bigint) => {
     setBusy(true);
@@ -43,7 +44,14 @@ export default function Verify() {
           setNoDraws(true);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (cancelled) return;
+        // A failed read is not "no draws": say the lookup did not answer and
+        // leave the form ready for a typed race ID.
+        setLookupNote(
+          "The current race ID could not be read from the RPC, so this page cannot pick a race for you. Enter a race ID above to walk one.",
+        );
+      });
     return () => {
       cancelled = true;
     };
@@ -85,6 +93,7 @@ export default function Verify() {
           <Button variant="quiet" onClick={() => navigate("/race")}>Watch the race</Button>
         </div>
         {error && <p className="viewer-error" role="alert">{error}</p>}
+        {lookupNote && <p className="viewer-note">{lookupNote}</p>}
       </Panel>
 
       {noDraws && (
@@ -117,14 +126,18 @@ export default function Verify() {
           </Panel>
 
           {report.checks.map((check) => (
-            <CheckCard key={check.key} check={check} />
+            <CheckCard key={check.key} check={check} rehearsal={report.draw.rehearsal === true} />
           ))}
 
           {(report.walk.length > 0 || report.steps.length > 0) && (
             <Panel className="feature-panel">
               <Card
                 title="The frozen ticket walk"
-                aside={<Badge tone="neutral">READ FROM THE CHAIN, NOT FROM US</Badge>}
+                aside={
+                  <Badge tone="neutral">
+                    {report.draw.rehearsal === true ? "READ FROM THIS DRAW'S RECORD" : "READ FROM THE CHAIN, NOT FROM US"}
+                  </Badge>
+                }
                 footer="EVERY WINNER SLOT'S INDEX FALLS INSIDE THESE RANGES"
               >
                 <div className="verify-table-wrap">
@@ -164,7 +177,7 @@ export default function Verify() {
   );
 }
 
-function CheckCard({ check }: { check: Check }) {
+function CheckCard({ check, rehearsal }: { check: Check; rehearsal: boolean }) {
   const tone = check.status === "pass" ? "lime" : check.status === "fail" ? "danger" : "neutral";
   const label =
     check.status === "pass" ? "CHECKS OUT" : check.status === "fail" ? "MISMATCH" : check.status === "unavailable" ? "NOT AVAILABLE" : "READINGS";
@@ -176,10 +189,14 @@ function CheckCard({ check }: { check: Check }) {
         footer={
           check.footer ??
           (check.status === "fail"
-            ? "THIS STEP DISAGREES WITH THE CHAIN"
+            ? rehearsal
+              ? "THIS STEP DISAGREES WITH THIS DRAW'S RECORD"
+              : "THIS STEP DISAGREES WITH THE CHAIN"
             : check.status === "unavailable"
               ? "STATED PLAINLY WHERE THIS ANSWER COMES FROM"
-              : "REAL CONTRACT READS AND REAL KECCAK256")
+              : rehearsal
+                ? "REAL KECCAK256 OVER THIS DRAW'S OWN RECORD"
+                : "REAL CONTRACT READS AND REAL KECCAK256")
         }
       >
         <ul className={`verify-lines verify-lines--${check.status}`}>

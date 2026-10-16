@@ -69,9 +69,11 @@ export const fixtureGameSource: GameSource = {
 // as the first testnet stack recorded it (revealed at block 71255613, winner
 // 1462 out of a 71,186,086-ticket book). The values are quoted, never invented,
 // and the verifier recomputes them exactly the way it recomputes live draws.
-// The CareerStore rows and the RaceRecorded line are quoted from the same
-// run's chain records (recorded at award in block 71255620). Draw 2 is derived
-// from those same real values; its own comment says exactly how.
+// The CareerStore rows and the RaceRecorded line are a snapshot of what the
+// store read shortly after that run's award (block 71255620): fatigue decays
+// every block, so the live store reads a lower fatigue today while the medal,
+// race and placement counts still match it. Draw 2 is derived from those same
+// real values; its own comment says exactly how.
 export const fixtureRaceSource: RaceSource = {
   kind: "fixture",
   sentinel: "CHOGPOOL_FIXTURE_BUNDLE_SENTINEL",
@@ -107,6 +109,9 @@ export const fixtureRaceSource: RaceSource = {
           },
         ],
         recordedCareers: {
+          // A snapshot of the rows as they read shortly after award, not a live
+          // read: fatigue 37071759259259260n decays further every block (the
+          // store reads lower today). No surface renders fatigue.
           "1462": { gold: 1, silver: 0, bronze: 0, races: 1, wins: 1, fatigue: 37071759259259260n, placementInRace: 1 },
           "954": { gold: 0, silver: 0, bronze: 0, races: 0, wins: 0, fatigue: 0n, placementInRace: 0 },
         },
@@ -122,9 +127,11 @@ export const fixtureRaceSource: RaceSource = {
     // run's 22,941-unit pot split two ways the way award() splits it. The
     // trophy rows are the placements an award records, 1 and 2 by payout
     // order; there is no second on-chain race, so no RaceRecorded event is
-    // carried and the trophy copy stays on its plain-read wording.
+    // carried and the trophy copy stays on its plain-read wording. The draw is
+    // flagged as a rehearsal so every surface shows it as one.
     return {
       drawId: 2n,
+      rehearsal: true,
       state: "finalized",
       closeAt: 1792068183,
       commitHash: "0x81fec32ffe3e8af0f2181dbc5d29761eba8849b05da20b34dd996d489e5c06a7",

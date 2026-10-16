@@ -6,11 +6,10 @@
 // the derivation, not just a verdict. A mismatch is reported loudly and
 // exactly: this module never smooths over a disagreement with the chain.
 
-import { keccak256, toBytes, type Hex } from "viem";
+import type { Address, Hex } from "viem";
 import { testnetReadClient } from "../lib/wallet";
 import { drawEngineAbi, poolAbi } from "../lib/abi";
 import { DEPLOYED } from "../generated/addresses.gen";
-import type { Address } from "viem";
 import {
   commitHashOf,
   cumulativeWalk,
@@ -20,9 +19,27 @@ import {
   type RacerTickets,
   type WalkRow,
 } from "../lib/derive";
-import { readDrawEvents, readMirrorBadge, type CareerRecord, readCareer } from "../lib/draw";
+import {
+  checkMirrorUriHash,
+  readCareer,
+  readDrawEvents,
+  readMirrorBadge,
+  type CareerRecord,
+} from "../lib/draw";
 import { getRaceSource } from "../lib/game";
 import { readChog } from "../lib/chog";
+import {
+  VERDICT_CROSS_MISMATCH_LINE,
+  VERDICT_INCOMPLETE_LINE,
+  verdictCoreMismatchLine,
+  verdictVerifiedLine,
+  verifyCareerTitle,
+  verifyMatchTitle,
+  verifyPrizeLine,
+  verifyRecordTitle,
+  verifyRecordedWinnersLine,
+  verifyWinnersLine,
+} from "../lib/result-copy";
 import type { DrawRecord, RaceRecordedLine } from "../types/race";
 import { formatAsset, formatTickets, hexIsNonZero, shortHex } from "../lib/format";
 
@@ -41,6 +58,8 @@ export type MirrorUriCheck = {
   tokenId: bigint;
   badgeLabel: string;
   storedUri: string;
+  /** The bytes actually hashed: the stored URI with any Test Drive label stripped. */
+  hashedUri: string;
   recordedHash: Hex | null;
   computedHash: Hex;
   hashMatch: boolean | null;
@@ -66,11 +85,14 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
   const live = source?.kind === "live";
 
   const checks: Check[] = [];
+  // A rehearsal draw exists only in this record: every wording choice below
+  // drops the on-chain voice for it and keeps it for real draws.
+  const rehearsal = draw.rehearsal === true;
 
   // ---- 1. what the chain records -------------------------------------
   checks.push({
     key: "record",
-    title: "What the chain records for this race",
+    title: verifyRecordTitle(rehearsal),
     status: "info",
     lines: [
       draw.sourceNote ??
@@ -84,8 +106,8 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
       `Reveal block: ${draw.revealBlock.toString()}`,
       `Final randomness: ${draw.finalRandomness}`,
       `Frozen tickets: ${formatTickets(draw.totalTickets)} across ${draw.racers.length} racer(s)`,
-      `Winners on chain (winnersOf): ${draw.winners.map((w) => w.toString()).join(", ") || "none yet"}`,
-      `Prize per winner (potPerWinnerOf): ${formatAsset(draw.potPerWinner)}`,
+      verifyWinnersLine(draw.winners, rehearsal),
+      verifyPrizeLine(formatAsset(draw.potPerWinner), rehearsal),
     ],
   });
 
@@ -205,8 +227,20 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
     const contractLines: string[] = [];
     let viewDisagrees = false;
     if (live) {
-      const currentId = source ? await source.currentDrawId().catch(() => null) : null;
-      if (currentId !== draw.drawId) {
+      // A failed read is not an answer: when the current draw id cannot be
+      // read back, this page makes no claim about whether this race is the
+      // current draw, and prints no view output either way.
+      let currentId: bigint | null | "read-failed" = "read-failed";
+      try {
+        currentId = source ? await source.currentDrawId() : null;
+      } catch {
+        currentId = "read-failed";
+      }
+      if (currentId === "read-failed") {
+        contractLines.push(
+          "The engine's deriveWinners() view only answers for the current draw (it walks the current draw's racer set). The current draw id could not be read back on this RPC, so this page cannot say whether this race is the current draw and prints no view output here. winnersOf() above is the chain's per-draw getter and is the record this page checks against.",
+        );
+      } else if (currentId !== draw.drawId) {
         contractLines.push(
           "The engine's deriveWinners() view only answers for the current draw (it walks the current draw's racer set), and this race is not the current draw, so its output would not answer for this race and is not printed here. winnersOf() above is the chain's per-draw getter and is the record this page checks against.",
         );
@@ -236,11 +270,11 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
 
     checks.push({
       key: "match",
-      title: "Recomputed vs the on-chain record",
+      title: verifyMatchTitle(rehearsal),
       status: exact && !viewDisagrees ? "pass" : "fail",
       lines: [
         `Recomputed winners: [${derived.winners.map((w) => w.toString()).join(", ")}]`,
-        `winnersOf(${draw.drawId.toString()}) : [${draw.winners.map((w) => w.toString()).join(", ")}]`,
+        verifyRecordedWinnersLine(draw.drawId.toString(), draw.winners, rehearsal),
         ...contractLines,
         exact
           ? viewDisagrees
@@ -320,15 +354,22 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
     for (const winner of draw.winners) {
       try {
         const [badge, chog] = await Promise.all([readMirrorBadge(winner), readChog(winner).catch(() => null)]);
-        const computedHash = keccak256(toBytes(badge.storedUri));
-        const hashMatch = badge.recordedUriHash === null ? null : badge.recordedUriHash.toLowerCase() === computedHash.toLowerCase();
+        // ChogMirror hashes the URI WITHOUT its Test Drive label at mint
+        // (keccak256(bytes(realURI))), while tokenURI() returns the labelled
+        // string. The recomputation must hash the same bytes the contract did,
+        // so the label is stripped first; the stripped value is also what the
+        // mainnet-URI comparison below compares.
+        const { hashedUri: cleanStored, computedHash, hashMatch } = checkMirrorUriHash(
+          badge.storedUri,
+          badge.recordedUriHash,
+        );
         const mainnetUri = chog ? chog.tokenURI : null;
-        const cleanStored = badge.storedUri.startsWith("test-chog:") ? badge.storedUri.slice("test-chog:".length) : badge.storedUri;
         const mainnetMatch = mainnetUri === null ? null : cleanStored === mainnetUri;
         mirrors.push({
           tokenId: winner,
           badgeLabel: badge.badgeLabel,
           storedUri: badge.storedUri,
+          hashedUri: cleanStored,
           recordedHash: badge.recordedUriHash,
           computedHash,
           hashMatch,
@@ -364,11 +405,13 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
           `Stored URI: ${mirror.storedUri}`,
           mirror.recordedHash === null
             ? "The deployed mirror does not expose a recorded URI hash (this deployment predates the binding), so the digest cannot be compared on chain yet. The mirror contract now binds keccak256 of the stored URI into the owner's signed message, so once minted through that path this check reads the binding directly."
-            : `keccak256(stored URI bytes) = ${mirror.computedHash}`,
+            : `${mirror.hashedUri === mirror.storedUri ? "keccak256(stored URI bytes)" : "keccak256(stored URI bytes with the Test Drive label stripped)"} = ${mirror.computedHash}`,
           mirror.recordedHash === null
             ? ""
             : mirror.hashMatch
-              ? "The stored URI hashes to the digest recorded at mint. For a Verified Holder token that digest is the one the mainnet owner signed."
+              ? mirror.hashedUri === mirror.storedUri
+                ? "The stored URI hashes to the digest recorded at mint. For a Verified Holder token that digest is the one the mainnet owner signed."
+                : "The stored URI, with its Test Drive label stripped, hashes to the digest recorded at mint. The label is a display prefix the mirror adds on read; the mint recorded the digest over the URI alone."
               : "MISMATCH: the stored URI does not hash to the recorded digest.",
           mirror.mainnetUri === null
             ? "The live mainnet tokenURI for this token could not be read."
@@ -392,7 +435,7 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
       if (!record) {
         checks.push({
           key: `career-${winner.toString()}`,
-          title: `Trophy inscription in the CareerStore for CHOG #${winner.toString()}`,
+          title: verifyCareerTitle(winner.toString(), rehearsal),
           status: "unavailable",
           lines: ["The CareerStore read for this winner did not answer on this RPC."],
         });
@@ -401,7 +444,7 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
       const inscription = scannedInscriptions.find((i) => i.tokenId.toString() === winner.toString());
       checks.push({
         key: `career-${winner.toString()}`,
-        title: `Trophy inscription in the CareerStore for CHOG #${winner.toString()}`,
+        title: verifyCareerTitle(winner.toString(), rehearsal),
         status: record.placementInRace > 0 ? "pass" : "fail",
         lines: [
           `placementOf(CHOG #${winner.toString()}, ${draw.drawId.toString()}) = ${record.placementInRace}`,
@@ -422,7 +465,7 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
       if (!record) {
         checks.push({
           key: `career-${winner.toString()}`,
-          title: `Trophy inscription in the CareerStore for CHOG #${winner.toString()}`,
+          title: verifyCareerTitle(winner.toString(), rehearsal),
           status: "unavailable",
           lines: ["This draw's record carries no trophy row for this winner."],
         });
@@ -431,8 +474,11 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
       const inscription = scannedInscriptions.find((i) => i.tokenId.toString() === winner.toString());
       checks.push({
         key: `career-${winner.toString()}`,
-        title: `Trophy inscription in the CareerStore for CHOG #${winner.toString()}`,
-        status: record.placementInRace > 0 ? "pass" : "fail",
+        title: verifyCareerTitle(winner.toString(), rehearsal),
+        // A rehearsal's rows are its own readings, nothing a deployed store
+        // backs, so they never wear the green badge; a real record still gets
+        // pass or fail against the row itself.
+        status: record.placementInRace > 0 ? (rehearsal ? "info" : "pass") : "fail",
         footer: "READ FROM THIS DRAW'S OWN RECORD",
         lines: [
           `Placement of CHOG #${winner.toString()} in this draw's record: ${record.placementInRace}`,
@@ -477,18 +523,14 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
   if (failed.length > 0) {
     verdict = "mismatch";
     verdictLine = failed.some((c) => coreKeys.has(c.key))
-      ? "MISMATCH: this race's published seed does not reproduce the chain's own record. The steps below say exactly where."
-      : "MISMATCH: the seed re-derives the recorded winners exactly, but a cross-check on this page does not line up. The red card below names the step; treat that part of the record as suspect.";
+      ? verdictCoreMismatchLine(rehearsal)
+      : VERDICT_CROSS_MISMATCH_LINE;
   } else if (coreUnavailable.length > 0 || !awarded) {
     verdict = "incomplete";
-    verdictLine = "Not verifiable yet: this race has not published both a seed and a result. Everything on this page is what the chain really holds today.";
+    verdictLine = VERDICT_INCOMPLETE_LINE;
   } else {
     verdict = "verified";
-    verdictLine =
-      "VERIFIED: the published seed re-derives the on-chain record exactly. Same seed, same winners, for anyone who checks." +
-      (extraUnavailable.length > 0
-        ? " The checks marked NOT AVAILABLE above could not run on this read; everything that could run, passed."
-        : "");
+    verdictLine = verdictVerifiedLine(rehearsal, extraUnavailable.length > 0);
   }
 
   return {

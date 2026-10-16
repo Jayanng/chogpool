@@ -9,11 +9,28 @@ import {
   inscriptionFor,
   ipfsName,
   isWinnerToken,
+  podiumPlacesFooter,
+  podiumPrizeSentence,
   prizeCanvasLabel,
   prizePerWinner,
+  replayDisclosure,
+  replayHeadline,
+  resultStripCopy,
+  shareBadgeLabel,
+  shareFooterLabel,
+  shareSubLabel,
   splitCanvasLabel,
   trophySentence,
+  verdictCoreMismatchLine,
+  verdictVerifiedLine,
+  verifyCareerTitle,
+  verifyMatchTitle,
+  verifyPrizeLine,
+  verifyRecordTitle,
+  verifyRecordedWinnersLine,
+  verifyWinnersLine,
   winnerHeadline,
+  winnerKickerLabel,
   winnerListLabel,
   type InscriptionEvidence,
 } from "./result-copy";
@@ -169,5 +186,168 @@ describe("a zero pot is never a payment claim", () => {
     expect(splitCanvasLabel([1462n, 954n], true)).toBe("The pot split to zero per winner");
     // A funded pot keeps the normal wording.
     expect(prizeCanvasLabel([1462n], "0.022941 USDC")).toBe("Prize 0.022941 USDC");
+  });
+});
+
+// A rehearsal draw (one that exists only in its own record) must never claim
+// an on-chain draw, a winnersOf() answer, or a payment. These pin the
+// rehearsal wording on every surface AND the unchanged wording real draws
+// keep, so fixing the rehearsal paths cannot dumb down the real ones.
+describe("a rehearsal draw reads as its own record, never as chain truth", () => {
+  const args = {
+    rehearsal: true,
+    winnersLabel: "CHOG #1462 and CHOG #954",
+    winnerCount: 2,
+    prizeLabel: "0.01147 USDC each",
+    potLabel: "0.01147 USDC",
+    zeroPot: false,
+  };
+
+  it("labels the result strip a rehearsal and says no money moved", () => {
+    const strip = resultStripCopy(args);
+    expect(strip.badge).toBe("REHEARSAL RESULT");
+    expect(strip.body).toContain("DEV REHEARSAL, NOT AN ON-CHAIN DRAW");
+    expect(strip.body).toContain("This draw's record holds winners CHOG #1462 and CHOG #954");
+    expect(strip.body).toContain("split as award() would have");
+    expect(strip.body).toContain("No money moved");
+    expect(strip.body).not.toContain("The chain");
+    expect(strip.body).not.toContain("paid");
+  });
+
+  it("drops winnersOf() from the winner kicker", () => {
+    expect(winnerKickerLabel("2", true)).toBe("WINNER IN THIS DRAW'S RECORD");
+    expect(winnerKickerLabel("2", true)).not.toContain("winnersOf");
+    expect(winnerKickerLabel("2", true)).not.toContain("ON-CHAIN");
+  });
+
+  it("prizes the split as award() would have, never as paid", () => {
+    const line = podiumPrizeSentence({
+      rehearsal: true,
+      winners: [1462n, 954n],
+      potLabel: "0.01147 USDC",
+      zeroPot: false,
+      team: "0xc0aB4800...A23FD4B2",
+    });
+    expect(line).toContain("Prize split as award() would have: 0.01147 USDC each");
+    expect(line).toContain("No money moved for this rehearsal");
+    expect(line).not.toContain("Prize paid");
+    expect(line).not.toContain("straight from the yield-funded pot");
+  });
+
+  it("says the winning places come from the draw's own record", () => {
+    expect(podiumPlacesFooter(2, true)).toBe("Only the 2 winning places come from this draw's record.");
+    expect(podiumPlacesFooter(1, true)).toBe("Only place 1 comes from this draw's record.");
+  });
+
+  it("never says the draw itself is decided on chain", () => {
+    expect(replayHeadline(true)).toBe("The replay of this draw's record.");
+    expect(replayDisclosure(true)).not.toContain("decided on chain");
+    expect(replayDisclosure(true)).toContain("This draw's record decides the result");
+  });
+
+  it("wears the rehearsal badge and footer on the share card", () => {
+    expect(shareBadgeLabel(true)).toBe("REHEARSAL RESULT");
+    expect(shareFooterLabel(2, true)).toBe("VALUES IN THIS REHEARSAL RECORD");
+    expect(shareFooterLabel(1, true)).toBe("VALUES IN THIS REHEARSAL RECORD");
+    expect(shareSubLabel(null, true, true)).toBe("WINNER IN THIS DRAW'S RECORD");
+    expect(shareSubLabel("Moss King", true, true)).toBe("IPFS NAME: MOSS KING");
+  });
+
+  it("keeps money wording conditional on the share card canvas", () => {
+    expect(splitCanvasLabel([1462n, 954n], false, true)).toBe("Pot split as award() would have");
+    expect(splitCanvasLabel([1462n], false, true)).toBe("Award() would have paid the pot");
+    expect(splitCanvasLabel([1462n, 954n], false, true)).not.toContain("Pot split evenly across");
+  });
+
+  it("reads the verifier cards as this draw's record", () => {
+    expect(verifyRecordTitle(true)).toBe("What this draw's record holds");
+    expect(verifyWinnersLine([1462n, 954n], true)).toBe("Winners in this draw's record: 1462, 954");
+    expect(verifyPrizeLine("0.01147 USDC", true)).toBe("Prize per winner (as award() would split it): 0.01147 USDC");
+    expect(verifyMatchTitle(true)).toBe("Recomputed vs this draw's record");
+    expect(verifyRecordedWinnersLine("2", [1462n, 954n], true)).toBe("This draw's record: [1462, 954]");
+    expect(verifyCareerTitle("954", true)).toBe("Trophy rows in this draw's own record for CHOG #954");
+  });
+
+  it("scopes the verdict to the draw's own record", () => {
+    const verified = verdictVerifiedLine(true, false);
+    expect(verified).toContain("re-derives this draw's record exactly");
+    expect(verified).not.toContain("on-chain record");
+    expect(verdictCoreMismatchLine(true)).not.toContain("the chain's own record");
+    expect(verdictCoreMismatchLine(true)).toContain("does not reproduce this draw's own record");
+  });
+});
+
+describe("real draws keep their exact chain wording", () => {
+  const args = {
+    rehearsal: false,
+    winnersLabel: "CHOG #1462 and CHOG #954",
+    winnerCount: 2,
+    prizeLabel: "0.01147 USDC each",
+    potLabel: "0.01147 USDC",
+    zeroPot: false,
+  };
+
+  it("keeps the result strip byte for byte", () => {
+    const strip = resultStripCopy(args);
+    expect(strip.badge).toBe("ON-CHAIN RESULT");
+    expect(strip.body).toBe(
+      "The chain already recorded this race: winners CHOG #1462 and CHOG #954, paid 0.01147 USDC each, the pot split evenly across the winners. The replay on screen is that result, frame for frame, every time.",
+    );
+  });
+
+  it("keeps the single-winner strip wording", () => {
+    const strip = resultStripCopy({ ...args, winnersLabel: "CHOG #1462", winnerCount: 1, prizeLabel: "0.022941 USDC" });
+    expect(strip.body).toBe(
+      "The chain already recorded this race: winner CHOG #1462, paid 0.022941 USDC. The replay on screen is that result, frame for frame, every time.",
+    );
+  });
+
+  it("keeps winnersOf() in the kicker and the prize as paid", () => {
+    expect(winnerKickerLabel("1", false)).toBe("ON-CHAIN WINNER · winnersOf(1)");
+    expect(
+      podiumPrizeSentence({
+        rehearsal: false,
+        winners: [1462n, 954n],
+        potLabel: "0.01147 USDC",
+        zeroPot: false,
+        team: "0xc0aB4800...A23FD4B2",
+      }),
+    ).toBe(
+      "Prize paid: 0.01147 USDC each, the pot split evenly across 2 winners, straight from the yield-funded pot to the depositor behind the position (0xc0aB4800...A23FD4B2).",
+    );
+    expect(
+      podiumPrizeSentence({ rehearsal: false, winners: [1462n], potLabel: "0.022941 USDC", zeroPot: false, team: null }),
+    ).toBe("Prize paid: 0.022941 USDC, straight from the yield-funded pot to the depositor behind the position.");
+  });
+
+  it("keeps the podium, share and verifier wording", () => {
+    expect(podiumPlacesFooter(1, false)).toBe("Only place 1 is decided on chain.");
+    expect(podiumPlacesFooter(2, false)).toBe("Only the 2 winning places are decided on chain.");
+    expect(replayHeadline(false)).toBe("The replay of the real result.");
+    expect(replayDisclosure(false)).toContain("The draw itself is decided on chain");
+    expect(shareBadgeLabel(false)).toBe("REAL DRAW RESULT");
+    expect(shareFooterLabel(2, false)).toBe("WINNERS AND PRIZE READ FROM THE CHAIN");
+    expect(shareFooterLabel(1, false)).toBe("WINNER AND PRIZE READ FROM THE CHAIN");
+    expect(shareSubLabel(null, true, false)).toBe("ON-CHAIN WINNER");
+    expect(shareSubLabel(null, false, false)).toBe("");
+    expect(splitCanvasLabel([1462n], false, false)).toBe("Paid from the yield-funded pot");
+    expect(splitCanvasLabel([1462n, 954n], false, false)).toBe("Pot split evenly across 2 winners");
+  });
+
+  it("keeps the verifier's chain wording and the honest scoping line", () => {
+    expect(verifyRecordTitle(false)).toBe("What the chain records for this race");
+    expect(verifyWinnersLine([1462n], false)).toBe("Winners on chain (winnersOf): 1462");
+    expect(verifyPrizeLine("0.022941 USDC", false)).toBe("Prize per winner (potPerWinnerOf): 0.022941 USDC");
+    expect(verifyMatchTitle(false)).toBe("Recomputed vs the on-chain record");
+    expect(verifyRecordedWinnersLine("1", [1462n], false)).toBe("winnersOf(1) : [1462]");
+    expect(verifyCareerTitle("1462", false)).toBe("Trophy inscription in the CareerStore for CHOG #1462");
+    expect(verdictVerifiedLine(false, false)).toBe(
+      "VERIFIED: the published seed re-derives the on-chain record exactly. Same seed, same winners, for anyone who checks.",
+    );
+    // The checks render below the verdict banner, and the line says so.
+    expect(verdictVerifiedLine(false, true)).toContain("The checks marked NOT AVAILABLE below");
+    expect(verdictCoreMismatchLine(false)).toBe(
+      "MISMATCH: this race's published seed does not reproduce the chain's own record. The steps below say exactly where.",
+    );
   });
 });

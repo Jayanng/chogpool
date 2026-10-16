@@ -80,6 +80,10 @@ export type DrawRecord = {
   recordedInscriptions?: RaceRecordedLine[];
   /** Dev draws only: one honest line about where this record came from. */
   sourceNote?: string;
+  /** Dev draws only: true for a draw that exists ONLY in this record, derived
+   *  from real draws but never run on chain. Every surface that shows such a
+   *  draw says so and drops the on-chain wording. */
+  rehearsal?: boolean;
 };
 
 /** The award trail of a draw, read from real event logs where the public RPC allows. */

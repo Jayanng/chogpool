@@ -15,6 +15,9 @@ export default function Landing() {
   const [pot, setPot] = useState<bigint | null>(null);
   const [sourceLabel, setSourceLabel] = useState("FROM THE GAME SOURCE (nextDrawAt)");
   const [lookedUp, setLookedUp] = useState<ChogRecord | null>(null);
+  // Whether the current draw's field already locked on chain (the draw is
+  // closed or awarded). Unknown until the draw's state is read.
+  const [fieldLocked, setFieldLocked] = useState<boolean | null>(null);
   // Preview lane names come from the real current draw when one exists; a
   // null lane renders as a clear placeholder, never an invented tokenId.
   const [previewLanes, setPreviewLanes] = useState<Array<string | null>>([null, null, null]);
@@ -41,8 +44,11 @@ export default function Landing() {
         const draw = id === null ? null : await source.getDraw(id);
         const ids = (draw?.racers ?? []).slice(0, 3).map((r) => r.tokenId.toString());
         setPreviewLanes([ids[0] ?? null, ids[1] ?? null, ids[2] ?? null]);
+        setFieldLocked(draw ? draw.state !== "open" : null);
       } catch {
-        // No draw readable: the lanes stay generic placeholders.
+        // No draw readable: the lanes stay generic placeholders and the
+        // countdown makes no claim about the field being locked.
+        setFieldLocked(null);
       }
     })();
   }, []);
@@ -66,7 +72,7 @@ export default function Landing() {
             <span>GRAND PRIX</span>
             <Badge tone="neutral">UI PREVIEW</Badge>
           </div>
-          <Countdown nextDrawAt={nextDrawAt} sourceLabel={sourceLabel} />
+          <Countdown nextDrawAt={nextDrawAt} sourceLabel={sourceLabel} fieldLocked={fieldLocked} />
           <div className="lane lane-one"><div className="lane-label">01 <span>{previewLanes[0] ? `CHOG #${previewLanes[0]}` : "ANY CHOG"}</span></div><div className="runner runner-one">◉</div></div>
           <div className="lane lane-two"><div className="lane-label">02 <span>{previewLanes[1] ? `CHOG #${previewLanes[1]}` : "ANY CHOG"}</span></div><div className="runner runner-two">◉</div></div>
           <div className="lane lane-three"><div className="lane-label">03 <span>{previewLanes[2] ? `CHOG #${previewLanes[2]}` : "ANY CHOG"}</span></div><div className="runner runner-three">◉</div></div>
