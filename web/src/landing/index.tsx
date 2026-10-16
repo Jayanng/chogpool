@@ -11,7 +11,6 @@ import { ipfsToGateway, type ChogRecord } from "../lib/chog";
 import { navigate } from "../lib/router";
 import tileCrowned from "./assets/c100.webp";
 import tileHoodie from "./assets/c25.webp";
-import tileBandana from "./assets/c40.webp";
 
 export default function Landing() {
   const [nextDrawAt, setNextDrawAt] = useState<number | null>(null);
@@ -71,22 +70,34 @@ export default function Landing() {
           <svg style={{ left: "300px", top: "702px", width: "32px" }} viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#ff2d87" /></svg>
         </div>
         <div className="hero-copy">
-          <Badge tone="accent">MONAD TESTNET · LIVE BUILD</Badge>
-          <p className="kicker">SAVE TO RACE</p>
+          <div className="hero-chips">
+            <span className="pill pill-dark">Prize savings on Monad</span>
+            <span className="pill pill-light">Test funds only</span>
+          </div>
           <h1>Your dollars<br />never enter<br />the <em>race.</em></h1>
-          <div className="catchphrase">Your Chog is on the track.</div>
-          <p className="lede">A savings game for Chog holders. Your deposit stays yours. The yield becomes the race.</p>
+          <p className="lede">A savings game for Chog holders. Your deposit stays yours and stays withdrawable. Only the yield competes, and every draw is checkable by anyone.</p>
           <div className="hero-actions">
-            <Button onClick={() => navigate("/deposit")}>Enter the track</Button>
-            <Button variant="quiet" onClick={() => navigate("/spectator")}>Watch the next race <span>↗</span></Button>
+            <Button onClick={() => navigate("/deposit")}>Open the app →</Button>
+            <Button variant="quiet" onClick={() => navigate("/race")}>See a real draw</Button>
+          </div>
+          <div className="trust-row">
+            <span className="chip"><span className="dot dot-green" />Principal withdrawable any time</span>
+            <span className="chip"><span className="dot dot-pink" />Real yield only</span>
+            <span className="chip"><span className="dot dot-yellow" />Re-derivable draws</span>
           </div>
         </div>
 
         <div className="hero-stage">
-          <img className="hero-tile tile-crowned" src={tileCrowned} alt="Chog #100 from the Chog Genesis collection, crowned" />
-          <img className="hero-tile tile-hoodie" src={tileHoodie} alt="Chog #25 from the Chog Genesis collection in a pink hood" />
-          <img className="hero-tile tile-third" src={tileBandana} alt="A bandana-wearing Chog from the Chog Genesis collection" />
-          <Panel className="track-card">
+          <div className="sticker sticker-lg"><img src={tileCrowned} alt="Chog #100 from the Chog Genesis collection, crowned" /></div>
+          <div className="sticker sticker-sm"><img src={tileHoodie} alt="Chog #25 from the Chog Genesis collection in a pink hood" /></div>
+          <div className="float-pill fp-odds"><b>98.37%</b> odds</div>
+          <div className="float-pill fp-final"><span className="dot dot-green" />Race 01 finalized</div>
+          <div className="float-pill fp-paid"><b>0.000819</b> USDC paid</div>
+        </div>
+      </section>
+
+      <section className="hero-live">
+        <Panel className="track-card">
           <div className="card-top">
             <span>GRAND PRIX</span>
             <Badge tone="neutral">UI PREVIEW</Badge>
@@ -98,7 +109,6 @@ export default function Landing() {
           <div className="track-footer"><span>PRIZE POT</span><strong>{pot === null ? "Yield accumulates live" : `${formatUnits(pot, POT_DECIMALS)} USDC${fixturesOn ? " (fixture)" : ""}`}</strong><span>↗</span></div>
           <p className="track-note">A preview of the race experience. Lane names come from the current draw when one exists and are placeholders otherwise. No race is running.</p>
         </Panel>
-        </div>
       </section>
 
       <Marquee items={["REAL YIELD ONLY", "PRINCIPAL WITHDRAWABLE ANY TIME", "PUBLISHED SEED · RE-VERIFIABLE", "TEST DRIVE AVAILABLE"]} tone="accent" />

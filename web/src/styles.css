@@ -983,3 +983,55 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 
 /* transform-only sheet entrance (opacity held by the rule, not the animation) */
 @keyframes sheet-in { from { transform: translateY(-10px); } to { transform: none; } }
+
+/* ===================== CANDY HERO: mockup match (Batch 3) =====================
+   The hero reshaped to the brand-reel mockup: two eyebrow chips, the trust
+   promise as the headline, feature chips with colored dots, and a sticker stage
+   with two die-cut chogs and floating stat pills. The live-pool card moves to a
+   band just below so the honest data stays on the page. */
+.hero.hero-scene { grid-template-columns: 1.05fr 0.95fr; gap: 30px; }
+
+.hero-chips { display: flex; gap: 12px; margin: 0 0 22px; flex-wrap: wrap; }
+.hero-chips .pill {
+  display: inline-flex; align-items: center; padding: 11px 18px; border-radius: 999px;
+  font-family: 'Inter', sans-serif; font-weight: 600; font-size: 15px; letter-spacing: -.01em;
+}
+.hero-chips .pill-dark { background: var(--c-ink); color: #fff; }
+.hero-chips .pill-light { background: var(--c-white); color: var(--c-ink); box-shadow: 3px 3px 0 var(--c-ink); }
+
+.hero-scene .trust-row { display: flex; gap: 12px; margin: 38px 0 0; flex-wrap: wrap; }
+.hero-scene .chip {
+  display: inline-flex; align-items: center; gap: 9px; padding: 11px 18px; border-radius: 999px;
+  background: var(--c-white); color: var(--c-ink); font-family: 'Inter', sans-serif;
+  font-weight: 600; font-size: 15px; letter-spacing: -.01em; box-shadow: 0 10px 26px rgba(20,20,50,.14);
+}
+.hero-scene .chip .dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+.dot-green { background: var(--c-green); }
+.dot-pink { background: var(--c-magenta); }
+.dot-yellow { background: var(--c-yellow); }
+
+/* sticker stage */
+.hero-stage { position: relative; min-height: 560px; }
+.hero-stage .sticker {
+  position: absolute; border-radius: 30px; overflow: hidden; background: #fff;
+  border: 9px solid #fff; box-shadow: 0 0 0 6px var(--c-ink), 0 22px 46px rgba(20,20,50,.30);
+}
+.hero-stage .sticker img { width: 100%; display: block; border-radius: 22px; }
+.sticker-lg { width: 336px; right: 14px; top: 8px; transform: rotate(4deg); z-index: 2; }
+.sticker-sm { width: 218px; left: 0; top: 296px; transform: rotate(-7deg); z-index: 3; }
+
+/* floating stat pills */
+.hero-stage .float-pill {
+  position: absolute; z-index: 5; padding: 13px 20px; border-radius: 20px; background: #fff;
+  box-shadow: 0 18px 40px rgba(20,20,50,.22); font-family: 'Poppins', sans-serif;
+  font-weight: 700; font-size: 16px; color: var(--c-ink); display: flex; align-items: center; gap: 10px;
+  white-space: nowrap;
+}
+.hero-stage .float-pill b { font-size: 21px; letter-spacing: -.02em; }
+.hero-stage .fp-odds { left: -8px; top: 84px; transform: rotate(-5deg); background: var(--c-yellow); }
+.hero-stage .fp-final { left: -20px; top: 208px; transform: rotate(-3deg); }
+.hero-stage .fp-paid { right: 18px; top: 412px; transform: rotate(4deg); }
+
+/* live-pool band under the hero */
+.hero-live { display: flex; justify-content: center; padding: 6px 0 42px; }
+.hero-live .track-card { width: min(780px, 100%); }
