@@ -5,7 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IYieldAdapter} from "../interfaces/IYieldAdapter.sol";
 
-/// @title MockYieldAdapter — DEV/TEST ONLY. Never imported by contracts/src.
+/// @title MockYieldAdapter: DEV/TEST ONLY. Never imported by contracts/src.
 /// @notice Stands in for a yield venue in tests. It holds the principal and lets a
 ///         test inject "yield" (as if LP fees or Aave interest had accrued), which is
 ///         what makes the harvest path testable without a live venue.
@@ -49,7 +49,7 @@ contract MockYieldAdapter is IYieldAdapter {
     function supply(uint256 amount) external onlyPool {
         IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
         // Charge the entry cost by handing the difference back immediately, so the
-        // venue's own balance — and therefore positionValue() — reflects what the
+        // venue's own balance, and therefore positionValue(), reflects what the
         // pool can actually redeem.
         uint256 cost = (amount * entryCostBps) / 10_000;
         if (cost > 0) IERC20(asset).safeTransfer(msg.sender, cost);

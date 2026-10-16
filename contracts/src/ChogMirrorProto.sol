@@ -6,14 +6,14 @@ import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-/// @title ChogMirror — testnet mirror of Chog Genesis (mainnet) with verified
+/// @title ChogMirror, testnet mirror of Chog Genesis (mainnet) with verified
 ///        holder minting and Test Drive mode.
-/// @notice AUDIT PROTOTYPE for the plan's IChogMirror spec. Phase 1 production
-///         version is owned by the teammate; this validates the design claims:
+/// @notice AUDIT PROTOTYPE for the IChogMirror spec. The production
+///         version lives in ChogMirror; this validates the design claims:
 ///         1) EIP-712 signature from the real mainnet owner mints a Verified mirror
 ///         2) mintTestDrive: one per wallet, on-chain flag, labeled
 ///         3) replay protection (chainId + contract address + nonce in the domain/seed)
-/// @dev Security notes for the Phase 1 implementation are inline and in the test file.
+/// @dev Security notes for the production implementation are inline and in the test file.
 contract ChogMirrorProto is ERC721, EIP712, Ownable {
     // --- constants ---
     uint256 public constant MAX_SUPPLY = 1969; // real Chog Genesis supply (verified)
@@ -21,7 +21,7 @@ contract ChogMirrorProto is ERC721, EIP712, Ownable {
     // --- verified-holder state ---
     /// @dev mainnetOwnerOf[tokenId] = the address that signed the ownership proof.
     ///      Written ONLY on successful mintWithSig. The UI reads this to show
-    ///      "Verified Holder" — it is the on-chain provenance record.
+    ///      "Verified Holder", it is the on-chain provenance record.
     mapping(uint256 => address) public mainnetOwnerOf;
     /// @dev signature nonces per signer: each signed message can mint exactly once.
     mapping(address => uint256) public nonces;
@@ -59,7 +59,7 @@ contract ChogMirrorProto is ERC721, EIP712, Ownable {
 
     /// @notice Mint a Verified mirror of a REAL Chog the signer owns on mainnet.
     /// @param tokenId        real Chog Genesis tokenId (1..1969)
-    /// @param mainnetOwner   the claimed mainnet owner — MUST equal the recovered signer
+    /// @param mainnetOwner   the claimed mainnet owner: MUST equal the recovered signer
     /// @param realURI        the token's real mainnet IPFS URI (resolved off-chain; stored verbatim)
     /// @param v,r,s          EIP-712 signature of the Mirror message by the MAINNET owner.
     ///
@@ -111,7 +111,7 @@ contract ChogMirrorProto is ERC721, EIP712, Ownable {
     // ---------------- Test Drive path ----------------
 
     /// @notice Anyone can claim ONE Test Drive Chog (clearly labeled, testnet-only).
-    /// @param tokenId an unclaimed real tokenId (1..1969) — real metadata, no proof.
+    /// @param tokenId an unclaimed real tokenId (1..1969), real metadata, no proof.
     /// @param realURI the token's real mainnet IPFS URI.
     function mintTestDrive(uint256 tokenId, string calldata realURI) external {
         if (tokenId == 0 || tokenId > MAX_SUPPLY) revert SupplyExceeded();

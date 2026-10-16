@@ -8,7 +8,7 @@ import {IPuddleRouter} from "../interfaces/IPuddleRouter.sol";
 import {IPuddlePair} from "../interfaces/IPuddlePair.sol";
 import {IYieldAdapter} from "../interfaces/IYieldAdapter.sol";
 
-/// @title PuddleLpAdapter fork suite — the REAL pair, the REAL router, real value.
+/// @title PuddleLpAdapter fork suite, the REAL pair, the REAL router, real value.
 /// @notice Runs against an anvil fork of Monad testnet. Every address is read from
 ///         infra/verified.json at runtime (never a literal in source), so the tests
 ///         cannot drift from the registry and the registry stays the single source.
@@ -136,7 +136,7 @@ contract PuddleLpAdapterForkTest is Test {
 
         // Route it the way production does: the depositor approves the pool and the
         // pool approves the adapter. The asset therefore sits in the POOL, and
-        // supply() pulls it from there — which is what the real ChogPool does.
+        // supply() pulls it from there, which is what the real ChogPool does.
         vm.startPrank(who);
         IERC20(asset).approve(pool, usable);
         vm.stopPrank();
@@ -200,7 +200,7 @@ contract PuddleLpAdapterForkTest is Test {
         // Withdraw EVERYTHING the position can actually return. The recorded
         // principal is the spot redemption value at supply time; if the pair's price
         // has moved since, the honest number is what the LP redeems for now. The
-        // interface contract is "full principal, instantly" — and full means all of
+        // interface contract is "full principal, instantly", and full means all of
         // the position's real value, not a stale quote.
         uint256 all = adapter.positionValue();
         vm.prank(pool);
@@ -258,7 +258,7 @@ contract PuddleLpAdapterForkTest is Test {
         // the pair became free or the valuation stopped charging the swap fee.
         assertLt(credited, deposited, "the live pair charges a real entry cost");
 
-        // Redeeming exactly the credited value must succeed — no revert, no shortfall.
+        // Redeeming exactly the credited value must succeed, no revert, no shortfall.
         vm.prank(pool);
         adapter.redeem(credited, address(0xbabe));
         uint256 back = IERC20(asset).balanceOf(address(0xbabe));
@@ -281,7 +281,7 @@ contract PuddleLpAdapterForkTest is Test {
         assertEq(IERC20(asset).balanceOf(address(0xbabe)), half, "partial amount delivered");
         assertGt(adapter.positionValue(), 0, "remaining position is still live");
 
-        // The rest is still withdrawable — no lock, no fee.
+        // The rest is still withdrawable, no lock, no fee.
         uint256 rest = adapter.positionValue();
         vm.prank(pool);
         adapter.redeem(rest, address(0xbabe));
@@ -347,7 +347,7 @@ contract PuddleLpAdapterForkTest is Test {
     /// REGRESSION: the pot must be payable. `harvest()` used to realize the surplus
     /// into the adapter's own balance and only emit an event on the redeem path, so
     /// the pool booked `potBalance += amount` for tokens it never received and
-    /// `payPot()` reverted for every winner — a pot that could never be paid out.
+    /// `payPot()` reverted for every winner, a pot that could never be paid out.
     /// The transfer is now a single exit covering both branches.
     function test_Fork_Harvest_LeavesThePoolHoldingThePot() public needsFork {
         vm.prank(pool);
@@ -360,7 +360,7 @@ contract PuddleLpAdapterForkTest is Test {
         //
         // _fundTrader moves min(want, claimed) into the trader, so the second
         // direction can be short if the pair's price impact ate the claim. Read
-        // what actually arrived and trade that — the log must not claim volume that
+        // what actually arrived and trade that, the log must not claim volume that
         // never moved.
         _swapThroughPair(address(this), 300 * ONE, asset, quote);
         _swapThroughPair(address(this), 300 * ONE, quote, asset);
@@ -378,7 +378,7 @@ contract PuddleLpAdapterForkTest is Test {
     /// REGRESSION: a second supply must book only the value of the LP slice it
     /// actually minted. Measuring after `lPHeld += lpMinted` valued the whole
     /// existing position as new principal, pushing `principalDeployed` above
-    /// `positionValue` — after which every harvest looked like a loss and no yield
+    /// `positionValue`, after which every harvest looked like a loss and no yield
     /// could ever reach the pot.
     function test_Fork_SecondSupply_BooksOnlyTheNewSlice() public needsFork {
         uint256 deposited = _poolAsset();
@@ -413,7 +413,7 @@ contract PuddleLpAdapterForkTest is Test {
         assertGt(lpAdded, 0, "LP was actually minted");
 
         // The books must stay in the right RELATIONSHIP: principal per LP unit must
-        // be broadly stable across supplies. That is the invariant the bug broke —
+        // be broadly stable across supplies. That is the invariant the bug broke: 
         // before the fix the second supply doubled the per-LP principal, so principal
         // grew far faster than the position.
         //
@@ -463,7 +463,7 @@ contract PuddleLpAdapterForkTest is Test {
 
     /// @dev Gives `who` a real balance of `token` by claiming from the live StableFaucet
     ///      (which mints both faucet-USDC and USDT) and swapping to the token we want
-    ///      through the real router. No balance is invented — every unit came from the
+    ///      through the real router. No balance is invented, every unit came from the
     ///      real faucet or a real swap, which is the whole point of a fork test.
     function _fundTrader(address who, address token, uint256 want) internal {
         // Fresh funder per call: the faucet's 24h cooldown is per address, and a

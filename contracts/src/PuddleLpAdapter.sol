@@ -8,12 +8,12 @@ import {IYieldAdapter} from "../interfaces/IYieldAdapter.sol";
 import {IPuddleRouter} from "../interfaces/IPuddleRouter.sol";
 import {IPuddlePair} from "../interfaces/IPuddlePair.sol";
 
-/// @title PuddleLpAdapter — real LP yield on PuddleSwap (Uniswap V2 fork), testnet path.
+/// @title PuddleLpAdapter, real LP yield on PuddleSwap (Uniswap V2 fork), testnet path.
 /// @notice Production implementation of the FROZEN IYieldAdapter interface. Deposits the
 ///         pool's stable into the real USDC/USDT pair, holds the LP tokens, and harvests
 ///         only value that has actually been realized through removeLiquidity/swap txs.
 ///
-/// @dev Correct V2 semantics (docs/RULES.md #4 — the pot never grows on paper):
+/// @dev Correct V2 semantics (the pot never grows on paper):
 ///      LP trading fees are NOT a claimable balance. They accrue inside the pair as
 ///      k-growth, which raises the LP redemption value above the pro-rata deposit value.
 ///      So `positionValue()` reads that real redemption value, and `harvest()` redeems a
@@ -21,7 +21,7 @@ import {IPuddlePair} from "../interfaces/IPuddlePair.sol";
 ///      the surplus to the pool's asset, and returns it. No fee is ever booked without a
 ///      transaction that actually moved tokens.
 ///
-/// @dev Withdrawal stays instant and full (PLAN.md Phase 1): `redeem()` removes liquidity
+/// @dev Withdrawal stays instant and full: `redeem()` removes liquidity
 ///      proportionally and returns the requested asset amount. Principal is never at risk
 ///      beyond ordinary AMM impermanent loss, which is the honest trade-off of the design
 ///      and is labelled as such in the UI.
@@ -125,7 +125,7 @@ contract PuddleLpAdapter is IYieldAdapter, ReentrancyGuard {
         // Measure the value of the LP slice we JUST minted, BEFORE adding it to
         // lpHeld. Measuring after would divide the new lpHeld by a pair whose
         // reserves still reflect the old position, so a second and later supply
-        // would value the ENTIRE existing position as if it were new principal —
+        // would value the ENTIRE existing position as if it were new principal: 
         // which inflates principalDeployed, makes every subsequent harvest look
         // like a loss, and permanently blocks yield from reaching the pot.
         uint256 newValue = _lpValueOfSlice(lpMinted);
@@ -190,7 +190,7 @@ contract PuddleLpAdapter is IYieldAdapter, ReentrancyGuard {
 
         // Deliver whatever the position actually realised. If the pair's fee left us
         // a hair short of the quoted amount, pay the real balance instead of
-        // reverting — a withdraw-all must always succeed.
+        // reverting, a withdraw-all must always succeed.
         uint256 held = _assetBalance();
         uint256 deliver = held < amount ? held : amount;
         if (deliver == 0) revert InsufficientLiquidity(amount, held);
@@ -230,7 +230,7 @@ contract PuddleLpAdapter is IYieldAdapter, ReentrancyGuard {
         // Hand the realized surplus to the pool. This MUST happen on every path:
         // the pool credits potBalance with this exact number, so if the tokens stay
         // here the pool has booked a pot it does not hold and payPot() reverts for
-        // every winner — the pot becomes permanently unpayable.
+        // every winner, the pot becomes permanently unpayable.
         IERC20(asset).safeTransfer(pool, amount);
 
         emit Harvested(amount);
@@ -253,9 +253,9 @@ contract PuddleLpAdapter is IYieldAdapter, ReentrancyGuard {
     /// @notice The surplus harvest() would realize right now, or 0 if there is none.
     /// @dev harvest() returns 0 when the position is worth no more than the principal
     ///      it was bought with, and the POOL then reverts NothingToHarvest. A caller
-    ///      that must not broadcast a reverting transaction — the Gate 1 driver in
+    ///      that must not broadcast a reverting transaction, the Gate 1 driver in
     ///      particular, where a single gas-estimation failure aborts the send of
-    ///      every transaction queued behind it — needs to know BEFORE sending. This
+    ///      every transaction queued behind it, needs to know BEFORE sending. This
     ///      view exposes exactly what harvest() would compute, so the decision is
     ///      made from chain state instead of from a revert.
     function realizableSurplus() external view returns (uint256) {
@@ -276,15 +276,15 @@ contract PuddleLpAdapter is IYieldAdapter, ReentrancyGuard {
 
     /// @dev LP redemption value expressed in asset units. Both sides of the pair are
     ///      valued at the live reserves, with the quote side converted through the
-    ///      router's own quote function — no simulated swaps, no paper accounting.
+    ///      router's own quote function, no simulated swaps, no paper accounting.
     /// @dev The quote side is priced by the ROUTER's getAmountsOut, not by the raw
     ///      reserve ratio, because getAmountsOut charges the pair's 0.3% fee. Using
     ///      the raw ratio would overstate the position by roughly that fee on every
-    ///      call, which shows up as phantom yield at harvest time — exactly the paper
+    ///      call, which shows up as phantom yield at harvest time, exactly the paper
     ///      profit RULES.md #4 forbids.
     /// @dev LP redemption value of a SPECIFIC slice, in asset units. Both sides of the
     ///      pair are valued at the live reserves, with the quote side converted through
-    ///      the router's own quote function — no simulated swaps, no paper accounting.
+    ///      the router's own quote function, no simulated swaps, no paper accounting.
     function _lpValueOfSlice(uint256 lpSlice) internal view returns (uint256) {
         if (lpSlice == 0) return 0;
         uint256 totalSupply = pair.totalSupply();

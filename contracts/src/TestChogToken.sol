@@ -5,11 +5,11 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ITestChogToken} from "../interfaces/ITestChogToken.sol";
 
-/// @title TestChogToken — "Test CHOG", the play-money token for the fun layers.
+/// @title TestChogToken: "Test CHOG", the play-money token for the fun layers.
 /// @notice Production implementation of the FROZEN ITestChogToken interface.
 ///
 /// This token exists for cheering tips, draft rerolls and side prizes. It is
-/// explicitly labelled "Test CHOG" in name AND symbol (docs/RULES.md #8) so it can
+/// explicitly labelled "Test CHOG" in name AND symbol so it can
 /// never be mistaken for the real mainnet $CHOG at `0x3500...7777`. The frontend
 /// shows it next to the user's real balance with both labels visible.
 ///
@@ -47,7 +47,7 @@ contract TestChogToken is ITestChogToken, ERC20, Ownable {
     /// @inheritdoc ITestChogToken
     /// @dev The single source of truth for "when can this address claim again".
     ///      `claim()` uses the same helper, so the UI's countdown and the contract's
-    ///      guard can never disagree — which is what happens when the cooldown is
+    ///      guard can never disagree, which is what happens when the cooldown is
     ///      changed between a claim and the next attempt.
     function nextClaimAt(address account) public view returns (uint64) {
         uint256 last = _lastClaimAt[account];

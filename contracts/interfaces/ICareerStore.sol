@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-/// @title ICareerStore — frozen contract between contracts/ and web/ (2026-10-14).
+/// @title ICareerStore, frozen contract between contracts/ and web/ (2026-10-14).
 /// @notice FROZEN INTERFACE. Changing anything here requires BOTH owners to approve.
 ///
-/// The portable career record (PLAN.md Phase 1 item 10): trophies, fatigue and race
+/// The portable career record: trophies, fatigue and race
 /// history per Chog, readable by the frontend so a Chog's record travels with it.
 interface ICareerStore {
     // ---------- events ----------

@@ -10,7 +10,7 @@ import {IYieldAdapter} from "../interfaces/IYieldAdapter.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {MockMirror} from "./mocks/MockMirror.sol";
 
-/// @title TWAB invariant suite — the odds math is the fairness claim.
+/// @title TWAB invariant suite, the odds math is the fairness claim.
 /// @notice If these tests are green, the "no last-second sniping" claim holds. If any
 ///         of them breaks, the fairness argument in the submission is a lie.
 contract ChogPoolTwabTest is Test {
@@ -167,7 +167,7 @@ contract ChogPoolTwabTest is Test {
     /// Crediting the nominal amount books a liability the venue cannot honour and the
     /// first withdraw-all reverts InsufficientLiquidity.
     function test_Deposit_CreditsOnlyWhatTheVenueTookIn() public {
-        adapter.setEntryCostBps(100); // 1% — the order of magnitude a real pair charges
+        adapter.setEntryCostBps(100); // 1%, the order of magnitude a real pair charges
 
         uint256 amount = 100 * ONE;
         uint256 before = usdc.balanceOf(alice);
@@ -233,7 +233,7 @@ contract ChogPoolTwabTest is Test {
 
     /// totalPrincipal must be CURRENT holdings, not lifetime deposits. Before this it
     /// was monotonic, so after a withdraw it disagreed with totalShares by exactly
-    /// the withdrawn amount — two fields with different semantics but names that
+    /// the withdrawn amount, two fields with different semantics but names that
     /// imply the same thing, which a UI cannot disambiguate.
     function test_TotalPrincipal_IsCurrentNotLifetime() public {
         _deposit(alice, TOKEN_A, 100 * ONE);

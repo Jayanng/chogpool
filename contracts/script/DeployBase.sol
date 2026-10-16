@@ -16,7 +16,7 @@ import {DrawEngine} from "../src/DrawEngine.sol";
 import {CareerStore} from "../src/CareerStore.sol";
 import {TestChogToken} from "../src/TestChogToken.sol";
 
-/// @title Deploy — full Chog Pool stack on Monad testnet.
+/// @title Deploy, full Chog Pool stack on Monad testnet.
 /// @notice Single-command deployment in dependency order, then all wiring, then a
 ///         verification pass that re-reads every wiring and reverts if it is wrong.
 ///
@@ -39,7 +39,7 @@ abstract contract DeployBase is Script {
     struct Registry {
         uint256 chainId;
         address asset; // PuddleSwap core USDC (testnet)
-        address quoteToken; // PuddleSwap USDT — the LP's other leg
+        address quoteToken; // PuddleSwap USDT, the LP's other leg
         address router; // UniswapV2Router02
         address pair; // USDC/USDT pair
         address faucetUSDC; // faucet-minted USDC (funding path)
@@ -102,7 +102,7 @@ abstract contract DeployBase is Script {
 
         // The adapter is deployed with the pool pre-wired: the pool is the only
         // caller allowed to supply/redeem/harvest. There is no owner on the adapter
-        // by design — nobody, including the deployer, can pull deposited principal
+        // by design, nobody, including the deployer, can pull deposited principal
         // back out; only the pool can redeem, and only to a depositor.
         adapter = new PuddleLpAdapter(reg.asset, reg.quoteToken, reg.router, reg.pair, address(pool));
         console2.log("PuddleLpAdapter     :", address(adapter));
@@ -121,8 +121,8 @@ abstract contract DeployBase is Script {
         // A deploy meant to be demoed end-to-end therefore overrides the window via
         // CHOGPOOL_COMMIT_WINDOW. The override is only applied when the env var is
         // set, and it is recorded in the deploy log so the deployed timing is never
-        // a surprise. The contract logic is identical — only the timing constant
-        // differs — so a demo-window stack proves exactly what a 6h stack proves,
+        // a surprise. The contract logic is identical, only the timing constant
+        // differs, so a demo-window stack proves exactly what a 6h stack proves,
         // just without the wait.
         if (vm.envOr("CHOGPOOL_COMMIT_WINDOW", uint256(0)) != 0) {
             uint64 w = uint64(vm.envUint("CHOGPOOL_COMMIT_WINDOW"));
@@ -139,7 +139,7 @@ abstract contract DeployBase is Script {
     ///      draw never runs. Reverting here is the difference between a failed deploy
     ///      and a broken live app.
     /// @dev No vm.prank/startPrank here. This runs inside vm.startBroadcast(), where
-    ///      the cheatcodes cannot change msg.sender — the broadcast sender IS the
+    ///      the cheatcodes cannot change msg.sender, the broadcast sender IS the
     ///      deployer, and the deployer is the owner of every contract, so the calls
     ///      are already authorized. (Pranking inside a broadcast aborts the whole
     ///      script with "cannot prank for a broadcasted transaction".)
@@ -159,7 +159,7 @@ abstract contract DeployBase is Script {
         careers.setDrawEngine(address(engine));
         require(careers.drawEngine() == address(engine), "careers.drawEngine did not wire");
 
-        // The adapter's asset and pair must be the registry ones — a mismatch here
+        // The adapter's asset and pair must be the registry ones, a mismatch here
         // would silently route yield into the wrong venue.
         require(address(adapter.asset()) == reg.asset, "adapter.asset is not the registry asset");
         require(address(adapter.pair()) == reg.pair, "adapter.pair is not the registry pair");

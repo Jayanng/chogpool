@@ -57,7 +57,7 @@ contract DrawEngineTest is Test {
         vm.stopPrank();
 
         // The test contract owns the pool (constructor arg), so it can wire the
-        // adapter and install the draw engine directly — no prank needed.
+        // adapter and install the draw engine directly, no prank needed.
         pool.setYieldAdapter(address(adapter));
         pool.setDrawEngine(address(engine));
 
@@ -221,7 +221,7 @@ contract DrawEngineTest is Test {
         bytes32 expected = keccak256(abi.encodePacked(SEED, boundHash, drawId));
         assertEq(randomness, expected, "randomness must be reproducible from published inputs");
 
-        // A different block's hash gives different randomness — the binding is
+        // A different block's hash gives different randomness, the binding is
         // what stops the operator from choosing the outcome.
         bytes32 other = keccak256(abi.encodePacked(SEED, blockhash(revealBlock - 1), drawId));
         assertTrue(randomness != other, "a different block must change the randomness");

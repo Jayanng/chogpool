@@ -7,12 +7,12 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IChogMirror} from "../interfaces/IChogMirror.sol";
 
-/// @title ChogMirror — testnet mirror of Chog Genesis (mainnet).
+/// @title ChogMirror, testnet mirror of Chog Genesis (mainnet).
 /// @notice Production implementation of the FROZEN IChogMirror interface. It carries
 ///         the audited message shape from ChogMirrorProto.sol (audit 2026-10-14,
 ///         10 adversarial tests). DO NOT weaken the message shape.
 ///
-/// Two mint paths, never blurred (docs/RULES.md label discipline):
+/// Two mint paths, never blurred:
 ///   - Verified Holder: signed by the real mainnet owner. Provenance recorded on-chain.
 ///   - Test Drive: anyone, one per wallet, clearly labeled. Testnet only.
 ///
@@ -88,7 +88,7 @@ contract ChogMirror is ERC721, EIP712, Ownable, IChogMirror {
         // covers tokenId, mainnetOwner, minter and nonce, and a caller could submit
         // any string at all alongside a valid signature. The only thing standing
         // between the chain and a false metadata URI would be the frontend's
-        // behaviour — "trust our site" is not an answer a judge should have to
+        // behaviour, "trust our site" is not an answer a judge should have to
         // accept, and it is not one this contract needs to rely on. Hashing the URI
         // into the struct turns the guarantee into "check the signature", which is
         // checkable by anyone, forever, with no trust in us.
@@ -151,7 +151,7 @@ contract ChogMirror is ERC721, EIP712, Ownable, IChogMirror {
     ///      keccak256 of the URI returned by tokenURI() and compare. For a Verified
     ///      Holder token this is the digest inside the EIP-712 message the mainnet
     ///      owner signed. For a Test Drive token nobody signed anything, so a match
-    ///      here proves only that the stored bytes hash to the recorded value — check
+    ///      here proves only that the stored bytes hash to the recorded value, check
     ///      isTestDrive() for whether an attestation exists at all.
     function uriHashOf(uint256 tokenId) external view returns (bytes32) {
         return _uriHashes[tokenId];

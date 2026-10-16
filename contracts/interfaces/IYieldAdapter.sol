@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-/// @title IYieldAdapter — frozen contract between contracts/ and web/ (2026-10-14).
+/// @title IYieldAdapter, frozen contract between contracts/ and web/ (2026-10-14).
 /// @notice FROZEN INTERFACE. Changing anything here requires BOTH owners to approve.
 ///
-/// Two implementations are planned (PLAN.md Phase 1 items 5-6):
+/// Two implementations are specified, one per venue:
 ///  - PuddleLpAdapter: testnet demo. USDC -> addLiquidity to the real USDC/USDT pair.
 ///    Harvest redeems a small LP slice, measures the real value surplus versus the
 ///    pro-rata deposit, swaps the surplus to the asset, and returns it to the pool.
 ///  - AaveAdapter: production. supply/withdraw on the verified Aave V3.7 Pool.
 ///    Mainnet-ready, testnet-forbidden (Aave is not on Monad testnet).
 ///
-/// HARD RULE (docs/RULES.md #4): the pot only ever grows from value realized through
+/// HARD RULE: the pot only ever grows from value realized through
 /// actual removeLiquidity/swap/supply-withdraw transactions. No paper fee accounting.
 interface IYieldAdapter {
     // ---------- events ----------

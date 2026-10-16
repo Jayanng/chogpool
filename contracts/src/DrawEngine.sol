@@ -7,10 +7,10 @@ import {IDrawEngine} from "../interfaces/IDrawEngine.sol";
 import {IChogPool} from "../interfaces/IChogPool.sol";
 import {ICareerStore} from "../interfaces/ICareerStore.sol";
 
-/// @title DrawEngine — commit-reveal draw with a published, re-verifiable seed.
+/// @title DrawEngine, commit-reveal draw with a published, re-verifiable seed.
 /// @notice Production implementation of the FROZEN IDrawEngine interface.
 ///
-/// Fairness (docs/RULES.md #5):
+/// Fairness:
 ///  1. While a draw is Open, the operator commits keccak256(seed). The seed itself is
 ///     NOT on-chain, so nobody can read it early.
 ///  2. After close, the operator reveals `seed`; the contract checks keccak256(seed)==commit.
@@ -18,7 +18,7 @@ import {ICareerStore} from "../interfaces/ICareerStore.sol";
 ///     The reveal block's blockhash is not knowable at commit time, so the operator
 ///     cannot grind the seed to a chosen winner.
 ///  4. Winners are derived on-chain from that randomness and the frozen TWAB tickets.
-///     Anyone can re-derive them off-chain from the published seed — /verify does this.
+///     Anyone can re-derive them off-chain from the published seed: /verify does this.
 ///
 /// Modulo bias: the winner index is drawn from a 2^256 space via the draw's randomness,
 /// reduced modulo totalTickets. Because totalTickets is a real number (not a power of
@@ -38,7 +38,7 @@ contract DrawEngine is IDrawEngine, Ownable2Step, ReentrancyGuard {
     ///      adding to a frozen interface needs both owners' approval.
     event OperatorUpdated(address indexed newOperator);
 
-    /// @dev Raised when a wiring target has no code — see setCareerStore.
+    /// @dev Raised when a wiring target has no code, see setCareerStore.
     error NotAContract(address target);
 
     // ---------------- immutables / wiring ----------------
@@ -88,7 +88,7 @@ contract DrawEngine is IDrawEngine, Ownable2Step, ReentrancyGuard {
     uint64 public commitWindow = 6 hours;
 
     /// @dev How long after close the operator has to reveal. Miss it and the draw
-    ///      cannot be settled — the honest outcome is an unplayable draw, not a
+    ///      cannot be settled, the honest outcome is an unplayable draw, not a
     ///      quietly rewritten result.
     uint64 public revealWindow = 24 hours;
 
@@ -257,7 +257,7 @@ contract DrawEngine is IDrawEngine, Ownable2Step, ReentrancyGuard {
         // We bind blockhash(block.number - 1), the PREVIOUS block, because EVM
         // `blockhash(n)` is defined as zero when n is the current block. Binding
         // the current block would bind a constant zero and contribute nothing to
-        // the randomness — the whole point of the binding is to fold in a value
+        // the randomness, the whole point of the binding is to fold in a value
         // the operator cannot choose.
         if (block.number <= d.closedAtBlock) revert RevealTooEarly();
 
@@ -464,7 +464,7 @@ contract DrawEngine is IDrawEngine, Ownable2Step, ReentrancyGuard {
     ///      know when it may honestly call closeDraw(): closeDraw() reverts
     ///      CommitWindowClosed while block.timestamp < closeAt, and a real chain
     ///      cannot be warped past it. The value is already stored in the draw and
-    ///      already emitted in DrawOpened, so this exposes nothing new — it only
+    ///      already emitted in DrawOpened, so this exposes nothing new, it only
     ///      makes an existing value readable without an event scan.
     function drawCloseAt(uint256 drawId) external view returns (uint64) {
         return _draws[drawId].closeAt;

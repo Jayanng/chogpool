@@ -4,10 +4,10 @@ pragma solidity ^0.8.28;
 import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ICareerStore} from "../interfaces/ICareerStore.sol";
 
-/// @title CareerStore — the portable career record for every Chog.
+/// @title CareerStore, the portable career record for every Chog.
 /// @notice Production implementation of the FROZEN ICareerStore interface.
 ///
-/// The record is the "portable career" pitch (PLAN.md Phase 1 item 10): trophies,
+/// The record is the "portable career" pitch: trophies,
 /// fatigue and race history per Chog, readable by the frontend so a Chog's history
 /// travels with it. Only the draw engine may write, so results cannot be forged by
 /// anyone else.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-/// @title IPuddlePair — the subset of PuddleSwap's UniswapV2 pair the adapter reads.
+/// @title IPuddlePair, the subset of PuddleSwap's UniswapV2 pair the adapter reads.
 /// @notice Declared locally (not frozen): it describes a third-party contract.
 interface IPuddlePair {
     function token0() external view returns (address);
