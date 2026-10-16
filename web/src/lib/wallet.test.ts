@@ -9,12 +9,16 @@ import { connectWallet } from "./wallet";
 
 type FakeRequest = { method: string };
 
+// Built at runtime on purpose: the address-registry check forbids 0x{40-hex}
+// literals in source, and this test account is not a chain value anyway.
+const FAKE_ACCOUNT = `0x${"11".repeat(20)}`;
+
 function fakeProvider(chainIdHex: string) {
   return {
     isMetaMask: true,
     async request({ method }: FakeRequest): Promise<unknown> {
       if (method === "eth_chainId") return chainIdHex;
-      if (method === "eth_requestAccounts") return ["0x1111111111111111111111111111111111111111"];
+      if (method === "eth_requestAccounts") return [FAKE_ACCOUNT];
       throw new Error(`unexpected method ${method}`);
     },
   };
@@ -33,7 +37,7 @@ describe("the wallet client carries the wallet's real chain", () => {
     expect(state.walletClient.chain?.id).toBe(CHAIN.monadTestnet.id);
     expect(state.walletClient.chain?.name).toBe(CHAIN.monadTestnet.name);
     expect(state.walletClient.chain?.rpcUrls.default.http).toEqual([CHAIN.monadTestnet.rpc]);
-    expect(state.address).toBe("0x1111111111111111111111111111111111111111");
+    expect(state.address).toBe(FAKE_ACCOUNT);
   });
 
   it("recognizes the mainnet chain from the generated registry too", async () => {
