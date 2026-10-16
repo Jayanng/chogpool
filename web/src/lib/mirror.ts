@@ -3,9 +3,9 @@
 // signature.
 //
 // The point of the whole flow is the last line. A token minted this way can be
-// checked by anyone, forever, without trusting us: read realURIOf(tokenId) —
+// checked by anyone, forever, without trusting us: read realURIOf(tokenId): 
 // NOT tokenURI(), which prepends a `test-chog:` display prefix to Test Drive
-// tokens that was never part of the signed bytes — hash those bytes with
+// tokens that was never part of the signed bytes, hash those bytes with
 // keccak256, and compare with mirror.uriHashOf(). If they match, the stored
 // metadata is the metadata the mainnet owner signed. Nothing about that check
 // needs the frontend to be honest.
@@ -137,7 +137,7 @@ export type MirrorSignature = { v: number; r: Hash; s: Hash };
 
 /**
  * Ask the wallet to sign the mirror message. The URI is hashed into the struct,
- * so this signature is only valid for exactly this metadata — which is what
+ * so this signature is only valid for exactly this metadata, which is what
  * makes the stored URI verifiable later.
  *
  * `digest` is the value the contract says it will check (read from

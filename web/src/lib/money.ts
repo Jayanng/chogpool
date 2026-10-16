@@ -3,7 +3,7 @@
 // comes from the generated module, and every error is decoded to a sentence a
 // human can act on rather than a hex blob.
 //
-// This module deliberately does NOT read pool state — `live.ts` owns reads, this
+// This module deliberately does NOT read pool state, `live.ts` owns reads, this
 // owns writes. Splitting them means a read failure never blocks a write prompt
 // and a write never silently changes a cached value the UI is showing.
 
@@ -203,7 +203,7 @@ export async function withdrawAllFromPool(walletClient: WalletClient, account: A
 }
 
 /**
- * Harvest realized yield into the prize pot. Callable by anyone — the money
+ * Harvest realized yield into the prize pot. Callable by anyone, the money
  * only ever comes from real trades, so a UI button cannot inflate the pot.
  */
 export async function harvestPot(walletClient: WalletClient, account: Address): Promise<TxOutcome> {

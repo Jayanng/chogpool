@@ -1,4 +1,4 @@
-// /tips — Test CHOG tips. Play money, labelled as play money everywhere.
+// /tips: Test CHOG tips. Play money, labelled as play money everywhere.
 //
 // The token is called "Test CHOG" in both name and symbol on-chain precisely so
 // it can never be mistaken for the real mainnet $CHOG. This page keeps that
@@ -110,7 +110,7 @@ export default function Tips() {
         <p className="kicker">TEST CHOG TIPS</p>
         <h1>Cheer with<br /><em>play money.</em></h1>
         <p className="lede">
-          Tip your favourite racers in Test CHOG — a real ERC-20 on testnet that exists only for
+          Tip your favourite racers in Test CHOG, a real ERC-20 on testnet that exists only for
           the fun layers. It is named "Test CHOG" on-chain in both name and symbol, so it can
           never be confused with the real mainnet $CHOG.
         </p>
@@ -151,7 +151,7 @@ export default function Tips() {
           <Card
             title="Send a tip"
             aside={<Badge tone={tooMuch ? "danger" : "neutral"}>{tooMuch ? "OVER BALANCE" : "ERC-20 TRANSFER"}</Badge>}
-            footer="A PLAIN TRANSFER — NO CONTRACT LOGIC, NO CLAIMED FEATURE"
+            footer="A PLAIN TRANSFER: NO CONTRACT LOGIC, NO CLAIMED FEATURE"
           >
             <label className="field">
               <span>RECIPIENT ADDRESS</span>

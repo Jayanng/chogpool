@@ -9,6 +9,9 @@ import { CHAIN } from "../generated/addresses.gen";
 import { POT_DECIMALS } from "../types/game";
 import { ipfsToGateway, type ChogRecord } from "../lib/chog";
 import { navigate } from "../lib/router";
+import tileCrowned from "./assets/c100.webp";
+import tileHoodie from "./assets/c25.webp";
+import tileBandana from "./assets/c40.webp";
 
 export default function Landing() {
   const [nextDrawAt, setNextDrawAt] = useState<number | null>(null);
@@ -55,11 +58,13 @@ export default function Landing() {
 
   return (
     <>
-      <section className="hero">
+      <section className="hero hero-scene">
+        <div className="hero-glow" aria-hidden="true" />
         <div className="hero-copy">
           <Badge tone="accent">MONAD TESTNET · LIVE BUILD</Badge>
           <p className="kicker">SAVE TO RACE</p>
           <h1>Your Chog is<br /><em>on the track.</em></h1>
+          <div className="catchphrase">Your dollars never enter the race.</div>
           <p className="lede">A savings game for Chog holders. Your deposit stays yours. The yield becomes the race.</p>
           <div className="hero-actions">
             <Button onClick={() => navigate("/deposit")}>Enter the track</Button>
@@ -67,7 +72,11 @@ export default function Landing() {
           </div>
         </div>
 
-        <Panel className="track-card">
+        <div className="hero-stage">
+          <img className="hero-tile tile-crowned" src={tileCrowned} alt="Chog #100 from the Chog Genesis collection, crowned" />
+          <img className="hero-tile tile-hoodie" src={tileHoodie} alt="Chog #25 from the Chog Genesis collection in a pink hood" />
+          <img className="hero-tile tile-third" src={tileBandana} alt="A bandana-wearing Chog from the Chog Genesis collection" />
+          <Panel className="track-card">
           <div className="card-top">
             <span>GRAND PRIX</span>
             <Badge tone="neutral">UI PREVIEW</Badge>
@@ -79,9 +88,10 @@ export default function Landing() {
           <div className="track-footer"><span>PRIZE POT</span><strong>{pot === null ? "Yield accumulates live" : `${formatUnits(pot, POT_DECIMALS)} USDC${fixturesOn ? " (fixture)" : ""}`}</strong><span>↗</span></div>
           <p className="track-note">A preview of the race experience. Lane names come from the current draw when one exists and are placeholders otherwise. No race is running.</p>
         </Panel>
+        </div>
       </section>
 
-      <Marquee items={["REAL YIELD ONLY", "PRINCIPAL WITHDRAWABLE ANY TIME", "PUBLISHED SEED · RE-VERIFIABLE", "TEST DRIVE AVAILABLE", "MONAD TESTNET"]} tone="accent" />
+      <Marquee items={["REAL YIELD ONLY", "PRINCIPAL WITHDRAWABLE ANY TIME", "PUBLISHED SEED · RE-VERIFIABLE", "TEST DRIVE AVAILABLE"]} tone="accent" />
 
       <section className="proof-grid">
         <div>

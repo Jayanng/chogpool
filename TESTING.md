@@ -14,7 +14,7 @@ real chain or says plainly that it does not.
 # Foundry (the repo pins v1.8.5 in CI)
 curl -L https://foundry.paradigm.xyz | bash && foundryup
 
-# Submodules are pinned — never `forge install` or `forge update`
+# Submodules are pinned, never `forge install` or `forge update`
 git submodule update --init --recursive
 
 # Node for the web app and the infra gates
@@ -23,7 +23,7 @@ corepack enable pnpm
 
 Addresses come from `infra/verified.json` at runtime. There is no `.env`, no
 private key, and no RPC override in the repository. Every address in the source
-is generated from that registry — see gate 5 below.
+is generated from that registry, see gate 5 below.
 
 ---
 
@@ -38,14 +38,14 @@ forge test
 
 147 tests. Runs in a few seconds, needs no RPC, and covers:
 
-- **DrawEngine** — commit/reveal/finalize, the reveal window, frozen ticket
+- **DrawEngine**, commit/reveal/finalize, the reveal window, frozen ticket
   snapshots, and the stale-boost rejection.
-- **ChogPool** — deposit/withdraw accounting, TWAB ring buffer against a closed
+- **ChogPool**, deposit/withdraw accounting, TWAB ring buffer against a closed
   form, odds derivation, and the `totalPrincipal` / `lifetimePrincipal` split.
-- **ChogMirror** — EIP-712 signature verification, the URI-bound message, supply
+- **ChogMirror**: EIP-712 signature verification, the URI-bound message, supply
   limits, and the Test Drive restrictions.
-- **CareerStore**, **TestChogToken** — career progression and the faucet cooldown.
-- **Mocks** — the lossless and lossy yield venues used to pin adapter semantics.
+- **CareerStore**, **TestChogToken**, career progression and the faucet cooldown.
+- **Mocks**, the lossless and lossy yield venues used to pin adapter semantics.
 
 ### Fork suite (real Monad testnet)
 
@@ -54,19 +54,19 @@ cd contracts
 forge test --match-contract 'Fork' --rpc-url monad_testnet -vvv
 ```
 
-16 tests, all executed against the **live** testnet contracts — the real
+16 tests, all executed against the **live** testnet contracts, the real
 PuddleSwap pair, the real router, the real StableFaucet:
 
-- `PuddleLpAdapter.fork.t.sol` (12) — LP position value against real reserves,
+- `PuddleLpAdapter.fork.t.sol` (12): LP position value against real reserves,
   harvest moving only realized value, partial and full redemption.
-- `MoneyPathFork.t.sol` (4) — the exact funding sequence the UI drives:
+- `MoneyPathFork.t.sol` (4), the exact funding sequence the UI drives:
   claim → swap → approve → deposit, then withdraw.
 
 The fork suites skip cleanly when the RPC is unreachable, so a plain
 `forge test` never fails for a network reason.
 
 **What the fork suite proves that the unit suite cannot:** that the funding path
-is real. The pool's asset is PuddleSwap core USDC and is *not mintable* — the
+is real. The pool's asset is PuddleSwap core USDC and is *not mintable*, the
 only honest way in is `StableFaucet.claim()` followed by a real swap through the
 real router. The test executes that and asserts the amounts that actually moved.
 
@@ -82,13 +82,13 @@ node infra/check-fixtures.mjs    # production bundle is fixture-free
 node infra/gen-addresses.mjs     # regenerate the web address module
 ```
 
-- **check-addresses** — fails if any `0x{40}` literal appears in source outside
+- **check-addresses**, fails if any `0x{40}` literal appears in source outside
   the allowlisted registry and evidence logs. This is what stops an address from
   drifting out of `infra/verified.json`.
-- **check-fixtures** — the production build must not contain fixture code, and
+- **check-fixtures**, the production build must not contain fixture code, and
   every fixture source must carry the sentinel the checker scans for. This is
   what stops a simulated value from ever reaching a production bundle.
-- **gen-addresses** — regenerates `web/src/generated/addresses.gen.ts` from
+- **gen-addresses**, regenerates `web/src/generated/addresses.gen.ts` from
   `infra/verified.json` + `infra/deployments.json`, and refuses to run if the
   deployment's chainId disagrees with the registry.
 
@@ -123,7 +123,7 @@ This is the check the mirror mint exists to make possible. It needs nothing from
 our frontend.
 
 ```bash
-# The stored URI — realURIOf(), NOT tokenURI()
+# The stored URI, realURIOf(), NOT tokenURI()
 cast call <MIRROR> 'realURIOf(uint256)(string)' <TOKEN_ID> --rpc-url https://testnet-rpc.monad.xyz
 
 # The digest recorded at mint
@@ -141,7 +141,7 @@ cast keccak "$(cast call <MIRROR> 'realURIOf(uint256)(string)' <TOKEN_ID> --rpc-
 ```
 
 If the two hashes match, the metadata on chain is the metadata the mainnet owner
-signed. If `isTestDrive` is true, nobody signed anything — the hash match then
+signed. If `isTestDrive` is true, nobody signed anything, the hash match then
 proves only that the stored bytes hash to the recorded value, and the token says
 so on-chain.
 
@@ -180,7 +180,7 @@ Read directly from the explorer: `https://testnet.monadscan.com/address/<address
 ### Draws are manual
 
 There is no keeper and no schedule. `finalize()` clears `nextDrawAt`, so a
-`0` reading is the truthful state — no draw is scheduled. Draws are opened by
+`0` reading is the truthful state, no draw is scheduled. Draws are opened by
 the operator, on demand. Nothing in the UI promises a cadence.
 
 ---

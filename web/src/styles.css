@@ -37,17 +37,103 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 .kicker { font: 500 11px 'DM Mono', ui-monospace, monospace; letter-spacing: .15em; color: #ff8a3d; margin: 28px 0 14px; }
 .hero h1 { font-size: clamp(52px, 6.5vw, 88px); letter-spacing: -.065em; line-height: .94; margin: 0; font-weight: 700; }
 .hero h1 em, .page-head h1 em { font-style: normal; color: #ff8a3d; }
-.lede { max-width: 560px; color: #aab4be; line-height: 1.7; font-size: 16px; margin: 24px 0; }
+.lede { max-width: 560px; color: #b7c1cb; line-height: 1.7; font-size: 17px; margin: 24px 0; }
 .hero-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 22px 0; }
 .network-note { display: flex; align-items: center; gap: 8px; font: 500 11px 'DM Mono', ui-monospace, monospace; letter-spacing: .05em; color: #68737e; }
 .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #c6ef6d; box-shadow: 0 0 10px rgba(198,239,109,.8); }
 
 .track-card { padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+
+/* Hero scene: the brand's vibrant band over the graphite product UI. The
+   cobalt-to-magenta field and yellow pops match the brand art; the card and
+   every word of copy stay in the product's own voice and honesty rules. */
+.hero-scene { position: relative; isolation: isolate; overflow-x: clip; }
+.hero-scene::before {
+  content: ""; position: absolute; inset: -70px -100vw -40px; z-index: -2;
+  background:
+    radial-gradient(1100px 520px at 12% -10%, rgba(37, 99, 235, .38), transparent 62%),
+    radial-gradient(900px 560px at 108% 24%, rgba(236, 72, 153, .30), transparent 64%),
+    radial-gradient(760px 420px at 60% 110%, rgba(79, 70, 229, .26), transparent 66%),
+    linear-gradient(180deg, #172033 0%, rgba(23, 32, 51, .55) 72%, transparent 100%);
+}
+.hero-glow {
+  position: absolute; inset: -70px -100vw -40px; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(2.5px 2.5px at 18% 22%, rgba(250, 204, 21, .85), transparent 70%),
+    radial-gradient(2px 2px at 32% 64%, rgba(250, 204, 21, .55), transparent 70%),
+    radial-gradient(3px 3px at 78% 14%, rgba(255, 255, 255, .5), transparent 70%),
+    radial-gradient(2px 2px at 88% 58%, rgba(250, 204, 21, .6), transparent 70%),
+    radial-gradient(2px 2px at 8% 82%, rgba(255, 255, 255, .35), transparent 70%);
+}
+.hero h1 em {
+  background: linear-gradient(92deg, #ff7a2f 4%, #ff9d42 46%, #ffe066 98%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 3px 0 rgba(146, 64, 14, .55)) drop-shadow(0 14px 34px rgba(250, 204, 21, .28));
+}
+.catchphrase {
+  display: block; width: fit-content; margin: 18px 0 4px; padding: 4px 0 4px 18px;
+  background: none; color: #facc15;
+  border-left: 6px solid #facc15; border-radius: 0 6px 6px 0;
+  font-weight: 700; font-size: clamp(18px, 2vw, 25px); letter-spacing: -.02em;
+  text-shadow: 0 2px 24px rgba(250, 204, 21, .35);
+  transition: transform .18s ease;
+}
+.catchphrase:hover { transform: translateX(3px); }
+.hero-stage { position: relative; }
+/* Tile system: every tile breaks exactly one card corner, one scale ladder
+   (128 / 104 / 82), alternating tilt, warm double-ring instead of a flat
+   white frame. */
+.hero-tile {
+  position: absolute; width: 104px; height: 104px; border-radius: 24px;
+  object-fit: cover; z-index: 3; border: 0;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .88), 0 0 0 5px rgba(255, 138, 61, .32),
+    0 26px 52px rgba(2, 6, 23, .72), inset 0 -14px 26px rgba(2, 6, 23, .18);
+  transition: transform .22s ease;
+}
+.hero-tile:hover { transform: translateY(-7px) rotate(0deg) scale(1.05); }
+.tile-crowned { top: -34px; right: 12px; width: 128px; height: 128px; transform: rotate(5deg); }
+.tile-hoodie { bottom: -34px; left: -86px; transform: rotate(-5deg); }
+.tile-third { bottom: -66px; right: -16px; width: 82px; height: 82px; transform: rotate(4deg); border-radius: 19px; }
+@keyframes hero-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -7px; } }
+.tile-crowned { animation: hero-float 6.5s ease-in-out infinite; }
+.tile-hoodie { animation: hero-float 7.5s ease-in-out 1.2s infinite; }
 .card-top { display: flex; align-items: center; justify-content: space-between; font: 500 11px 'DM Mono', ui-monospace, monospace; letter-spacing: .12em; color: #68737e; }
-.track-note { margin: 0; font-size: 11px; color: #68737e; }
+.track-note { margin: 0; font-size: 11px; color: #7e8994; }
+/* Soft dissolve at both ends so the ticker reads as endless, not clipped. */
+.ui-marquee {
+  mask-image: linear-gradient(90deg, transparent 0, #000 56px, #000 calc(100% - 56px), transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 56px, #000 calc(100% - 56px), transparent 100%);
+}
 .countdown { text-align: center; padding: 6px 0 12px; }
 .countdown-value { font: 500 clamp(30px, 3.4vw, 46px) 'DM Mono', ui-monospace, monospace; letter-spacing: .04em; color: #f4f6f8; }
-.countdown-note { font: 500 10px 'DM Mono', ui-monospace, monospace; letter-spacing: .12em; color: #68737e; margin-top: 6px; }
+.countdown-empty .countdown-value {
+  color: #55616d; opacity: .85;
+  text-shadow: 0 0 22px rgba(250, 204, 21, .18);
+  animation: standby-breathe 3.2s ease-in-out infinite;
+}
+@keyframes standby-breathe {
+  0%, 100% { text-shadow: 0 0 22px rgba(250, 204, 21, .14); opacity: .85; }
+  50% { text-shadow: 0 0 34px rgba(250, 204, 21, .3); opacity: 1; }
+}
+.standby-chip {
+  display: inline-flex; align-items: center; gap: 8px; margin-bottom: 10px;
+  padding: 5px 12px; border-radius: 999px;
+  background: rgba(250, 204, 21, .1); border: 1px solid rgba(250, 204, 21, .32);
+  font: 500 9.5px 'DM Mono', ui-monospace, monospace; letter-spacing: .16em; color: #facc15;
+}
+.standby-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: #facc15;
+  animation: standby-pulse 1.6s ease-in-out infinite;
+}
+@keyframes standby-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(250, 204, 21, .5); opacity: .75; }
+  50% { box-shadow: 0 0 0 6px rgba(250, 204, 21, 0); opacity: 1; }
+}
+.countdown-empty .countdown-note {
+  max-width: 320px; margin: 8px auto 0; line-height: 1.7; letter-spacing: .08em;
+}
+.countdown-note { font: 500 10px 'DM Mono', ui-monospace, monospace; letter-spacing: .12em; color: #7e8994; margin-top: 6px; }
 .lane { position: relative; height: 64px; border-radius: 14px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); display: flex; align-items: center; padding: 0 16px; overflow: hidden; }
 .lane-label { font: 500 11px 'DM Mono', ui-monospace, monospace; letter-spacing: .1em; color: #68737e; display: flex; gap: 10px; }
 .lane-label span { color: #aab4be; }
@@ -135,6 +221,10 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 @media (max-width: 1024px) {
   .app-shell { padding: 0 24px; }
   .hero, .proof-grid, .deposit-grid, .viewer-result { grid-template-columns: 1fr; }
+  .hero-stage { margin-top: 40px; }
+  .tile-crowned { top: -28px; right: 10px; }
+  .tile-hoodie { bottom: -26px; left: -12px; }
+  .tile-third { display: none; }
   .guide-grid { grid-template-columns: 1fr; }
   .viewer-image, .viewer-noimage { width: 100%; height: auto; aspect-ratio: 1; }
 }
@@ -155,44 +245,497 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 
 /* ---------------------------------------------------------- race show */
 .show { display: grid; gap: 20px; }
-.show-stage { padding: 26px; display: grid; gap: 18px; }
+.show-stage { padding: 26px; display: grid; gap: 18px; position: relative; overflow: hidden; }
 .show-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
 .show-title { margin: 6px 0 0; font-size: clamp(24px, 2.6vw, 34px); }
-.show-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+.show-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .show-status { display: grid; gap: 10px; }
 .show-status-line { font: 500 12px 'DM Mono', ui-monospace, monospace; letter-spacing: .12em; color: #ff8a3d; margin: 0; }
-.show-lanes { display: grid; gap: 14px; }
-.show-lane { display: grid; gap: 8px; padding: 14px; border-radius: 16px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); }
-.show-lane--winner { border-color: rgba(198,239,109,.5); background: rgba(198,239,109,.06); }
+
+/* The finish moment: a white flash and a short camera kick on the whole
+   stage, fired when the winner crosses the line. */
+.show-stage--finish { animation: stage-shake .55s cubic-bezier(.36,.07,.19,.97) both; }
+.show-stage--finish::after {
+  content: ""; position: absolute; inset: 0; z-index: 5; pointer-events: none; background: #f4f6f8;
+  animation: stage-flash .7s ease-out forwards;
+}
+/* The finish burst rides above the flash so the blast reads at once. */
+.show-stage > .confetti-canvas { z-index: 7; }
+@keyframes stage-flash { from { opacity: .5; } to { opacity: 0; } }
+@keyframes stage-shake {
+  12% { transform: translate(-5px, 2px) rotate(-.25deg); }
+  32% { transform: translate(6px, -2px) rotate(.3deg); }
+  52% { transform: translate(-4px, 2px); }
+  74% { transform: translate(3px, -1px); }
+  100% { transform: none; }
+}
+
+.show-lanes { display: grid; gap: 16px; }
+.show-lane {
+  position: relative; display: grid; gap: 10px; padding: 16px 18px 14px; border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.028));
+  border: 1px solid rgba(255,255,255,.08);
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.show-lane:hover { transform: translateY(-3px); border-color: rgba(255,138,61,.38); box-shadow: 0 18px 38px rgba(0,0,0,.38); }
+/* Winner lane: the border pulses gold for as long as the reveal is on. */
+.show-lane--winner {
+  border-color: rgba(250,204,21,.75);
+  background: linear-gradient(180deg, rgba(250,204,21,.1), rgba(250,204,21,.03));
+  animation: winner-pulse 1.5s ease-in-out infinite;
+}
+.show-lane--winner:hover { border-color: rgba(250,204,21,.9); }
+.show-lane--winner .show-runner-img { border-color: #facc15; box-shadow: 0 12px 26px rgba(0,0,0,.5), 0 0 0 3px rgba(250,204,21,.22), 0 0 34px rgba(250,204,21,.3); }
+@keyframes winner-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(250,204,21,.35), 0 0 26px rgba(250,204,21,.14); }
+  50% { box-shadow: 0 0 0 2px rgba(250,204,21,.7), 0 0 46px rgba(250,204,21,.38); }
+}
+.show-winner-ribbon {
+  position: absolute; top: -14px; right: 18px; z-index: 4;
+  padding: 8px 24px; transform: rotate(2.5deg); border-radius: 10px;
+  background: linear-gradient(180deg, #fde68a, #facc15 55%, #eab308);
+  color: #241a02;
+  font: 800 15px 'Plus Jakarta Sans', system-ui, sans-serif; letter-spacing: .26em;
+  box-shadow: 0 16px 36px rgba(250,204,21,.45), 0 0 44px rgba(250,204,21,.35);
+  animation: ribbon-in .45s cubic-bezier(.2,1.2,.3,1) both;
+}
+.show-winner-ribbon::before, .show-winner-ribbon::after {
+  content: ""; position: absolute; top: 8px; width: 12px; height: 30px;
+  background: #eab308; z-index: -1;
+}
+.show-winner-ribbon::before { left: -8px; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 5px 50%); }
+.show-winner-ribbon::after { right: -8px; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 5px 50%); transform: scaleX(-1); }
+.show-winner-ribbon--silver, .show-winner-ribbon--silver::before, .show-winner-ribbon--silver::after {
+  background: linear-gradient(180deg, #f4f6f8, #d7dee6 55%, #b9c4cf);
+}
+.show-winner-ribbon--silver { box-shadow: 0 16px 36px rgba(215,222,230,.35), 0 0 44px rgba(215,222,230,.25); }
+@keyframes ribbon-in { from { opacity: 0; transform: rotate(2.5deg) translateY(-14px) scale(.7); } to { opacity: 1; transform: rotate(2.5deg) translateY(0) scale(1); } }
+/* Gold shine sweeping the winning lane at the reveal. */
+.show-lane--winner::after {
+  content: ""; position: absolute; inset: 0; border-radius: 18px; pointer-events: none;
+  background: radial-gradient(640px 260px at 86% 55%, rgba(250,204,21,.24), transparent 72%);
+  animation: winner-shine 1.6s ease-in-out infinite;
+}
+@keyframes winner-shine { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
 .show-lane-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .show-lane-id { font: 500 12px 'DM Mono', ui-monospace, monospace; letter-spacing: .1em; color: #f4f6f8; }
 .show-lane-name { font-size: 13px; color: #aab4be; }
-.show-track { position: relative; height: 58px; border-radius: 12px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); overflow: hidden; }
-.show-track::after { content: ""; position: absolute; right: 10px; top: 8px; bottom: 8px; width: 2px; background: rgba(255,138,61,.6); }
-.show-runner { position: absolute; top: 50%; transform: translateY(-50%); transition: left 90ms linear; }
-.show-runner-img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 2px solid #ff8a3d; display: block; }
-.show-runner-dot { font-size: 26px; color: #c6ef6d; }
-.show-lane-meta { display: flex; gap: 14px; flex-wrap: wrap; font: 500 11px 'DM Mono', ui-monospace, monospace; letter-spacing: .06em; color: #68737e; }
-.show-perk { color: #c6ef6d; }
+
+/* The track: clay ground with depth, scrolling speed dashes, dashed lane
+   rails, a progress trail the runner drags along, and a checkered line. */
+.show-track {
+  --runner-w: 96px;
+  position: relative; height: 132px; border-radius: 14px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,.09);
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,.08) 0 18px, transparent 18px 46px) 0 24% / 100% 3px no-repeat,
+    repeating-linear-gradient(90deg, rgba(255,255,255,.06) 0 14px, transparent 14px 40px) 0 52% / 100% 3px no-repeat,
+    repeating-linear-gradient(90deg, rgba(255,255,255,.08) 0 18px, transparent 18px 46px) 0 80% / 100% 3px no-repeat,
+    linear-gradient(180deg, #46331e 0%, #2e2213 52%, #201709 100%);
+  box-shadow: inset 0 12px 26px rgba(0,0,0,.5), inset 0 -10px 22px rgba(0,0,0,.4);
+}
+.show-track--moving { animation: track-scroll 1.1s linear infinite; }
+@keyframes track-scroll {
+  from { background-position: 0 24%, 0 52%, 0 80%, 0 0; }
+  to { background-position: -64px 24%, -54px 52%, -64px 80%, 0 0; }
+}
+.show-track::before {
+  content: ""; position: absolute; inset: 7px 0; z-index: 1; pointer-events: none;
+  border-top: 2px dashed rgba(198,239,109,.3);
+  border-bottom: 2px dashed rgba(198,239,109,.3);
+}
+.show-track::after {
+  content: ""; position: absolute; right: 40px; top: 0; bottom: 0; width: 26px; z-index: 1; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255,138,61,.26));
+}
+.show-trail {
+  position: absolute; left: 0; top: 0; bottom: 0; z-index: 1;
+  background: linear-gradient(90deg, rgba(255,150,70,.1), rgba(255,150,70,.3) 78%, rgba(198,239,109,.45));
+  border-right: 3px solid rgba(198,239,109,.75);
+  box-shadow: 8px 0 26px rgba(198,239,109,.28);
+  transition: width 90ms linear;
+}
+.show-finish {
+  position: absolute; right: 0; top: 0; bottom: 0; width: 40px; z-index: 2;
+  background-image: conic-gradient(#f4f6f8 25%, #12161b 0 50%, #f4f6f8 0 75%, #12161b 0);
+  background-size: 20px 20px;
+  box-shadow: -10px 0 26px rgba(255,255,255,.16), -20px 0 44px rgba(255,138,61,.24);
+}
+/* White tape capping the checkered band top and bottom. */
+.show-finish::before, .show-finish::after {
+  content: ""; position: absolute; left: -3px; right: -3px; height: 5px; background: #f4f6f8;
+  box-shadow: 0 0 14px rgba(244,246,248,.55);
+}
+.show-finish::before { top: 0; }
+.show-finish::after { bottom: 0; }
+/* The line names itself so any frame of the replay reads as a race. */
+.show-finish-label {
+  position: absolute; right: 0; top: 0; bottom: 0; width: 40px; z-index: 4;
+  display: grid; place-items: center;
+  writing-mode: vertical-rl;
+  font: 700 10px 'DM Mono', ui-monospace, monospace; letter-spacing: .35em;
+  color: #f4f6f8; text-shadow: 0 0 6px rgba(0,0,0,.95), 0 2px 14px rgba(0,0,0,.9);
+  pointer-events: none;
+}
+/* Photo finish: the stage takes a warm vignette while the clock dilates. */
+.show-stage--slowmo::before {
+  content: ""; position: absolute; inset: 0; z-index: 4; pointer-events: none;
+  background: radial-gradient(1200px 520px at 50% 62%, transparent 40%, rgba(255,138,61,.1) 82%, rgba(0,0,0,.34) 100%);
+  animation: slowmo-breathe 1.6s ease-in-out infinite;
+}
+@keyframes slowmo-breathe {
+  0%, 100% { opacity: .65; }
+  50% { opacity: 1; }
+}
+.show-runner {
+  position: absolute; top: 8px; z-index: 3; width: var(--runner-w, 96px);
+  display: grid; justify-items: center; gap: 3px;
+  transition: left 90ms linear;
+}
+.show-runner::before {
+  content: ""; position: absolute; right: 86%; top: 22px; height: 38px; width: 112px;
+  background: repeating-linear-gradient(0deg, transparent 0 4px, rgba(255,190,130,.75) 4px 7px, transparent 7px 13px);
+  mask-image: linear-gradient(90deg, transparent, #000 72%);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 72%);
+  filter: blur(1px); opacity: .85;
+}
+/* Dust kicked up under the runner. */
+.show-runner::after {
+  content: ""; position: absolute; left: -10px; bottom: 24px; width: 52px; height: 20px;
+  background: radial-gradient(closest-side, rgba(255,205,160,.38), transparent 72%);
+  filter: blur(2px); opacity: .8;
+}
+.show-track--moving .show-runner::before { animation: streak-flicker .5s linear infinite; }
+.show-track--moving .show-runner::after { animation: dust-puff .55s ease-out infinite; }
+@keyframes streak-flicker {
+  0% { opacity: .25; transform: scaleX(.7); }
+  50% { opacity: .85; transform: scaleX(1.1); }
+  100% { opacity: .25; transform: scaleX(.7); }
+}
+@keyframes dust-puff {
+  0% { opacity: .85; transform: scale(.7) translateX(0); }
+  100% { opacity: 0; transform: scale(1.5) translateX(-16px); }
+}
+.show-runner-img {
+  width: var(--runner-w, 96px); height: var(--runner-w, 96px);
+  border-radius: 20px; object-fit: cover; display: block;
+  border: 2px solid #ff8a3d;
+  box-shadow: 0 12px 26px rgba(0,0,0,.5), 0 0 0 3px rgba(255,138,61,.16), inset 0 -8px 16px rgba(0,0,0,.2);
+  transition: transform .18s cubic-bezier(.2,1.2,.3,1);
+}
+.show-track:hover .show-runner-img { transform: scale(1.08) rotate(-2deg); }
+.show-track--moving .show-runner-img { animation: runner-bob .44s ease-in-out infinite; }
+@keyframes runner-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -4px; } }
+.show-runner-dot {
+  width: var(--runner-w, 96px); height: var(--runner-w, 96px);
+  display: grid; place-items: center; border-radius: 20px;
+  background: rgba(198,239,109,.1); border: 2px solid rgba(198,239,109,.5);
+  font-size: 38px; color: #c6ef6d;
+}
+.show-runner-plate {
+  width: var(--runner-w, 96px); padding: 2px 0 3px; border-radius: 7px;
+  background: rgba(13,16,20,.85); border: 1px solid rgba(255,138,61,.5);
+  font: 500 9.5px 'DM Mono', ui-monospace, monospace; letter-spacing: .05em;
+  color: #f4f6f8; text-align: center; white-space: nowrap; overflow: hidden;
+  box-shadow: 0 6px 16px rgba(0,0,0,.4);
+}
+.show-lane-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+.show-lane-meta span {
+  padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.08);
+  font: 500 10.5px 'DM Mono', ui-monospace, monospace; letter-spacing: .05em; color: #8b96a1;
+}
+.show-lane-meta .show-perk { color: #c6ef6d; border-color: rgba(198,239,109,.3); background: rgba(198,239,109,.07); }
 .show-foot { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; border-top: 1px solid rgba(255,255,255,.08); padding-top: 14px; }
 .show-disclosure { flex: 1; min-width: 260px; font-size: 12px; line-height: 1.6; color: #68737e; }
 .truth-strip { padding: 18px 22px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 14px; color: #aab4be; }
 .truth-strip span { flex: 1; min-width: 260px; line-height: 1.6; }
 
+/* --------------------------------------------------- show micro-motion */
+.show-controls .ui-button, .show-replay .ui-button, .hero-actions .ui-button {
+  transition: transform .16s cubic-bezier(.2,1.2,.3,1), box-shadow .16s ease, background-color .16s ease, border-color .16s ease, color .16s ease;
+}
+.show-replay:hover .ui-button { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(255,138,61,.22); }
+.show-controls .ui-button:hover { transform: translateY(-2px); }
+.show-controls .ui-button:active, .hero-actions .ui-button:active { transform: translateY(0) scale(.97); }
+.show-controls .ui-button:focus-visible, .hero-actions .ui-button:focus-visible { outline: 2px solid rgba(255,138,61,.6); outline-offset: 2px; }
+.replay-icon {
+  display: inline-block; margin-right: 8px; font-size: 15px;
+  transition: transform .6s cubic-bezier(.2,1.2,.3,1);
+}
+.show-replay:hover .replay-icon { transform: rotate(360deg); }
+
 /* ------------------------------------------------------------- podium */
 .podium-wrap { position: relative; }
+/* Stage light: a warm glow field around the ceremony, decorative only. */
+.podium-wrap::before {
+  content: ""; position: absolute; inset: -36px -20px; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(620px 320px at 18% -6%, rgba(250,204,21,.15), transparent 70%),
+    radial-gradient(720px 420px at 92% 108%, rgba(255,138,61,.13), transparent 72%),
+    radial-gradient(520px 300px at 55% 50%, rgba(236,72,153,.08), transparent 75%);
+}
 .confetti-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
-.podium { padding: 28px; display: grid; gap: 20px; position: relative; z-index: 1; }
-.podium-head { display: grid; gap: 10px; }
-.podium-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; }
-.podium-winners { display: grid; gap: 24px; align-content: start; }
-.podium-winner { display: grid; grid-template-columns: 180px 1fr; gap: 20px; align-items: start; }
-.podium-img { width: 180px; height: 180px; border-radius: 16px; object-fit: cover; border: 2px solid #c6ef6d; }
+.show-lane .confetti-canvas { z-index: 3; }
+/* No z-index here on purpose: the panel paints first, the confetti rains over
+   its open space, and the ceremony blocks below sit above the rain. */
+.podium { padding: 30px; display: grid; gap: 22px; position: relative; }
+/* The ceremony panels sit above the confetti so the celebration wraps the
+   payoff frame instead of covering the faces and numbers. */
+.podium-head, .podium-winner, .podium-rest { position: relative; z-index: 3; }
+/* The headline stays legible over the confetti rain: it paints above the
+   canvas and carries its own soft shadow so pieces never clip the letters. */
+.podium-head { z-index: 4; display: grid; gap: 10px; text-shadow: 0 2px 18px rgba(13,16,20,.9), 0 0 30px rgba(13,16,20,.7); }
+.podium-head h2 { font-size: clamp(28px, 3.2vw, 42px); }
+.podium-grid { display: grid; grid-template-columns: 1fr; gap: 22px; }
+/* One stage: the champion's card and the field's cards stand side by side on
+   one shadowed ground line, place 1 first and biggest. */
+.podium-stage {
+  position: relative; display: flex; flex-wrap: wrap; gap: 26px;
+  align-items: flex-end; padding-bottom: 12px;
+}
+/* The shared ground: one lit floor line under every step, with its shadow. */
+.podium-stage::after {
+  content: ""; position: absolute; left: -18px; right: -18px; bottom: 2px; height: 5px;
+  border-radius: 3px; pointer-events: none;
+  background: linear-gradient(90deg, rgba(250,204,21,.35), rgba(250,204,21,.13) 42%, rgba(215,222,230,.16));
+  box-shadow: 0 12px 28px rgba(0,0,0,.5), 0 0 22px rgba(250,204,21,.16);
+}
+.podium-winners { flex: 1.7 1 520px; display: grid; grid-template-columns: 1fr; gap: 22px; align-content: end; }
+.podium-winner {
+  display: grid; grid-template-columns: var(--shot-w, 220px) 1fr; gap: 22px; align-items: start;
+  padding: 20px; border-radius: 20px;
+  background: linear-gradient(180deg, rgba(26,32,40,.97), rgba(19,24,30,.97));
+  border: 1px solid rgba(255,255,255,.08);
+  animation: podium-pop .55s cubic-bezier(.2,1.2,.3,1) both;
+}
+/* The champion's card: hero-scale art (320-420px on desktop), and the art
+   itself lands once with a small bounce as the card appears. */
+.podium-winner--hero {
+  --shot-w: clamp(320px, 21vw, 400px);
+  border-color: rgba(250,204,21,.34);
+  background:
+    radial-gradient(60% 130% at 24% 50%, rgba(250,204,21,.16), transparent 72%),
+    linear-gradient(180deg, rgba(40,34,20,.97), rgba(22,21,17,.97));
+}
+.podium-winner--hero .podium-shot { animation: hero-land .72s cubic-bezier(.22,1.25,.32,1) both; }
+@keyframes hero-land {
+  0% { opacity: 0; transform: translateY(18px) scale(.82); }
+  62% { opacity: 1; transform: translateY(0) scale(1.05); }
+  100% { transform: none; }
+}
+@keyframes podium-pop { from { opacity: 0; transform: translateY(22px) scale(.96); } to { opacity: 1; transform: none; } }
+.podium-shot { position: relative; width: var(--shot-w, 220px); }
+/* Warm spotlight behind the art: a decorative glow layer only, kept strong
+   out to the image edge so it reads as light on the stage. */
+.podium-spotlight {
+  position: absolute; inset: -30%; z-index: 0; pointer-events: none; border-radius: 50%;
+  background: radial-gradient(closest-side,
+    rgba(250,204,21,.55), rgba(250,204,21,.4) 62%, rgba(250,204,21,.16) 82%, transparent 95%);
+  filter: blur(18px);
+}
+.podium-winner--silver .podium-spotlight { background: radial-gradient(closest-side, rgba(215,222,230,.32), rgba(215,222,230,.18) 62%, rgba(215,222,230,.06) 82%, transparent 95%); }
+.podium-winner--bronze .podium-spotlight { background: radial-gradient(closest-side, rgba(224,138,78,.34), rgba(224,138,78,.19) 62%, rgba(224,138,78,.07) 82%, transparent 95%); }
+.podium-img {
+  position: relative; z-index: 1;
+  width: 100%; height: auto; aspect-ratio: 1; border-radius: 20px; object-fit: cover; display: block;
+  border: 3px solid #f4f6f8;
+  box-shadow: 0 26px 52px rgba(0,0,0,.5);
+}
+/* Gold, silver, bronze: rank accents around the champion tiles. */
+.podium-winner--gold .podium-img { border-color: #facc15; box-shadow: 0 0 0 5px rgba(250,204,21,.18), 0 26px 52px rgba(250,204,21,.22); }
+/* Sparkles flanking the champion tile, decorative only. */
+.podium-winner--gold .podium-shot::before, .podium-winner--gold .podium-shot::after {
+  content: "+"; position: absolute; z-index: 2; color: #facc15;
+  font: 700 26px 'Plus Jakarta Sans', system-ui, sans-serif;
+  text-shadow: 0 0 18px rgba(250,204,21,.85);
+  animation: sparkle-twinkle 1.9s ease-in-out infinite;
+}
+.podium-winner--gold .podium-shot::before { right: -14px; top: 26px; }
+.podium-winner--gold .podium-shot::after { left: -12px; bottom: 30px; font-size: 19px; animation-delay: .9s; }
+@keyframes sparkle-twinkle {
+  0%, 100% { opacity: .25; transform: scale(.7) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.15) rotate(90deg); }
+}
+/* The champion's crown, floating over the art. Decorative only. */
+.podium-crown {
+  position: absolute; left: 50%; top: -20px; z-index: 3;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 6px 16px rgba(250,204,21,.5));
+  animation: crown-bob 3.2s ease-in-out infinite;
+}
+@keyframes crown-bob {
+  0%, 100% { transform: translateX(-50%) translateY(0) rotate(-2deg); }
+  50% { transform: translateX(-50%) translateY(-5px) rotate(2deg); }
+}
+.podium-winner--silver .podium-img { border-color: #d7dee6; box-shadow: 0 0 0 5px rgba(215,222,230,.16), 0 26px 52px rgba(215,222,230,.16); }
+.podium-winner--bronze .podium-img { border-color: #e08a4e; box-shadow: 0 0 0 5px rgba(224,138,78,.16), 0 26px 52px rgba(224,138,78,.18); }
+/* The champion's art carries a wider gold halo so the glow reads as a
+   spotlight on the stage, not a thin rim light. */
+.podium-winner--hero .podium-img {
+  box-shadow: 0 0 0 5px rgba(250,204,21,.2), 0 34px 80px rgba(250,204,21,.3), 0 26px 52px rgba(0,0,0,.55);
+}
+.podium-rank {
+  position: absolute; left: -8px; top: -10px; z-index: 3;
+  padding: 6px 14px; border-radius: 10px;
+  background: #f4f6f8; color: #241a02;
+  font: 800 14px 'Plus Jakarta Sans', system-ui, sans-serif; letter-spacing: .12em;
+  box-shadow: 0 12px 26px rgba(0,0,0,.45);
+  animation: rank-snap .5s cubic-bezier(.2,1.2,.3,1) both;
+}
+.podium-winner--gold .podium-rank { background: linear-gradient(180deg, #fde68a, #facc15 60%, #eab308); }
+.podium-winner--silver .podium-rank { background: linear-gradient(180deg, #f4f6f8, #d7dee6 60%, #b9c4cf); }
+.podium-winner--bronze .podium-rank { background: linear-gradient(180deg, #f2b27e, #e08a4e 60%, #c96f33); }
+@keyframes rank-snap { from { transform: scale(.5) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }
+/* The prize is the win, not a balance: display sans, gold gradient like the
+   hero headline, a trophy glyph and a PAID stamp. The evidence lines below
+   keep their mono style; only the number itself gets the ceremony. */
+.podium-prize-line {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin: 12px 0 8px;
+}
+.podium-amount-glyph { display: inline-flex; filter: drop-shadow(0 4px 14px rgba(250,204,21,.45)); }
+.podium-amount-glyph svg { width: 88px; height: 88px; }
+.podium-amount {
+  margin: 0;
+  font: 800 clamp(28px, 2.6vw, 40px) 'Plus Jakarta Sans', system-ui, sans-serif;
+  letter-spacing: -.035em; white-space: nowrap;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.32), rgba(255,255,255,0) 44%),
+    linear-gradient(92deg, #ff7a2f 4%, #ff9d42 46%, #ffe066 98%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: none;
+  animation: amount-glow 2.6s ease-in-out infinite;
+}
+@keyframes amount-glow {
+  0%, 100% { filter: drop-shadow(0 1px 0 rgba(255,255,255,.28)) drop-shadow(0 4px 22px rgba(255,138,61,.22)); }
+  50% { filter: drop-shadow(0 1px 0 rgba(255,255,255,.28)) drop-shadow(0 6px 32px rgba(250,204,21,.5)); }
+}
+.podium-winner--gold .podium-amount { filter: drop-shadow(0 6px 30px rgba(250,204,21,.42)); }
+.podium-paid {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 10px; transform: rotate(-5deg);
+  border: 2px solid rgba(250,204,21,.75);
+  background: rgba(13,16,20,.82);
+  color: #facc15;
+  font: 800 12px 'Plus Jakarta Sans', system-ui, sans-serif; letter-spacing: .22em;
+  box-shadow:
+    inset 0 0 0 1.5px rgba(250,204,21,.35), inset 0 -8px 18px rgba(0,0,0,.45),
+    0 10px 26px rgba(250,204,21,.22);
+}
+.podium-prize { border-left: 3px solid rgba(255,138,61,.55); padding-left: 14px; font-size: 14px; }
 .podium-winner h3 { margin: 4px 0 10px; font-size: 22px; }
-.podium-rest { display: grid; gap: 8px; align-content: start; }
-.podium-place { display: flex; gap: 10px; margin: 0; font-size: 15px; color: #f4f6f8; }
-.podium-place em { font-style: normal; color: #68737e; font: 500 11px 'DM Mono', ui-monospace, monospace; letter-spacing: .06em; }
+.podium-rest { flex: 1 1 300px; display: flex; flex-direction: column; gap: 12px; justify-content: flex-end; align-items: flex-start; }
+.podium-rest .kicker { margin: 0; }
+.podium-rest .muted { margin: 0; max-width: 380px; }
+/* The field's own podium: tiered mini-cards with real art, clearly smaller
+   than the champion, each standing on its own step of the shared base
+   (the 2ND slot on silver-grey and higher, the rest on stone and lower).
+   Every card keeps its "show order (presentation)" chip. */
+.podium-field {
+  position: relative; display: flex; flex-wrap: wrap; gap: 18px;
+  align-items: flex-end; max-width: 100%;
+  padding: 10px 10px 0;
+}
+.podium-winner-slot, .podium-field-slot { display: grid; gap: 0; position: relative; z-index: 3; }
+.podium-winner-slot .podium-winner { border-bottom: 0; border-radius: 20px 20px 0 0; }
+/* Each card stands on its own step of one base: the champion's gold step is
+   the tall one, the field's silver-grey steps sit lower, and the leading
+   field slot rides above the rest. Steps meet the card edge flush, carry a
+   lit top edge and a contact shadow so the cards rest with real mass. */
+.podium-step {
+  position: relative; overflow: hidden;
+  margin-top: -1px;
+  border: 1px solid rgba(255,255,255,.1); border-top: 0;
+  border-radius: 0 0 8px 8px;
+}
+/* Volume: a lit left edge and top face, a shaded right side, so each step
+   reads as a block of stage instead of a flat gradient bar. */
+.podium-step::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.16), transparent 8%, transparent 92%, rgba(0,0,0,.28)),
+    linear-gradient(180deg, rgba(255,255,255,.14), transparent 38%);
+}
+.podium-step--gold {
+  height: 78px;
+  background: linear-gradient(180deg, rgba(253,230,138,.95) 0 3px, rgba(250,204,21,.62) 3px 42%, rgba(250,204,21,.16) 100%);
+  border-color: rgba(250,204,21,.42);
+  box-shadow: 0 22px 42px rgba(0,0,0,.5), inset 0 -14px 22px -8px rgba(0,0,0,.55), inset 0 20px 26px -14px rgba(0,0,0,.75);
+}
+.podium-step--silver {
+  height: 48px;
+  background: linear-gradient(180deg, rgba(240,244,248,.95) 0 3px, rgba(215,222,230,.55) 3px 42%, rgba(215,222,230,.16) 100%);
+  border-color: rgba(215,222,230,.4);
+  box-shadow: 0 18px 34px rgba(0,0,0,.42), inset 0 -12px 20px -8px rgba(0,0,0,.5), inset 0 18px 24px -13px rgba(0,0,0,.7);
+}
+.podium-step--stone {
+  height: 34px;
+  background: linear-gradient(180deg, rgba(206,213,221,.8) 0 3px, rgba(170,180,190,.38) 3px 42%, rgba(170,180,190,.12) 100%);
+  border-color: rgba(170,180,190,.28);
+  box-shadow: 0 16px 28px rgba(0,0,0,.38), inset 0 -11px 18px -8px rgba(0,0,0,.46), inset 0 16px 22px -12px rgba(0,0,0,.66);
+}
+.podium-field-card {
+  position: relative; z-index: 1;
+  display: grid; gap: 10px; justify-items: center; text-align: center;
+  padding: 14px 18px 16px; min-width: 168px;
+  background: linear-gradient(180deg, rgba(26,32,40,.97), rgba(19,24,30,.97));
+  border: 1px solid rgba(255,255,255,.08);
+  border-bottom: 0; border-radius: 16px 16px 0 0;
+  animation: podium-pop .55s cubic-bezier(.2,1.2,.3,1) both;
+}
+.podium-field-card--runner-up { border-color: rgba(215,222,230,.55); }
+.podium-field-shot { position: relative; width: 104px; }
+.podium-field-card--runner-up .podium-field-shot { width: 260px; }
+/* A soft spotlight behind the field art too: same stage light, smaller pool. */
+.podium-field-card .podium-spotlight {
+  background: radial-gradient(closest-side, rgba(215,222,230,.32), rgba(215,222,230,.12) 55%, transparent 80%);
+  filter: blur(10px);
+}
+.podium-field-img {
+  position: relative; z-index: 1;
+  width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; display: block;
+  border-radius: 12px; border: 2px solid rgba(244,246,248,.8);
+  box-shadow: 0 14px 30px rgba(0,0,0,.45);
+}
+.podium-field-card--runner-up .podium-field-img {
+  border-color: #e8edf2;
+  box-shadow: 0 0 0 4px rgba(215,222,230,.22), 0 0 42px rgba(215,222,230,.16), 0 16px 34px rgba(0,0,0,.5);
+}
+.podium-field-rank {
+  position: absolute; left: -8px; top: -8px; z-index: 2;
+  padding: 3px 9px; border-radius: 8px;
+  background: linear-gradient(180deg, #f4f6f8, #d7dee6 60%, #b9c4cf); color: #241a02;
+  font: 800 11px 'Plus Jakarta Sans', system-ui, sans-serif; letter-spacing: .12em;
+}
+.podium-field-body { display: grid; gap: 6px; justify-items: center; }
+.podium-field-id {
+  margin: 0; color: #f4f6f8;
+  font: 500 12px 'DM Mono', ui-monospace, monospace; letter-spacing: .08em;
+}
+.podium-field-body em {
+  font-style: normal; color: #68737e;
+  font: 500 10px 'DM Mono', ui-monospace, monospace; letter-spacing: .06em;
+}
+.podium-show-order {
+  padding: 3px 10px; border-radius: 999px;
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12);
+}
 .show-inscription { font: 500 12px 'DM Mono', ui-monospace, monospace; color: #c6ef6d; line-height: 1.6; }
+
+/* ---------------------------------------------- race page compact head */
+/* Same words, tighter frame: the show stage belongs near the top of the
+   fold, so the hero gets out of its way. */
+.page-head--compact { padding: 16px 0 6px; }
+.page-head--compact h1 { font-size: clamp(24px, 3vw, 34px); line-height: 1.02; letter-spacing: -.045em; }
+.page-head--compact .kicker { margin: 0 0 4px; }
+.page-head--compact .lede { margin: 8px 0; font-size: 13px; line-height: 1.5; max-width: 680px; }
+.page-head--compact .hero-actions { margin: 4px 0 0; }
+.race-picker { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; padding: 10px 14px; }
+.race-picker .field { margin-bottom: 0; flex: 1 1 240px; }
+.race-picker .field input { height: 42px; }
+.race-picker .hero-actions { margin: 0; }
+.race-picker .viewer-error { flex-basis: 100%; margin: 0; }
 
 /* ------------------------------------------------------------ verify */
 .verdict { padding: 22px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
@@ -231,5 +774,46 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 
 @media (max-width: 1024px) {
   .podium-grid, .podium-winner { grid-template-columns: 1fr; }
+  .podium-stage { flex-direction: column; align-items: stretch; }
   .draft-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+  /* Narrow phones: the runner art shrinks with its track and the ceremony
+     tiles fill the column, so nothing clips or overflows. */
+  .show-stage { padding: 16px; gap: 14px; }
+  .show-lane { padding: 12px 12px 10px; }
+  .show-track { --runner-w: 60px; height: 92px; }
+  .show-runner { top: 6px; }
+  .show-runner::before { top: 14px; height: 26px; width: 64px; }
+  .show-runner::after { bottom: 18px; width: 38px; height: 15px; }
+  .show-runner-plate { font-size: 8.5px; letter-spacing: .02em; }
+  .show-runner-dot { font-size: 26px; }
+  .show-finish { width: 28px; }
+  .show-finish-label { width: 28px; font-size: 8px; letter-spacing: .25em; }
+  .show-track::after { right: 28px; width: 18px; }
+  .show-winner-ribbon { top: -10px; right: 8px; font-size: 11px; padding: 5px 12px; }
+  .podium { padding: 18px; }
+  .podium-winners { grid-template-columns: 1fr; }
+  .podium-winner { padding: 14px; }
+  .podium-shot { width: 100%; }
+  .podium-img { width: 100%; height: auto; aspect-ratio: 1; }
+  .podium-amount { font-size: 30px; }
+  .race-picker { padding: 12px 14px; }
+}
+
+/* Ceremony motion is a garnish: when the OS asks for less motion, every
+   entrance, bounce and shimmer resolves to its finished state at once. */
+@media (prefers-reduced-motion: reduce) {
+  .podium-winner,
+  .podium-field-card,
+  .podium-winner--hero .podium-shot,
+  .podium-crown,
+  .podium-rank,
+  .podium-amount,
+  .podium-spotlight,
+  .podium-winner--gold .podium-shot::before,
+  .podium-winner--gold .podium-shot::after {
+    animation: none !important;
+  }
 }

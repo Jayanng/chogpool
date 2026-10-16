@@ -1,8 +1,8 @@
-# Mirror verification — recorded live result
+# Mirror verification, recorded live result
 
 **What this is:** the check documented in `TESTING.md` §5, executed against the
 live deployed stack and recorded here verbatim. This file is evidence, not
-source — it quotes the real addresses and hashes the check produced, which is
+source, it quotes the real addresses and hashes the check produced, which is
 the only thing that makes it a record of anything rather than a claim. It is
 allowlisted in `infra/check-addresses.mjs` for that reason, on the same footing
 as `docs/GATE1-LOG.md` and `docs/GATE2-LOG.md`.
