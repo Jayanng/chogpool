@@ -85,3 +85,22 @@ export function readChog(tokenId: bigint): Promise<ChogRecord> {
   }
   return refresh(tokenId, key);
 }
+
+/** Does this account hold a real Chog on mainnet? One ERC-721 balanceOf read,
+ *  so the gate can wave a real holder straight in without scanning the whole
+ *  collection. An unanswered read answers false: it must never open the gate. */
+export async function ownsRealChog(account: Address): Promise<boolean> {
+  try {
+    const balance = await chogClient.readContract({
+      address: collection,
+      abi: [
+        { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ name: "owner", type: "address" }], outputs: [{ name: "", type: "uint256" }] },
+      ],
+      functionName: "balanceOf",
+      args: [account],
+    });
+    return balance > 0n;
+  } catch {
+    return false;
+  }
+}

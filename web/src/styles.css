@@ -1555,3 +1555,69 @@ body { overflow-x: clip; max-width: 100vw; }
   font: 700 12px 'dm mono', ui-monospace, monospace; letter-spacing: .02em;
 }
 .career-record { font: 600 12px 'dm mono', ui-monospace, monospace; letter-spacing: .02em; color: var(--c-muted); }
+
+/* ===================== GATE MODAL ===================== */
+.gate-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(36, 26, 36, .68);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.gate-modal {
+  width: 100%; max-width: 480px;
+  background: var(--c-white); border: 3px solid var(--c-ink); border-radius: 24px;
+  box-shadow: 10px 10px 0 var(--c-ink); padding: clamp(1.75rem, 4vw, 2.5rem);
+}
+.gate-title {
+  font-family: 'Poppins', 'Space Grotesk', sans-serif; font-weight: 800;
+  font-size: clamp(1.75rem, 5vw, 2.25rem); letter-spacing: -.02em; line-height: 1.05;
+  color: var(--c-ink); margin: 10px 0 12px;
+}
+.gate-body { color: var(--c-muted); font-size: 14.5px; line-height: 1.6; margin: 0 0 22px; }
+.gate-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+.gate-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 13px 22px; border-radius: 999px; border: 3px solid var(--c-ink);
+  font: 700 14px 'Inter', sans-serif; cursor: pointer; text-decoration: none;
+  background: var(--c-white); color: var(--c-ink); box-shadow: 4px 4px 0 var(--c-ink);
+}
+.gate-btn--primary { background: var(--c-yellow); }
+.gate-btn:hover { transform: translate(-1px, -1px); }
+.gate-btn.is-disabled { opacity: .55; cursor: not-allowed; box-shadow: none; transform: none; }
+.gate-note {
+  color: var(--c-muted); font-size: 12px; line-height: 1.6; margin: 0;
+  border-top: 2px dashed rgba(17, 17, 17, .14); padding-top: 14px;
+}
+.gate-pending {
+  display: inline-flex; align-items: center; padding: 13px 22px; border-radius: 999px;
+  border: 2px dashed rgba(36, 26, 36, .28); background: rgba(36, 26, 36, .05);
+  color: var(--c-muted); font: 600 13px 'Inter', sans-serif;
+}
+/* A little candy so the door matches the sticker world behind it. */
+.gate-modal { position: relative; overflow: hidden; }
+.gate-modal::before {
+  content: ''; position: absolute; top: -22px; right: -18px; width: 92px; height: 92px;
+  border-radius: 24px; background: var(--c-yellow); border: 3px solid var(--c-ink);
+  transform: rotate(12deg); z-index: 0;
+}
+.gate-modal::after {
+  content: ''; position: absolute; bottom: -14px; right: -10px; width: 40px; height: 40px;
+  border-radius: 999px; background: var(--c-pink); border: 3px solid var(--c-ink); z-index: 0;
+}
+.gate-modal > * { position: relative; z-index: 1; }
+/* The "this is the only pass" line, set apart so it reads as the key point. */
+.gate-note--only {
+  margin: 16px 0 10px; padding: 12px 14px; border-radius: 12px;
+  background: rgba(255, 209, 102, .38); border: 2px solid var(--c-ink);
+  color: var(--c-ink); font: 600 13px/1.5 'Inter', sans-serif;
+}
+.gate-foot { margin: 10px 0 0; font: 500 11px/1.5 'Inter', sans-serif; color: var(--c-muted); }
+.gate-foot a { color: var(--c-blue); }
+/* The fail-closed "checking" gate: shut until the read answers, but light. */
+.gate-overlay--checking { background: rgba(36, 26, 36, .5); }
+.gate-checking {
+  padding: 28px 34px; border-radius: 22px; background: var(--c-cream);
+  border: 3px solid var(--c-ink); box-shadow: 6px 6px 0 var(--c-ink); text-align: center;
+}
+.gate-checking__text { margin: 8px 0 0; font: 600 15px 'Inter', sans-serif; color: var(--c-ink); }
+/* While any gate overlay is up, the app behind it must not scroll. */
+body:has(.gate-overlay) { overflow: hidden; }

@@ -4,8 +4,10 @@ import { Badge, Panel, Skeleton } from "@chogpool/ui";
 import "@chogpool/ui/styles.css";
 import "./styles.css";
 import { usePath, navigate } from "./lib/router";
-import { WalletProvider } from "./lib/useWallet";
+import { useWallet, WalletProvider } from "./lib/useWallet";
+import { useGate } from "./lib/gate";
 import { WalletButton } from "./components/WalletButton";
+import { GateModal } from "./components/GateModal";
 import { CHAIN } from "./generated/addresses.gen";
 
 // One async page bundle per route.
@@ -46,6 +48,14 @@ function App() {
   const match = routes.find((r) => r.path === path) ?? routes[0];
   const Component = match.Component;
   const [menuOpen, setMenuOpen] = useState(false);
+  // The entry gate: a wallet with a real Chog or a Test Drive sails through; any
+  // other connected wallet is held at the door. The mint page stays reachable so
+  // it can be the way in.
+  const wallet = useWallet();
+  const gate = useGate(wallet.address ?? undefined);
+  // Fail closed: the gate stays shut while a check is in flight too, so an
+  // unanswered read never opens the app. Only a settled "in" opens it.
+  const gateBlocked = Boolean(wallet.address) && gate !== "in" && path !== "/mint";
 
   useEffect(() => setMenuOpen(false), [path]);
 
@@ -127,6 +137,21 @@ function App() {
           </div>
         </div>
       </footer>
+
+      {gateBlocked && gate === "checking" && (
+        <div
+          className="gate-overlay gate-overlay--checking"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Checking your Chog"
+        >
+          <div className="gate-checking">
+            <p className="kicker">ONE MOMENT</p>
+            <p className="gate-checking__text">Checking your Chog…</p>
+          </div>
+        </div>
+      )}
+      {gateBlocked && gate === "blocked" && <GateModal />}
     </main>
   );
 }
