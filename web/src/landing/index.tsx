@@ -100,7 +100,7 @@ export default function Landing() {
         <Panel className="track-card">
           <div className="card-top">
             <span>GRAND PRIX</span>
-            <Badge tone="neutral">UI PREVIEW</Badge>
+            <Badge tone="neutral">RACE PREVIEW</Badge>
           </div>
           <Countdown nextDrawAt={nextDrawAt} sourceLabel={sourceLabel} fieldLocked={fieldLocked} />
           <div className="lane lane-one"><div className="lane-label">01 <span>{previewLanes[0] ? `CHOG #${previewLanes[0]}` : "ANY CHOG"}</span></div><div className="runner runner-one">◉</div></div>
