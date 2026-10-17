@@ -1489,3 +1489,8 @@ body { overflow-x: clip; max-width: 100vw; }
   box-shadow: 6px 6px 0 var(--c-ink);
 }
 .footer-card { box-shadow: 6px 6px 0 var(--c-ink); }
+
+/* hero stat pills: peek from the Chog tile corners instead of covering the art */
+.hero-stage .fp-odds { left: -22px !important; top: 30px !important; }
+.hero-stage .fp-final { left: -32px !important; top: 296px !important; }
+.hero-stage .fp-paid { right: -18px !important; top: 496px !important; }
