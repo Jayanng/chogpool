@@ -329,7 +329,7 @@ export default function Deposit() {
                   onClick={() => void swapQuote()}
                   disabled={busy.swap || quoteBalance === 0n}
                 >
-                  {busy.swap ? "Sending…" : `Swap ${formatUsdc(quoteBalance)} USDT → USDC`}
+                  {busy.swap ? "Sending…" : quoteBalance > 0n ? `Swap ${formatUsdc(quoteBalance)} USDT → USDC` : "Swap USDT → USDC"}
                 </Button>
               </div>
 
@@ -344,7 +344,7 @@ export default function Deposit() {
           <Panel className="feature-panel">
             <Card
               title="Deposit"
-              aside={<Badge tone={needsApproval ? "accent" : "neutral"}>{needsApproval ? "STEP 3 · APPROVE" : "STEP 4 · DEPOSIT"}</Badge>}
+              aside={<Badge tone={needsApproval ? "accent" : "neutral"}>{needsApproval ? "STEP 3 · APPROVE" : "STEP 3 · DEPOSIT"}</Badge>}
               footer="ONE BOOK PER CHOG: DEPOSIT AS MANY CHOGS AS YOU HOLD"
             >
               <label className="field">
