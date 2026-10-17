@@ -1313,3 +1313,29 @@ body { overflow-x: clip; max-width: 100vw; }
    consistent column (was 780 vs ~990, leaving a dead right half on Mint/Draft). */
 .page-head { max-width: 992px; }
 .page-head .lede, .page-head .muted { max-width: 620px; }
+
+/* ===================== CHIPS ONE ROW + NAV HEIGHT =====================
+   The three trust chips must sit on one horizontal row at every width (they
+   were stacking on mobile and wrapping 2+1 on desktop). They share the row
+   equally and the label wraps inside each chip on small screens. The navbar
+   comes down to the standard 64px (was 82px on desktop). */
+.hero-scene .trust-row { flex-wrap: nowrap; gap: 10px; }
+.hero-scene .chip { flex: 1 1 0; min-width: 0; }
+
+.topbar { height: 64px; }
+
+@media (max-width: 860px) {
+  .hero-scene .chip { font-size: 11px; padding: 9px 12px; gap: 6px; letter-spacing: 0; }
+  .hero-scene .chip .dot { width: 8px; height: 8px; }
+}
+
+/* ===================== RESPONSIVE HERO STACK (bug fix) =====================
+   A later global grid rule (1.22fr 0.95fr, for the 3-line headline) was beating
+   the <=1024 stack, collapsing the hero-copy to a narrow column on phones (the
+   headline broke one word per line). Re-assert the stack here, after that rule.
+   Confetti clips to the hero so desktop-positioned pieces don't sliver off a
+   narrow viewport. */
+@media (max-width: 1024px) {
+  .hero.hero-scene { grid-template-columns: 1fr; }
+}
+.hero-confetti { overflow: hidden; }
