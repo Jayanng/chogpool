@@ -10,31 +10,35 @@ import { CHAIN } from "./generated/addresses.gen";
 
 // One async page bundle per route.
 const Landing = lazy(() => import("./landing"));
-const Deposit = lazy(() => import("./money/deposit"));
-const Race = lazy(() => import("./race"));
-const Draft = lazy(() => import("./draft"));
-const Mint = lazy(() => import("./mint"));
-const Yield = lazy(() => import("./yield"));
-const Tips = lazy(() => import("./tips"));
-const Verify = lazy(() => import("./verify"));
-const Spectator = lazy(() => import("./spectator"));
+const Play = lazy(() => import("./sections/Play"));
+const RaceSection = lazy(() => import("./sections/Race"));
+const EarnSection = lazy(() => import("./sections/Earn"));
+const Proof = lazy(() => import("./verify"));
 const StyleGuide = lazy(() => import("./style-guide"));
 
 const routes: Array<{ path: string; label: string; Component: LazyExoticComponent<ComponentType>; hidden?: boolean }> = [
   { path: "/", label: "Track", Component: Landing },
-  { path: "/deposit", label: "Deposit", Component: Deposit },
-  { path: "/race", label: "Race", Component: Race },
-  { path: "/draft", label: "Draft", Component: Draft },
-  { path: "/mint", label: "Mint", Component: Mint },
-  { path: "/yield", label: "Yield", Component: Yield },
-  { path: "/tips", label: "Tips", Component: Tips },
-  { path: "/verify", label: "Verify", Component: Verify },
-  { path: "/spectator", label: "Spectate", Component: Spectator },
-  // Design tool for the team, not user-facing. Reachable only by URL.
+  { path: "/play", label: "Play", Component: Play },
+  { path: "/race", label: "Race", Component: RaceSection },
+  { path: "/earn", label: "Earn", Component: EarnSection },
+  { path: "/proof", label: "Proof", Component: Proof },
+
+  // Aliases keep every existing deep link and navigate() call working.
+  { path: "/deposit", label: "Play", Component: Play },
+  { path: "/mint", label: "Play", Component: Play },
+  { path: "/draft", label: "Play", Component: Play },
+  { path: "/spectator", label: "Race", Component: RaceSection },
+  { path: "/yield", label: "Earn", Component: EarnSection },
+  { path: "/tips", label: "Earn", Component: EarnSection },
+  { path: "/verify", label: "Proof", Component: Proof },
+
   { path: "/style", label: "Style", Component: StyleGuide, hidden: true },
 ];
 
-const navRoutes = routes.filter((r) => !r.hidden);
+// One nav entry per section: the first route for each label is the primary tab.
+const navRoutes = routes
+  .filter((r) => !r.hidden)
+  .filter((r, i, arr) => arr.findIndex((x) => x.label === r.label) === i);
 
 function App() {
   const path = usePath();
@@ -82,7 +86,7 @@ function App() {
             <a
               href={r.path}
               key={r.path}
-              className={r.path === match.path ? "nav-active" : ""}
+              className={r.label === match.label ? "nav-active" : ""}
               onClick={(e) => { e.preventDefault(); navigate(r.path); }}
             >
               {r.label}

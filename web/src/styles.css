@@ -1093,3 +1093,23 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 .landing .ui-badge--accent { background: rgba(43, 74, 246, .12); color: var(--c-blue); }
 .landing .share-status, .landing .viewer-note, .landing .viewer-noimage { color: #6b4a5c; }
 .landing .share-section .ui-card__body, .landing .viewer-section .ui-card__body { color: var(--c-ink); }
+
+/* ============ MERGED SECTION TABS (Batch 5a) ============
+   One nav entry per section, sub-pages behind a candy tab strip. The strip is a
+   self-contained white pill bar so it reads cleanly on any page canvas. */
+.section-host { display: flex; flex-direction: column; gap: 22px; }
+.section-tabs {
+  display: inline-flex; gap: 6px; padding: 6px; border-radius: 999px;
+  background: var(--c-white); border: 3px solid var(--c-ink); width: fit-content;
+  flex-wrap: wrap; box-shadow: 0 12px 28px rgba(0, 0, 0, .18);
+}
+.section-tab {
+  border: 0; background: transparent; cursor: pointer;
+  padding: 11px 22px; border-radius: 999px;
+  font-family: 'Poppins', system-ui, sans-serif; font-weight: 700; font-size: 15px;
+  color: var(--c-ink); letter-spacing: -.01em;
+}
+.section-tab:hover { background: rgba(17, 17, 17, .08); }
+.section-tab.is-active { background: var(--c-yellow); box-shadow: 2px 2px 0 var(--c-ink); }
+.section-tab:focus-visible { outline: 3px solid var(--c-blue); outline-offset: 2px; }
+.section-tabpanel { min-height: 40vh; }
