@@ -107,10 +107,24 @@ function App() {
       </Suspense>
 
       <footer className="footer">
-        <Panel className="footer-panel">
-          <Badge tone="neutral">MONAD TESTNET BUILD</Badge>
-          <span className="footer-note">Deposits are principal-safe by design, not by guarantee. Yield sources carry their own risks.</span>
-        </Panel>
+        <div className="footer-card">
+          <div className="footer-top">
+            <a className="footer-brand" href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}>CHOG<span>TRACK</span></a>
+            <nav className="footer-nav">
+              {navRoutes.map((r) => (
+                <a key={r.path} href={r.path} onClick={(e) => { e.preventDefault(); navigate(r.path); }}>{r.label}</a>
+              ))}
+            </nav>
+          </div>
+          <p className="footer-tag">Your dollars never enter the race.</p>
+          <div className="footer-note">
+            Deposits are principal-safe by design, not by guarantee. Yield sources carry their own risks.
+          </div>
+          <div className="footer-meta">
+            <Badge tone="neutral">MONAD TESTNET BUILD</Badge>
+            <span>Monad testnet · test funds only · draws re-derivable from the published seed</span>
+          </div>
+        </div>
       </footer>
     </main>
   );

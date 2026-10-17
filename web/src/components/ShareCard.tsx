@@ -68,6 +68,7 @@ export function ShareCard({
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [status, setStatus] = useState("");
+  const [rendered, setRendered] = useState(false);
 
   async function render(): Promise<void> {
     const canvas = canvasRef.current;
@@ -275,6 +276,7 @@ export function ShareCard({
     ctx.font = "500 22px 'DM Mono', monospace";
     ctx.fillText("READ: MONAD MAINNET · PLAY: MONAD TESTNET", 72, 585);
     setStatus("Card rendered below. Download to share.");
+    setRendered(true);
   }
 
   function download(): void {
@@ -306,7 +308,16 @@ export function ShareCard({
         <Button variant="outline" onClick={download}>Download PNG</Button>
       </div>
       {status && <p className="share-status">{status}</p>}
-      <canvas ref={canvasRef} width={1200} height={630} className="share-canvas" aria-label="Share card preview" />
+      <div className="share-preview">
+        {!rendered && (
+          <div className="share-preview-empty" aria-hidden="true">
+            <svg width="42" height="42" viewBox="0 0 40 40" fill="none"><rect x="5" y="8" width="30" height="24" rx="4" stroke="currentColor" strokeWidth="2.5" /><circle cx="14" cy="17" r="2.5" fill="currentColor" /><path d="M8 28l7-8 5 5 4-4 8 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <span>Render a card to preview it here</span>
+            <small>Rendered from live chain data · 1200 × 630 PNG</small>
+          </div>
+        )}
+        <canvas ref={canvasRef} width={1200} height={630} className={`share-canvas${rendered ? " is-rendered" : ""}`} aria-label="Share card preview" />
+      </div>
     </Card>
   );
 }

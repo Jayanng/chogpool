@@ -106,7 +106,7 @@ export default function Race() {
         </Panel>
       )}
 
-      {loading && <Panel className="feature-panel"><p className="muted">Reading the draw from the chain…</p></Panel>}
+      {loading && <Panel className="feature-panel"><div className="loading-line"><span className="loading-dot" />Reading the draw from the chain…</div></Panel>}
       {error && (
         <Panel className="feature-panel">
           <p className="viewer-error" role="alert">{error}</p>

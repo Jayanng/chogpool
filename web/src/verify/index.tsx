@@ -110,9 +110,20 @@ export default function Verify() {
 
       {busy && (
         <Panel className="feature-panel">
+          <div className="loading-line"><span className="loading-dot" />Recomputing the winners from the published seed…</div>
           <Skeleton variant="block" height={120} />
           <Skeleton variant="text" />
           <Skeleton variant="text" width={280} />
+        </Panel>
+      )}
+
+      {!busy && !report && !noDraws && (
+        <Panel className="feature-panel">
+          <div className="verify-idle">
+            <svg width="42" height="42" viewBox="0 0 40 40" fill="none"><circle cx="18" cy="18" r="11" stroke="currentColor" strokeWidth="2.5" /><path d="M26 26l7 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /></svg>
+            <h3>Ready to verify a race</h3>
+            <p>Paste a race ID above and hit recompute. The verifier walks the published seed and the exact formula, step by step, then checks the result against the chain.</p>
+          </div>
         </Panel>
       )}
 
