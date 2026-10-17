@@ -57,6 +57,7 @@ function useWalletStore() {
   const [txStage, setTxStage] = useState<TxStage>("idle");
   const [txHash, setTxHash] = useState<Hash | null>(null);
   const [txError, setTxError] = useState<string | null>(null);
+  const [txLabel, setTxLabel] = useState<string | null>(null);
 
   // A connect or disconnect the user clicked beats the silent restore that
   // may still be in flight when they click it.
@@ -151,7 +152,7 @@ function useWalletStore() {
    * never tell a user something settled that has not.
    */
   const runTx = useCallback(
-    async (write: (walletClient: WalletClient, account: Address) => Promise<{ ok: true; hash: Hash; detail: string } | { ok: false; error: string }>, onConfirmed?: () => void | Promise<void>) => {
+    async (write: (walletClient: WalletClient, account: Address) => Promise<{ ok: true; hash: Hash; detail: string } | { ok: false; error: string }>, onConfirmed?: () => void | Promise<void>, label?: string) => {
       if (!state) {
         setTxError("Connect a wallet first.");
         setTxStage("failed");
@@ -175,6 +176,7 @@ function useWalletStore() {
           return false;
         }
         setTxStage("confirmed");
+        setTxLabel(label ?? null);
         if (onConfirmed) await onConfirmed();
         return true;
       } catch (error) {
@@ -198,6 +200,7 @@ function useWalletStore() {
     setTxStage("idle");
     setTxHash(null);
     setTxError(null);
+    setTxLabel(null);
   }, []);
 
   return {
@@ -214,6 +217,7 @@ function useWalletStore() {
     reading,
     txStage,
     txHash,
+    txLabel,
     txError,
     connect,
     disconnect,

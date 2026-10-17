@@ -1621,3 +1621,22 @@ body { overflow-x: clip; max-width: 100vw; }
 .gate-checking__text { margin: 8px 0 0; font: 600 15px 'Inter', sans-serif; color: var(--c-ink); }
 /* While any gate overlay is up, the app behind it must not scroll. */
 body:has(.gate-overlay) { overflow: hidden; }
+/* The success modal: a green check, the real tx, and the proof link. */
+.tx-success__check {
+  width: 56px; height: 56px; margin: 0 auto 8px; border-radius: 999px;
+  background: #35c179; border: 3px solid var(--c-ink);
+  display: flex; align-items: center; justify-content: center;
+  font: 800 28px 'Poppins', sans-serif; color: var(--c-ink);
+}
+.tx-success .kicker, .tx-success .gate-title, .tx-success .gate-body { text-align: center; }
+.tx-success__hash { margin: 12px 0 4px; text-align: center; }
+.tx-success__hash code {
+  font: 600 12px 'SFMono-Regular', ui-monospace, monospace; color: var(--c-muted);
+  background: rgba(36, 26, 36, .06); padding: 6px 10px; border-radius: 8px;
+}
+.tx-success .gate-actions { justify-content: center; }
+.tx-success__copy {
+  margin-left: 8px; padding: 6px 12px; border-radius: 999px;
+  border: 2px solid var(--c-ink); background: var(--c-cream);
+  font: 600 11px 'Inter', sans-serif; color: var(--c-ink); cursor: pointer;
+}

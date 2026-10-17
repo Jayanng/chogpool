@@ -8,6 +8,7 @@ import { useWallet, WalletProvider } from "./lib/useWallet";
 import { useGate } from "./lib/gate";
 import { WalletButton } from "./components/WalletButton";
 import { GateModal } from "./components/GateModal";
+import { TxSuccessModal } from "./components/TxSuccessModal";
 import { CHAIN } from "./generated/addresses.gen";
 
 // One async page bundle per route.
@@ -152,6 +153,13 @@ function App() {
         </div>
       )}
       {gateBlocked && gate === "blocked" && <GateModal />}
+      {wallet.txStage === "confirmed" && wallet.txHash && (
+        <TxSuccessModal
+          label={wallet.txLabel}
+          txHash={wallet.txHash}
+          onClose={() => wallet.resetTx()}
+        />
+      )}
     </main>
   );
 }

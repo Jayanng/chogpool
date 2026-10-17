@@ -86,7 +86,7 @@ export default function Yield() {
     setNote(null);
     const ok = await wallet.runTx(harvestPot, () => {
       setNote("Harvested. The realized surplus is now in the prize pot.");
-    });
+    }, "Harvest into the pot");
     if (ok) void wallet.refresh();
   }
 

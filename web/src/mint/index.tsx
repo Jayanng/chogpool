@@ -138,7 +138,7 @@ export default function Mint() {
           chain: walletClient.chain,
         } as never);
         return { ok: true as const, hash, detail: "Mint sent." };
-      });
+      }, undefined, "Mint a Chog");
       if (ok) {
         setMessage(`Chog #${record.tokenId} is mirrored. Its stored URI is now provably the one its mainnet owner signed.`);
         setLookup(await lookupChog(record.tokenId));
@@ -171,7 +171,7 @@ export default function Mint() {
           chain: walletClient.chain,
         } as never);
         return { ok: true as const, hash, detail: "Test Drive mint sent." };
-      });
+      }, undefined, "Mint a Test Drive");
       if (ok) {
         setMessage(`Chog #${record.tokenId} is mirrored as a Test Drive. Nobody signed anything for it, that is what the label means.`);
         setLookup(await lookupChog(record.tokenId));
