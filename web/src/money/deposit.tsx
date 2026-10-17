@@ -185,7 +185,7 @@ export default function Deposit() {
     try {
       const ok = await wallet.runTx(claimStableFaucet, () => {
         setNote("Claimed. Swap it into the pool's USDC, then deposit.");
-      }, "Claim USDT");
+      }, "Claimed 1,000 USDT from the faucet");
       if (ok) void wallet.refresh();
     } finally {
       setPending(null);
@@ -204,7 +204,7 @@ export default function Deposit() {
           const approved = await wallet.runTx(
             (walletClient, account) => approveQuoteForRouter(walletClient, account, quoteBalance),
             () => setNote("Approved the router to take the USDT. Sending the swap now."),
-            "Approve USDT",
+            "Approved USDT for the swap",
           );
           if (!approved) return;
         }
@@ -212,7 +212,7 @@ export default function Deposit() {
       const ok = await wallet.runTx(
         (walletClient, account) => swapQuoteToAsset(walletClient, account, quoteBalance, quote ?? 0n, testnetReadClient),
         () => setNote("Swapped. Your wallet now holds the pool's USDC."),
-        "Swap to USDC",
+        `Swapped ${formatUsdc(quoteBalance)} USDT into USDC`,
       );
       if (ok) void wallet.refresh();
     } finally {
@@ -228,7 +228,7 @@ export default function Deposit() {
       const ok = await wallet.runTx(
         (walletClient, account) => approveAsset(walletClient, account, amount),
         () => setNote("Approved. You can deposit now."),
-        "Approve USDC",
+        "Approved USDC for the pool",
       );
       if (ok) void wallet.refresh();
     } finally {
@@ -244,7 +244,7 @@ export default function Deposit() {
       const ok = await wallet.runTx(
         (walletClient, account) => depositToPool(walletClient, account, tokenId, amount),
         () => setNote(`Deposited against Chog #${tokenId}. Time in the pool is what earns odds.`),
-        "Deposit",
+        `Deposited ${formatUsdc(amount)} USDC against Chog #${tokenId}`,
       );
       if (ok) void wallet.refresh();
     } finally {
@@ -260,7 +260,7 @@ export default function Deposit() {
       const ok = await wallet.runTx(
         (walletClient, account) => withdrawAllFromPool(walletClient, account, tokenId),
         () => setNote("Withdrawn. Principal returns in full; only the yield stays in the pot."),
-        "Withdraw",
+        `Withdrew your principal from Chog #${tokenId}`,
       );
       if (ok) void wallet.refresh();
     } finally {

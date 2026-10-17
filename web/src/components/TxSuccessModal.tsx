@@ -24,7 +24,8 @@ export function TxSuccessModal({ label, txHash, onClose }: Props) {
           ✓
         </div>
         <p className="kicker">CONFIRMED ON CHAIN</p>
-        <h2 className="gate-title">{label ? `${label} is done.` : "It is done."}</h2>
+        <h2 className="gate-title">Done.</h2>
+        {label ? <p className="tx-success__summary">{label}</p> : null}
         <p className="gate-body">
           Mined and confirmed on Monad testnet. The link below is the real transaction on the
           explorer: open it and check it yourself.

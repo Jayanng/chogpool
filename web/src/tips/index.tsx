@@ -122,7 +122,7 @@ export default function Tips() {
     setNote(null);
     setPending("claim");
     try {
-      const ok = await wallet.runTx(claimTestChog, () => setNote("Claimed Test CHOG. Spend it on tips."), "Claim Test CHOG");
+      const ok = await wallet.runTx(claimTestChog, () => setNote("Claimed Test CHOG. Spend it on tips."), "Claimed Test CHOG");
       if (ok) void wallet.refresh();
     } finally {
       setPending(null);
@@ -137,7 +137,7 @@ export default function Tips() {
       const ok = await wallet.runTx(
         (walletClient, account) => tipTestChog(walletClient, account, recipient, amount),
         () => setNote(`Tipped ${formatTestChog(amount)} Test CHOG to ${shortAddress(recipient)}.`),
-        "Tip a cheer",
+        `Tipped ${formatTestChog(amount)} Test CHOG to ${shortAddress(recipient)}`,
       );
       if (ok) {
         void wallet.refresh();

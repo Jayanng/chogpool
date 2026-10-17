@@ -1640,3 +1640,7 @@ body:has(.gate-overlay) { overflow: hidden; }
   border: 2px solid var(--c-ink); background: var(--c-cream);
   font: 600 11px 'Inter', sans-serif; color: var(--c-ink); cursor: pointer;
 }
+.tx-success__summary {
+  margin: 2px 0 10px; text-align: center;
+  font: 700 16px/1.45 'Inter', sans-serif; color: var(--c-ink);
+}
