@@ -14,9 +14,9 @@ import { ownsRealChog } from "./chog";
 import { testnetReadClient } from "./wallet";
 
 /** The official, verified Chog marketplace: OpenSea's "Chog Genesis" (Verified)
- *  collection, contract 0xc96d31F8626c6D03Fae5dCD3d61e3FB9F4a73763, matching
- *  MAINNET.chogGenesisNFT exactly. This is a footnote for real buyers, never the
- *  way in: the door is minting a Test Chog right here in the app. */
+ *  collection, the same contract as MAINNET.chogGenesisNFT. This is a footnote
+ *  for real buyers, never the way in: the door is minting a Test Chog right here
+ *  in the app. */
 export const CHOG_MARKETPLACE_URL = "https://opensea.io/collection/chog-genesis";
 
 export type GateState = "checking" | "in" | "blocked";
