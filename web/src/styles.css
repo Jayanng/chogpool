@@ -1424,3 +1424,47 @@ body { overflow-x: clip; max-width: 100vw; }
 .loading-dot { width: 12px; height: 12px; border-radius: 999px; background: var(--c-blue); animation: lpulse 1.1s ease-in-out infinite; flex: none; }
 @keyframes lpulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
 @media (prefers-reduced-motion: reduce) { .loading-dot { animation: none; } }
+
+/* ===================== MARQUEE + MICRO-TYPE =====================
+   The ticker clipped mid-word at both edges (read as truncation). Fade it at the
+   edges so it reads as a scrolling ticker. Darken the tiny mono so it passes
+   contrast instead of whispering. */
+.ui-marquee {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+}
+.ui-marquee__item { color: #4a2c40; font-size: 11px; }
+.landing .ui-marquee--accent .ui-marquee__item, .landing .ui-marquee__item { color: var(--c-ink); }
+.footer-meta, .footer-note { color: #6b4a5c; }
+.footer-meta span { color: #5a3a4c; }
+.ui-marquee { -webkit-mask-image: none; mask-image: none; }
+.landing .ui-marquee { position: relative; overflow: hidden; }
+.landing .ui-marquee::before, .landing .ui-marquee::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 80px; z-index: 2; pointer-events: none;
+}
+.landing .ui-marquee::before { left: 0; background: linear-gradient(90deg, var(--c-yellow), rgba(255, 214, 10, 0)); }
+.landing .ui-marquee::after { right: 0; background: linear-gradient(270deg, var(--c-yellow), rgba(255, 214, 10, 0)); }
+.landing .ui-marquee { position: relative; overflow: hidden; }
+.landing .ui-marquee__track { position: relative; z-index: 1; }
+.landing .ui-marquee::before, .landing .ui-marquee::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 90px; z-index: 3; pointer-events: none;
+}
+.landing .ui-marquee::before { left: 0; background: linear-gradient(90deg, #ffd60a 0%, rgba(255, 214, 10, 0) 100%); }
+.landing .ui-marquee::after { right: 0; background: linear-gradient(270deg, #ffd60a 0%, rgba(255, 214, 10, 0) 100%); }
+.landing .ui-marquee::before, .landing .ui-marquee::after {
+  transform: translateZ(0); will-change: transform;
+}
+.landing .ui-marquee::before, .landing .ui-marquee::after { display: none; }
+.landing .ui-marquee {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 44px, #000 calc(100% - 44px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 44px, #000 calc(100% - 44px), transparent 100%);
+}
+/* animate via left (not transform) so the track stays on the normal layer and the
+   edge mask can fade it; transform promoted it to its own composited layer */
+@keyframes ui-marquee { from { left: 0; } to { left: -50%; } }
+.landing .ui-marquee__track { position: relative; left: 0; animation-name: ui-marquee; }
+.landing .ui-marquee {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 46px, #000 calc(100% - 46px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 46px, #000 calc(100% - 46px), transparent 100%);
+}
+.ui-marquee__track { position: relative; }

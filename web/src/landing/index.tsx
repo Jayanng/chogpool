@@ -116,7 +116,7 @@ export default function Landing() {
       <section className="proof-grid">
         <div>
           <p className="kicker">THE PROMISE</p>
-          <h2>Your dollars never enter the race.</h2>
+          <h2>Safe by design, checkable by anyone.</h2>
           <p className="muted">The track only competes with yield. Withdraw your principal at any time. Rewards scale with the pool.</p>
         </div>
         <Panel className="proof-panel">
@@ -145,7 +145,7 @@ export default function Landing() {
       </section>
 
       <section className="style-panel">
-        <p className="kicker">BUILT FOR PROOF</p>
+        <p className="kicker">THE FAIRNESS LAYER</p>
         <h2>Built for proof, designed for play.</h2>
         <p className="muted">Every race is a deterministic replay of an on-chain result. The verifier is part of the experience, not a footnote.</p>
         {fixturesOn && <Badge tone="danger">DEV FIXTURE MODE · SIMULATED DATA</Badge>}
@@ -155,7 +155,7 @@ export default function Landing() {
         <ul className="rules-list">
           <li>Test Drive Chogs are clearly labeled everywhere. They never blur into Verified Holder status.</li>
           <li>Traits are real off-chain IPFS metadata. Any boost mapping is our design, derived from real traits.</li>
-          <li>Deposits are principal-safe by design, not by guarantee. Yield sources carry their own risks.</li>
+          <li>The UI only visualizes what the contracts record. It never infers or invents a winner.</li>
         </ul>
       </Card>
     </div>
