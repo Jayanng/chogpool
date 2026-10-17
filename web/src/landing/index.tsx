@@ -66,8 +66,8 @@ export default function Landing() {
           <svg style={{ left: "700px", top: "24px", width: "34px" }} viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#ff2d87" /></svg>
           <svg style={{ left: "1072px", top: "16px", width: "62px" }} viewBox="0 0 24 24" fill="#fff"><path d="M12 0 C13 8 16 11 24 12 C16 13 13 16 12 24 C11 16 8 13 0 12 C8 11 11 8 12 0 Z" /></svg>
           <svg style={{ left: "792px", top: "232px", width: "54px" }} viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke="#f3a0c9" strokeWidth="5" fill="none" /></svg>
-          <svg style={{ left: "112px", top: "694px", width: "38px" }} viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#ffd84d" /></svg>
-          <svg style={{ left: "300px", top: "702px", width: "32px" }} viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#ff2d87" /></svg>
+          <svg style={{ left: "766px", top: "20px", width: "38px" }} viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#ffd84d" /></svg>
+          <svg style={{ left: "884px", top: "26px", width: "32px" }} viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#ff2d87" /></svg>
         </div>
         <div className="hero-copy">
           <div className="hero-chips">
