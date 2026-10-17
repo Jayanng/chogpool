@@ -1494,3 +1494,30 @@ body { overflow-x: clip; max-width: 100vw; }
 .hero-stage .fp-odds { left: -22px !important; top: 30px !important; }
 .hero-stage .fp-final { left: -32px !important; top: 296px !important; }
 .hero-stage .fp-paid { right: -18px !important; top: 496px !important; }
+
+/* ===================== RHYTHM + INNER-HERO BALANCE =====================
+   Inner-page heroes leaned hard left with a dead right half (narrow measure).
+   Card-to-card gaps were inconsistent (4px in one stack, 20px elsewhere). */
+.page-head .lede, .page-head .muted { max-width: 720px; }
+.feature-panel + .feature-panel { margin-top: 20px; }
+.page-head + .feature-panel, .section-host .feature-panel:first-of-type { margin-top: 28px; }
+
+/* inner-page hero: a couple of candy accents fill the dead right half and tie the
+   headers to the sticker world (hidden on small screens where there is no room) */
+.page-head { position: relative; overflow: visible; }
+.page-head > * { position: relative; z-index: 1; }
+.page-head::before {
+  content: ''; position: absolute; right: 7%; top: 4px; width: 88px; height: 88px;
+  border-radius: 24px; background: var(--c-yellow); border: 3px solid var(--c-ink);
+  transform: rotate(9deg); z-index: 0;
+}
+.page-head::after {
+  content: ''; position: absolute; right: 20%; top: 108px; width: 44px; height: 44px;
+  border-radius: 999px; background: var(--c-pink); z-index: 0;
+}
+@media (max-width: 900px) {
+  .page-head::before, .page-head::after { display: none; }
+}
+.page-head::after {
+  border: 3px solid var(--c-ink); right: 25%; top: 178px; width: 40px; height: 40px;
+}
