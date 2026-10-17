@@ -1308,3 +1308,8 @@ body { overflow-x: clip; max-width: 100vw; }
 .topbar::before { border-bottom: 2px solid var(--c-ink); }
 .section-tabpanel .page-head { padding-top: clamp(1.25rem, 2.5vw, 2.25rem); }
 .field input::placeholder, .viewer-input::placeholder { color: #6b4a5c; }
+
+/* QA: hero text block matches the content-card measure so the page reads as one
+   consistent column (was 780 vs ~990, leaving a dead right half on Mint/Draft). */
+.page-head { max-width: 992px; }
+.page-head .lede, .page-head .muted { max-width: 620px; }

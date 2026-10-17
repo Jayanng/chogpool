@@ -60,7 +60,7 @@ export default function Landing() {
       <section className="hero hero-scene">
         <div className="hero-glow" aria-hidden="true" />
         <div className="hero-confetti" aria-hidden="true">
-          <svg style={{ left: "28px", top: "12px", width: "58px" }} viewBox="0 0 24 24" fill="#ffd84d"><path d="M12 0 C13 8 16 11 24 12 C16 13 13 16 12 24 C11 16 8 13 0 12 C8 11 11 8 12 0 Z" /></svg>
+          <svg style={{ left: "360px", top: "8px", width: "58px" }} viewBox="0 0 24 24" fill="#ffd84d"><path d="M12 0 C13 8 16 11 24 12 C16 13 13 16 12 24 C11 16 8 13 0 12 C8 11 11 8 12 0 Z" /></svg>
           <svg style={{ left: "250px", top: "26px", width: "34px" }} viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#f3a0c9" /></svg>
           <svg style={{ left: "452px", top: "10px", width: "122px" }} viewBox="0 0 60 30" fill="none"><path d="M4 22 Q 16 4, 28 22 T 52 22" stroke="#fff" strokeWidth="9" strokeLinecap="round" /></svg>
           <svg style={{ left: "700px", top: "24px", width: "34px" }} viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#ff2d87" /></svg>

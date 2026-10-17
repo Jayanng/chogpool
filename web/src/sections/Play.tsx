@@ -10,7 +10,7 @@ export default function Play() {
       tabs={[
         { label: "Deposit", path: "/deposit", Component: Deposit },
         { label: "Get a Chog", path: "/mint", Component: Mint },
-        { label: "Pick a racer", path: "/draft", Component: Draft },
+        { label: "Pick a perk", path: "/draft", Component: Draft },
       ]}
     />
   );
