@@ -314,14 +314,14 @@ export default function Deposit() {
                 <Stat
                   label="FAUCET QUOTE"
                   value={wallet.reading ? "…" : `${formatUsdc(quoteBalance)} USDT`}
-                  note={quoteBalance > 0n && quote !== null ? `worth about ${formatUsdc(quote)} USDC` : "claim to receive some"}
+                  note={quoteBalance > 0n && quote !== null ? `worth about ${formatUsdc(quote)} USDC` : "None yet, claim the faucet first"}
                 />
               </div>
 
               <div className="button-row">
                 <Button onClick={() => void claimFaucet()} disabled={busy.claim || stableReady > now}>
                   {stableReady > now
-                    ? `Faucet ready in ${cooldownLabel(stableReady, now)}`
+                    ? `Faucet in ${cooldownLabel(stableReady, now)}`
                     : busy.claim ? "Sending…" : "Claim 1,000 USDT"}
                 </Button>
                 <Button
