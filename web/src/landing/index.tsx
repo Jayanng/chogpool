@@ -81,9 +81,9 @@ export default function Landing() {
             <Button variant="quiet" onClick={() => navigate("/race")}>See a real draw</Button>
           </div>
           <div className="trust-row">
-            <span className="chip"><span className="dot dot-green" />Principal withdrawable any time</span>
+            <span className="chip"><span className="dot dot-green" />Principal safe</span>
             <span className="chip"><span className="dot dot-pink" />Real yield only</span>
-            <span className="chip"><span className="dot dot-yellow" />Re-derivable draws</span>
+            <span className="chip"><span className="dot dot-yellow" />Re-derivable</span>
           </div>
         </div>
 
