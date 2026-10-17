@@ -28,6 +28,7 @@ const routes: Array<{ path: string; label: string; Component: LazyExoticComponen
   { path: "/mint", label: "Play", Component: Play },
   { path: "/draft", label: "Play", Component: Play },
   { path: "/spectator", label: "Race", Component: RaceSection },
+  { path: "/career", label: "Race", Component: RaceSection },
   { path: "/yield", label: "Earn", Component: EarnSection },
   { path: "/tips", label: "Earn", Component: EarnSection },
   { path: "/verify", label: "Proof", Component: Proof },

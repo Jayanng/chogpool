@@ -1,7 +1,8 @@
-// Race: the draw show and live spectating merged behind one nav entry.
+// Race: the draw show, live spectating, and the career record merged behind one nav entry.
 import { SectionHost } from "../components/SectionHost";
 import RaceShow from "../race";
 import Spectator from "../spectator";
+import Career from "../career";
 
 export default function Race() {
   return (
@@ -9,6 +10,7 @@ export default function Race() {
       tabs={[
         { label: "Race show", path: "/race", Component: RaceShow },
         { label: "Spectate", path: "/spectator", Component: Spectator },
+        { label: "Career", path: "/career", Component: Career },
       ]}
     />
   );
