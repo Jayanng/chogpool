@@ -56,7 +56,7 @@ export default function Landing() {
   }, []);
 
   return (
-    <>
+    <div className="landing">
       <section className="hero hero-scene">
         <div className="hero-glow" aria-hidden="true" />
         <div className="hero-confetti" aria-hidden="true">
@@ -158,6 +158,6 @@ export default function Landing() {
           <li>Deposits are principal-safe by design, not by guarantee. Yield sources carry their own risks.</li>
         </ul>
       </Card>
-    </>
+    </div>
   );
 }
