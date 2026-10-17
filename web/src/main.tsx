@@ -9,6 +9,7 @@ import { useGate } from "./lib/gate";
 import { WalletButton } from "./components/WalletButton";
 import { GateModal } from "./components/GateModal";
 import { TxSuccessModal } from "./components/TxSuccessModal";
+import { ConnectGateModal } from "./components/ConnectGateModal";
 import { CHAIN } from "./generated/addresses.gen";
 
 // One async page bundle per route.
@@ -57,6 +58,9 @@ function App() {
   // Fail closed: the gate stays shut while a check is in flight too, so an
   // unanswered read never opens the app. Only a settled "in" opens it.
   const gateBlocked = Boolean(wallet.address) && gate !== "in" && path !== "/mint";
+  // Before a wallet is connected there is no app at all: no nav, and every way
+  // in stops at "connect a wallet first". The landing is the only thing shown.
+  const connectBlocked = !wallet.address && path !== "/";
 
   useEffect(() => setMenuOpen(false), [path]);
 
@@ -85,6 +89,7 @@ function App() {
     <main className="app-shell">
       <nav className="topbar">
         <a className="brand" href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}>CHOG<span>TRACK</span></a>
+        {wallet.address ? (
         <button
           className={`nav-toggle${menuOpen ? " nav-toggle--open" : ""}`}
           aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -93,8 +98,9 @@ function App() {
         >
           <span /><span /><span />
         </button>
+        ) : null}
         <div className={`nav-links${menuOpen ? " nav-links--open" : ""}`}>
-          {navRoutes.map((r) => (
+          {wallet.address && navRoutes.map((r) => (
             <a
               href={r.path}
               key={r.path}
@@ -123,7 +129,7 @@ function App() {
           <div className="footer-top">
             <a className="footer-brand" href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}>CHOG<span>TRACK</span></a>
             <nav className="footer-nav">
-              {navRoutes.map((r) => (
+              {wallet.address && navRoutes.map((r) => (
                 <a key={r.path} href={r.path} onClick={(e) => { e.preventDefault(); navigate(r.path); }}>{r.label}</a>
               ))}
             </nav>
@@ -152,6 +158,7 @@ function App() {
           </div>
         </div>
       )}
+      {connectBlocked && <ConnectGateModal onConnect={() => void wallet.connect()} />}
       {gateBlocked && gate === "blocked" && <GateModal />}
       {wallet.txStage === "confirmed" && wallet.txHash && (
         <TxSuccessModal
