@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { commentaryOf, gapLabel, positionMap, type LaneCurve } from "./broadcast";
+import { commentaryOf, gapLabel, marginLabel, marginOf, positionMap, type LaneCurve } from "./broadcast";
 
 const A: LaneCurve = { tokenId: 1n, rank: 0, progressCurve: [0.3, 0.6, 0.9, 1.0] };
 const B: LaneCurve = { tokenId: 2n, rank: 1, progressCurve: [0.5, 0.7, 0.85, 0.95] };
@@ -66,5 +66,28 @@ describe("broadcast layer (presentation only, restates the replay)", () => {
 
   it("is deterministic: same replay, same commentary", () => {
     expect(commentaryOf([A, B, C], 1n, 4)).toEqual(commentaryOf([A, B, C], 1n, 4));
+  });
+
+  it("stamps the photo-finish margin from the two finish times", () => {
+    const margin = marginOf([
+      { tokenId: 1n, rank: 0, finishTime: 0.5 },
+      { tokenId: 2n, rank: 1, finishTime: 0.508 },
+    ]);
+    expect(margin).toEqual({ winner: 1n, runnerUp: 2n, marginPct: 0.8 });
+    expect(marginLabel(margin)).toBe("WON BY 0.8%");
+  });
+
+  it("the chain's rank decides who won, never the presentation times", () => {
+    const margin = marginOf([
+      { tokenId: 1n, rank: 0, finishTime: 0.7 },
+      { tokenId: 2n, rank: 1, finishTime: 0.5 },
+    ]);
+    expect(margin?.winner).toBe(1n);
+    expect(marginLabel(margin)).toBe("WON BY 0.0%");
+  });
+
+  it("a one-racer field has no margin to stamp", () => {
+    expect(marginOf([{ tokenId: 1n, rank: 0, finishTime: 0.5 }])).toBeNull();
+    expect(marginLabel(null)).toBe("");
   });
 });

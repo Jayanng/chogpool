@@ -61,6 +61,25 @@ function leaderAt(lanes: LaneCurve[], segment: number): LaneCurve | null {
   return best;
 }
 
+/** The margin the show stamps on the photo finish: the winner's finish time
+ *  minus the runner-up's, as a percent of the race. A restatement of two
+ *  finishTime values the replay already carries; rank order is the chain's,
+ *  so a presentation gap can never flip who won. */
+export function marginOf(
+  lanes: Array<{ tokenId: bigint; rank: number; finishTime: number }>,
+): { winner: bigint; runnerUp: bigint; marginPct: number } | null {
+  const sorted = [...lanes].sort((a, b) => a.rank - b.rank || a.finishTime - b.finishTime);
+  if (sorted.length < 2) return null;
+  const [w, r] = sorted;
+  const pct = Math.max(0, (r.finishTime - w.finishTime) * 100);
+  return { winner: w.tokenId, runnerUp: r.tokenId, marginPct: Math.round(pct * 100) / 100 };
+}
+
+export function marginLabel(margin: { marginPct: number } | null): string {
+  if (!margin) return "";
+  return `WON BY ${margin.marginPct.toFixed(1)}%`;
+}
+
 /** The commentary the show narrates: one line per moment the curves actually
  *  contain (lead changes, the stretch, the flag). Sorted by the winner's
  *  progress so the ticker can pick the latest line on screen at any frame. */

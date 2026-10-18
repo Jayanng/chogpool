@@ -44,6 +44,9 @@ export type ShareCardResult = {
   /** True for a draw that exists only in its own record: the card then wears
    *  the rehearsal strip and drops every "read from the chain" claim. */
   rehearsal?: boolean;
+  /** Photo-finish margin stamp ("WON BY 0.8%"), or null when there is no
+   *  single winner to stamp. */
+  marginLabel?: string | null;
 };
 
 /** Winner text lives left of the QR block (x 952..1148) and ends by x 920 at
@@ -200,6 +203,11 @@ export function ShareCard({
         NAME_LEFT,
         518,
       );
+      if (result.marginLabel) {
+        ctx.fillStyle = tokens.color.accent;
+        ctx.font = "700 24px 'DM Mono', monospace";
+        ctx.fillText(fitLabel(ctx, result.marginLabel, WIDE_LABEL_MAX), NAME_LEFT, 554);
+      }
     } else if (subject) {
       const winner = result?.winners[0] ?? null;
       const name = winner
@@ -246,6 +254,11 @@ export function ShareCard({
           NAME_LEFT,
           518,
         );
+        if (result.marginLabel) {
+          ctx.fillStyle = tokens.color.accent;
+          ctx.font = "700 24px 'DM Mono', monospace";
+          ctx.fillText(fitLabel(ctx, result.marginLabel, WIDE_LABEL_MAX), NAME_LEFT, 554);
+        }
       }
     } else {
       ctx.fillStyle = tokens.color.faint;

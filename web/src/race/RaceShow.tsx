@@ -34,7 +34,7 @@ import { Countdown } from "../components/Countdown";
 import { ShareCard, type ShareCardResult } from "../components/ShareCard";
 import { ChogSprite } from "../components/ChogSprite";
 import { appearanceOf } from "./chogArt";
-import { commentaryOf, gapLabel, positionMap } from "./broadcast";
+import { commentaryOf, gapLabel, marginLabel, marginOf, positionMap } from "./broadcast";
 import { Confetti } from "./Confetti";
 import { countUpT, countUpValue, ordinalPlace, runnerLeft, trailWidth } from "./visual";
 import type { RaceBundle, RacerDisplay } from "./useRaceBundle";
@@ -102,6 +102,9 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
     () => (replay ? commentaryOf(replay.lanes, replay.winner, replay.params.segments) : []),
     [replay],
   );
+  /** Photo-finish margin, stamped once there is a single winner to stamp. */
+  const margin = replay ? marginOf(replay.lanes) : null;
+  const shareMargin = draw.winners.length === 1 ? marginLabel(margin) : null;
 
   const winnerViews: WinnerView[] = draw.winners.map((tokenId) => ({
     tokenId,
@@ -203,6 +206,7 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
             imageUrl: view.racer?.imageUrl ?? null,
           })),
           potLabel: formatAsset(draw.potPerWinner),
+          marginLabel: shareMargin,
           zeroPot,
           rehearsal,
         }
@@ -304,6 +308,7 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
           </Badge>
           <span className="show-disclosure">{replayDisclosure(rehearsal)}</span>
         </div>
+        {finished && shareMargin && <div className="show-margin">{shareMargin}</div>}
       </Panel>
 
       {decided && phase === "done" && (
