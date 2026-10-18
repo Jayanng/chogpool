@@ -85,6 +85,12 @@ function App() {
     return () => mq.removeEventListener("change", onChange);
   }, []);
 
+  // Before a wallet is connected there is no app at all: just the connect wall,
+  // with nothing rendered behind it to peek through.
+  if (connectBlocked) {
+    return <ConnectGateModal onConnect={() => void wallet.connect()} />;
+  }
+
   return (
     <main className="app-shell">
       <nav className="topbar">
@@ -158,7 +164,6 @@ function App() {
           </div>
         </div>
       )}
-      {connectBlocked && <ConnectGateModal onConnect={() => void wallet.connect()} />}
       {gateBlocked && gate === "blocked" && <GateModal />}
       {wallet.txStage === "confirmed" && wallet.txHash && (
         <TxSuccessModal
