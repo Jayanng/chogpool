@@ -32,6 +32,8 @@ import {
 } from "../lib/result-copy";
 import { Countdown } from "../components/Countdown";
 import { ShareCard, type ShareCardResult } from "../components/ShareCard";
+import { ChogSprite } from "../components/ChogSprite";
+import { appearanceOf } from "./chogArt";
 import { Confetti } from "./Confetti";
 import { countUpT, countUpValue, ordinalPlace, runnerLeft, trailWidth } from "./visual";
 import type { RaceBundle, RacerDisplay } from "./useRaceBundle";
@@ -367,6 +369,7 @@ function LaneRow({
   seed: Hex;
 }) {
   const perk = perkEffectFor(drawId, racer.tokenId.toString());
+  const appearance = appearanceOf({ tier: racer.tier, traits: racer.traits, boost: racer.boost, perkId: perk?.id ?? null });
   const name = ipfsName(racer.tokenId, racer.name, racer.metadataMissing);
   const idLabel = `CHOG #${racer.tokenId.toString()}`;
   return (
@@ -386,11 +389,13 @@ function LaneRow({
       </div>
       <div className={`show-track${moving ? " show-track--moving" : ""}`}>
         <div className="show-trail" style={{ width: trailWidth(progress) }} />
-        <div className="show-runner" style={{ left: runnerLeft(progress, RUNNER_PX) }}>
+        <div className={`show-runner${appearance.aura ? " show-runner--aura" : ""}`} style={{ left: runnerLeft(progress, RUNNER_PX) }}>
           {racer.imageUrl ? (
             <img src={racer.imageUrl} alt={idLabel} className="show-runner-img" />
-          ) : (
+          ) : racer.metadataMissing ? (
             <span className="show-runner-dot">◉</span>
+          ) : (
+            <ChogSprite appearance={appearance} />
           )}
           <span className="show-runner-plate">{idLabel}</span>
         </div>
