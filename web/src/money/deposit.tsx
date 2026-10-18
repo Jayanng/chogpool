@@ -30,6 +30,7 @@ import {
   withdrawAllFromPool,
 } from "../lib/money";
 import { navigate } from "../lib/router";
+import { loadMyChog } from "../lib/mychog";
 import { shortAddress } from "../lib/wallet";
 import { testnetReadClient } from "../lib/wallet";
 import { CHAIN, DEPLOYED } from "../generated/addresses.gen";
@@ -92,12 +93,20 @@ export default function Deposit() {
   // is read up front rather than discovered by a reverted transaction.
   const [holdsMirror, setHoldsMirror] = useState<boolean | null>(null);
 
+  // The Chog this wallet brought to the track, recorded when it was minted. The
+  // form is prefilled with it so nobody types an id they might get wrong.
+  const myChog = useMemo(() => (wallet.address ? loadMyChog(wallet.address) : null), [wallet.address]);
+  useEffect(() => {
+    if (myChog !== null && tokenIdText === "") setTokenIdText(myChog.toString());
+  }, [myChog, tokenIdText]);
+
   const tokenId = useMemo(() => {
+    if (myChog !== null) return myChog;
     const raw = tokenIdText.trim();
     if (!/^\d{1,4}$/.test(raw)) return null;
     const id = BigInt(raw);
     return id >= 1n && id <= MAX_SUPPLY ? id : null;
-  }, [tokenIdText]);
+  }, [myChog, tokenIdText]);
 
   const amount = useMemo(() => parseUsdc(amountText), [amountText]);
 
@@ -352,13 +361,24 @@ export default function Deposit() {
               aside={<Badge tone={needsApproval ? "accent" : "neutral"}>{needsApproval ? "STEP 3 · APPROVE" : "STEP 3 · DEPOSIT"}</Badge>}
               footer="ONE BOOK PER CHOG: DEPOSIT AS MANY CHOGS AS YOU HOLD"
             >
-              <label className="field">
-                <span>CHOG ID (1–1,969)</span>
-                <input inputMode="numeric" placeholder="1462" value={tokenIdText} onChange={(e) => setTokenIdText(e.target.value)} />
-              </label>
+              {myChog !== null ? (
+                <div className="field">
+                  <span>YOUR CHOG</span>
+                  <div className="field-fixed">CHOG #{myChog.toString()}</div>
+                </div>
+              ) : (
+                <label className="field">
+                  <span>CHOG ID (1–1,969)</span>
+                  <input inputMode="numeric" placeholder="1462" value={tokenIdText} onChange={(e) => setTokenIdText(e.target.value)} />
+                </label>
+              )}
               <label className="field">
                 <span>AMOUNT (USDC)</span>
                 <input inputMode="decimal" placeholder="10.00" value={amountText} onChange={(e) => setAmountText(e.target.value)} />
+                <span className="field-hint">
+                  0 to {formatUsdc(usdc)} USDC available
+                  <button type="button" className="field-max" onClick={() => setAmountText(formatUsdc(usdc))}>Max</button>
+                </span>
               </label>
               <p className="muted small">
                 Getting back is the position's value at the time, not the number you type.

@@ -10,6 +10,7 @@
 // that nobody signed anything.
 
 import { useState } from "react";
+import { saveMyChog } from "../lib/mychog";
 import { Badge, Button, Card, Panel, Skeleton, Stat, Toast } from "@chogpool/ui";
 import { navigate } from "../lib/router";
 import { useWallet } from "../lib/useWallet";
@@ -141,6 +142,7 @@ export default function Mint() {
       }, undefined, `Minted Chog #${record.tokenId}`);
       if (ok) {
         setMessage(`Chog #${record.tokenId} is mirrored. Its stored URI is now provably the one its mainnet owner signed.`);
+        if (wallet.address) saveMyChog(wallet.address, record.tokenId);
         setLookup(await lookupChog(record.tokenId));
         void loadSupplyAndTestDrive();
       }
@@ -174,6 +176,7 @@ export default function Mint() {
       }, undefined, `Minted Test Drive Chog #${record.tokenId}`);
       if (ok) {
         setMessage(`Chog #${record.tokenId} is mirrored as a Test Drive. Nobody signed anything for it, that is what the label means.`);
+        if (wallet.address) saveMyChog(wallet.address, record.tokenId);
         setLookup(await lookupChog(record.tokenId));
         void loadSupplyAndTestDrive();
       }

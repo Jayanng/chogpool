@@ -1644,3 +1644,17 @@ body:has(.gate-overlay), html:has(.gate-overlay) { overflow: hidden; }
   margin: 2px 0 10px; text-align: center;
   font: 700 16px/1.45 'Inter', sans-serif; color: var(--c-ink);
 }
+/* The deposit form: the Chog is fixed (you brought it), the amount is the only
+   thing to fill in, with the range spelled out and a Max shortcut. */
+.field-fixed {
+  padding: 13px 16px; border-radius: 12px; border: 2px solid var(--c-ink);
+  background: rgba(255, 209, 102, .22); font: 700 15px 'Inter', sans-serif; color: var(--c-ink);
+}
+.field-hint {
+  display: flex; align-items: center; gap: 10px; margin-top: 8px;
+  font: 500 12px/1.4 'Inter', sans-serif; color: var(--c-muted);
+}
+.field-max {
+  padding: 5px 12px; border-radius: 999px; border: 2px solid var(--c-ink);
+  background: var(--c-cream); font: 700 11px 'Inter', sans-serif; color: var(--c-ink); cursor: pointer;
+}
