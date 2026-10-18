@@ -10,6 +10,8 @@ export type CommentaryEvent = {
   /** Winner-progress fraction (0..1) at which this line appears. */
   at: number;
   text: string;
+  /** Set on lead-change lines: the racer the line is about. */
+  tokenId?: bigint;
 };
 
 export type LaneCurve = {
@@ -61,6 +63,20 @@ function leaderAt(lanes: LaneCurve[], segment: number): LaneCurve | null {
   return best;
 }
 
+/** Dust puffs: the progress stops where a racer's replay speeds run hot
+ *  (>= 1.08x). Presentation only, and deterministic twice over: the stops
+ *  come from the same speeds array every replay of this draw walks. */
+export function puffStops(lane: { speeds: number[]; progressCurve: number[] }, limit = 3): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < lane.speeds.length && out.length < limit; i++) {
+    if (lane.speeds[i] >= 1.08) {
+      const at = i === 0 ? 0 : (lane.progressCurve[i - 1] ?? 0);
+      out.push(Math.round(at * 1000) / 1000);
+    }
+  }
+  return out;
+}
+
 /** The margin the show stamps on the photo finish: the winner's finish time
  *  minus the runner-up's, as a percent of the race. A restatement of two
  *  finishTime values the replay already carries; rank order is the chain's,
@@ -98,7 +114,7 @@ export function commentaryOf(lanes: LaneCurve[], winner: bigint, segments: numbe
     const now = leaderAt(lanes, i);
     if (now && leader && now.tokenId !== leader.tokenId) {
       changes++;
-      events.push({ at: winnerAt(i), text: `${label(now.tokenId)} TAKES THE LEAD` });
+      events.push({ at: winnerAt(i), text: `${label(now.tokenId)} TAKES THE LEAD`, tokenId: now.tokenId });
     }
     leader = now;
   }

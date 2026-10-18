@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { commentaryOf, gapLabel, marginLabel, marginOf, positionMap, type LaneCurve } from "./broadcast";
+import { commentaryOf, gapLabel, marginLabel, marginOf, positionMap, puffStops, type LaneCurve } from "./broadcast";
 
 const A: LaneCurve = { tokenId: 1n, rank: 0, progressCurve: [0.3, 0.6, 0.9, 1.0] };
 const B: LaneCurve = { tokenId: 2n, rank: 1, progressCurve: [0.5, 0.7, 0.85, 0.95] };
@@ -89,5 +89,18 @@ describe("broadcast layer (presentation only, restates the replay)", () => {
   it("a one-racer field has no margin to stamp", () => {
     expect(marginOf([{ tokenId: 1n, rank: 0, finishTime: 0.5 }])).toBeNull();
     expect(marginLabel(null)).toBe("");
+  });
+
+  it("lead-change lines carry the racer they are about", () => {
+    const events = commentaryOf([A, B, C], 1n, 4);
+    const change = events.find((e) => e.text.includes("TAKES THE LEAD"));
+    expect(change?.tokenId).toBe(1n);
+  });
+
+  it("dust puffs land where the replay speeds run hot", () => {
+    const stops = puffStops({ speeds: [1.2, 1.0, 1.1, 0.9], progressCurve: [0.3, 0.6, 0.85, 1.0] });
+    expect(stops).toEqual([0, 0.6]);
+    // a cold run gets no dust at all
+    expect(puffStops({ speeds: [1, 1, 1], progressCurve: [0.3, 0.6, 1] })).toEqual([]);
   });
 });

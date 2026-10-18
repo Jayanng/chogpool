@@ -402,6 +402,39 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
   0%, 100% { opacity: .65; }
   50% { opacity: 1; }
 }
+/* Atmosphere: gate lift, dust puffs, lead-change pan, checkered wipe. */
+.show-gates {
+  position: absolute; inset: 0; z-index: 6; pointer-events: none;
+  background: repeating-linear-gradient(90deg, rgba(36, 26, 36, .5) 0 12px, transparent 12px 52px);
+  animation: gate-lift .7s ease-in both;
+}
+@keyframes gate-lift {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(-102%); opacity: 0; }
+}
+.show-puff {
+  position: absolute; top: 32px; width: 10px; height: 10px; border-radius: 50%;
+  background: rgba(255, 176, 122, .55); opacity: 0;
+  transition: opacity .45s ease, transform .45s ease; transform: scale(.6);
+}
+.show-puff--live { opacity: .9; transform: scale(1.25); }
+.show-stage--pan { animation: stage-pan .55s ease both; }
+@keyframes stage-pan {
+  0% { transform: translateX(0); }
+  30% { transform: translateX(-7px); }
+  65% { transform: translateX(5px); }
+  100% { transform: translateX(0); }
+}
+.podium-wipe {
+  position: absolute; inset: 0; z-index: 7; pointer-events: none;
+  background: repeating-conic-gradient(#241a24 0% 25%, #fdf6ee 0% 50%) 0 0 / 52px 52px;
+  animation: wipe-out .85s ease-in both;
+}
+@keyframes wipe-out {
+  from { clip-path: inset(0 0 0 0); }
+  to { clip-path: inset(0 0 0 100%); }
+}
+
 /* Photo-finish margin stamp (show only; a restatement of two finish times). */
 .show-margin {
   position: absolute; right: 18px; bottom: 64px; transform: rotate(-6deg);
