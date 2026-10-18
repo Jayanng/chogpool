@@ -314,7 +314,7 @@ export default function Mint() {
                 )}
 
                 <div className="button-row">
-                  <Button onClick={() => void mintVerified()} disabled={busy.sign || busy.mint}>
+                  <Button onClick={() => void mintVerified()} disabled={busy.sign || busy.mint || !ownerIsConnected}>
                     {busy.sign ? "Waiting for signature…" : busy.mint ? "Minting…" : "Sign & mint (verified)"}
                   </Button>
                   <Button variant="outline" onClick={() => void mintTestDrive()} disabled={busy["test-drive"] || hasTestDrive === true}>

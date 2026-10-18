@@ -177,7 +177,7 @@ export default function Deposit() {
   const stableReady = balances.stableFaucetReadyAt ?? 0;
 
   const needsApproval = amount !== null && amount > 0n && allowance < amount;
-  const canDeposit = amount !== null && amount > 0n && usdc >= amount && !needsApproval;
+  const canDeposit = amount !== null && amount > 0n && usdc >= amount && !needsApproval && holdsMirror === true;
 
   async function claimFaucet() {
     setNote(null);
@@ -391,7 +391,7 @@ export default function Deposit() {
                 ) : (
                   <Button
                     onClick={() => void deposit()}
-                    disabled={busy.deposit || !canDeposit || tokenId === null || holdsMirror === false}
+                    disabled={busy.deposit || !canDeposit || tokenId === null || holdsMirror !== true}
                   >
                     {busy.deposit ? "Sending…" : "Deposit"}
                   </Button>
