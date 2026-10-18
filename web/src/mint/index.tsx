@@ -229,6 +229,19 @@ export default function Mint() {
       {message && <Toast tone={wallet.txError === message ? "danger" : "info"} message={message} />}
       {wallet.txError && <Toast tone="danger" message={wallet.txError} />}
 
+      {hasTestDrive && (
+        <Panel className="feature-panel">
+          <Card title="You are in. Next: fund and deposit." footer="PRINCIPAL STAYS WITH YOU, ONLY YIELD RACES">
+            <p className="muted">
+              You hold a Chog, so the track is open. Put in some test funds and deposit against your
+              Chog. Your principal stays withdrawable, and only the realized yield feeds the prize
+              pot.
+            </p>
+            <Button onClick={() => navigate("/play")}>Fund and deposit →</Button>
+          </Card>
+        </Panel>
+      )}
+
       <Panel className="feature-panel">
         <Card
           title="1. Pick a Chog"
