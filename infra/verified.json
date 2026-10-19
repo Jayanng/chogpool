@@ -72,6 +72,10 @@
       "address": "0x50959dd2a4ef310f9aa2df9498cE9aC0aB956276",
       "source": "eth_getCode 2026-10-14 + puddleswap.org/skill.md"
     },
+    "multicall3": {
+      "address": "0xcA11bde05977b3631167028862be2a173976ca11",
+      "source": "eth_getCode on testnet-rpc.monad.xyz returns 7,619 chars 2026-10-20; canonical Multicall3, used by web/src/lib/book.ts to batch sharesOf()"
+    },
     "uniswapV2Factory": {
       "address": "0xd498f5beBD0C9f1FE0135a0Cf942dA67Ee6e8A9B",
       "source": "getPair/allPairsLength live + puddleswap.org/skill.md 2026-10-14",

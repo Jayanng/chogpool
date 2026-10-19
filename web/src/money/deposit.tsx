@@ -328,6 +328,15 @@ export default function Deposit() {
           live value. Deposits are never used as prizes.
         </p>
         <div className="network-note"><span className="status-dot" /> Play: Monad Testnet · test funds only</div>
+        {position && position.shares > 0n && (
+          <div className="entered-banner" role="status">
+            <strong>CHOG #{(myChog ?? tokenId)?.toString() ?? "?"} IS ENTERED</strong>
+            <span>
+              Your stake is in the book and enters every draw. The gate drops when the race is
+              called, and you will find your Chog on the card under Race.
+            </span>
+          </div>
+        )}
       </section>
 
       {!wallet.connected ? (
@@ -415,6 +424,11 @@ export default function Deposit() {
                   0 to {formatUsdc(usdc)} USDC available
                   <button type="button" className="field-max" onClick={() => setAmountText(formatUsdc(usdc))}>Max</button>
                 </span>
+                {amount !== null && amount > 0n && usdc < amount && quoteBalance > 0n && (
+                  <span className="field-hint">
+                    You hold USDT. The pool takes USDC. Use the swap in Fund your wallet first.
+                  </span>
+                )}
               </label>
               <p className="muted small">
                 Getting back is the position's value at the time, not the number you type.
@@ -494,7 +508,7 @@ export default function Deposit() {
             <Stat
               label="NEXT DRAW"
               value={poolStats && poolStats.nextDrawAt > 0 ? new Date(poolStats.nextDrawAt * 1000).toUTCString() : "None scheduled"}
-              note="Draws are opened by the operator, on demand."
+              note="The gate drops when the race is called. Deposits are open and every stake is already in the book."
             />
           </div>
           <Button variant="outline" onClick={() => navigate("/verify")}>How draws stay fair ↗</Button>

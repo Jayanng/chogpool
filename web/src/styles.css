@@ -435,6 +435,24 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
   to { clip-path: inset(0 0 0 100%); }
 }
 
+/* Entry journey: the entered banner and the live book. */
+.entered-banner {
+  margin: 14px 0 0; padding: 14px 18px; border-radius: 14px;
+  background: rgba(47, 122, 61, 0.1); border: 1px solid rgba(47, 122, 61, 0.35);
+  display: grid; gap: 4px;
+}
+.entered-banner strong { font-size: 16px; letter-spacing: .06em; color: #2f7a3d; }
+.entered-banner span { font-size: 13px; color: #3d2436; }
+.book-list { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 6px; }
+.book-row {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center;
+  padding: 8px 12px; border-radius: 10px; background: rgba(36, 26, 36, 0.05);
+  font-size: 13px;
+}
+.book-id { font-weight: 700; letter-spacing: .04em; }
+.book-stake { font-family: 'dm mono', ui-monospace, monospace; }
+.book-share { font-family: 'dm mono', ui-monospace, monospace; color: #6b4a5c; min-width: 64px; text-align: right; }
+
 /* Photo-finish margin stamp (show only; a restatement of two finish times). */
 .show-margin {
   position: absolute; right: 18px; bottom: 64px; transform: rotate(-6deg);
