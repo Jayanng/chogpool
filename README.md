@@ -1,12 +1,14 @@
 # Chog Pool
 
-**Your dollars never enter the race. The track only competes with yield.**
+**Deposits are never used as prizes. The track only competes with yield.**
 
 Chog Pool is a prize-savings game on Monad. Deposit testnet USDC, bind it to
-one of your Chog NFTs, and your principal stays withdrawable in full, any
-time. Only the yield your deposit earns goes onto the track. Every draw, a
-field of Chogs races for the pot, and the winner is decided by an on-chain
-draw that anyone can re-verify, by hand, from the published seed.
+one of your Chog NFTs, and your principal stays withdrawable at any time:
+you receive your shares of the pool at live value. Only realized yield goes
+onto the track. For this testnet demo the pot is seeded by the team and
+labelled as seeded on the yield page; deposits are never used as prizes.
+Every draw, a field of Chogs races for the pot, and the winner is decided by
+an on-chain draw that anyone can re-verify, by hand, from the published seed.
 
 Built for Chogathon 2026.
 

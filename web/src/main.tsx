@@ -140,7 +140,7 @@ function App() {
               ))}
             </nav>
           </div>
-          <p className="footer-tag">Your dollars never enter the race.</p>
+          <p className="footer-tag">Deposits are never used as prizes.</p>
           <div className="footer-note">
             Deposits are principal-safe by design, not by guarantee. Yield sources carry their own risks.
           </div>

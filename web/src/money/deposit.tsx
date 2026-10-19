@@ -7,8 +7,8 @@
 // one is genuinely needed, so nobody approves before they have the asset or
 // deposits before they have approved.
 //
-// Withdraw is always available and always full: principal comes back in full,
-// which is the property the product claims.
+// Withdraw is always available and charges no fee. You receive your shares of
+// the pool at live value, which is the property the product claims.
 
 import { useEffect, useMemo, useState } from "react";
 import { type Address } from "viem";
@@ -324,7 +324,8 @@ export default function Deposit() {
         <h1>Save to race.</h1>
         <p className="lede">
           Deposit testnet USDC against a Chog and its time-weighted balance enters every draw.
-          Principal comes back in full, any time. Only realized yield feeds the prize pot.
+          Withdrawals are instant and charge no fee. You receive your shares of the pool at
+          live value. Deposits are never used as prizes.
         </p>
         <div className="network-note"><span className="status-dot" /> Play: Monad Testnet · test funds only</div>
       </section>
@@ -488,7 +489,7 @@ export default function Deposit() {
       <Panel className="feature-panel">
         <Card title="The pool" footer="READ LIVE FROM THE POOL CONTRACT">
           <div className="stat-row">
-            <Stat label="PRIZE POT" value={poolStats ? `${formatUsdc(poolStats.pot)} USDC` : "…"} note="Grows only from realized yield. Nobody can inflate it." tone="accent" />
+            <Stat label="PRIZE POT" value={poolStats ? `${formatUsdc(poolStats.pot)} USDC` : "…"} note="Never fed by deposits. The demo pot is seeded by the team; the yield page separates seeded from earned." tone="accent" />
             <Stat label="TOTAL DEPOSITED" value={poolStats ? `${formatUsdc(poolStats.totalPrincipal)} USDC` : "…"} note="Current holdings across all Chogs, not lifetime." />
             <Stat
               label="NEXT DRAW"
