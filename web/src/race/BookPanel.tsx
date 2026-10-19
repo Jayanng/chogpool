@@ -2,7 +2,7 @@
 // section so a deposit visibly puts a Chog on the card.
 import { useEffect, useState } from "react";
 import { type Address, parseAbi } from "viem";
-import { Card } from "@chogpool/ui";
+import { Card, Stat } from "@chogpool/ui";
 import { readBook, type BookEntry } from "../lib/book";
 import { formatUsdc } from "../lib/money";
 import { testnetReadClient } from "../lib/wallet";
@@ -15,6 +15,7 @@ const SHOWN = 12;
 export function BookPanel() {
   const [entries, setEntries] = useState<BookEntry[] | null>(null);
   const [total, setTotal] = useState<bigint | null>(null);
+  const [unread, setUnread] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -30,7 +31,9 @@ export function BookPanel() {
         setEntries(book);
         setTotal(totalShares as bigint);
       } catch {
-        setEntries([]);
+        // A failed read is NOT an empty book. Saying otherwise would put a
+        // false statement on screen.
+        setUnread(true);
       }
     })();
   }, []);
@@ -38,7 +41,13 @@ export function BookPanel() {
   return (
     <Card title="The book" footer="READ LIVE FROM THE POOL CONTRACT · SHARESOF(1..1,969)">
       {entries === null ? (
-        <p className="muted small">Reading the book…</p>
+        unread ? (
+          <p className="muted small">
+            Could not read the book from the chain. Refresh the page to try again.
+          </p>
+        ) : (
+          <p className="muted small">Reading the book…</p>
+        )
       ) : entries.length === 0 ? (
         <p className="muted small">
           No Chogs in the book yet. Enter at Play and your Chog is on the card. The gate drops
@@ -47,14 +56,11 @@ export function BookPanel() {
       ) : (
         <>
           <div className="stat-row">
-            <div className="stat">
-              <span>CHOGS ENTERED</span>
-              <strong>{entries.length}</strong>
-            </div>
-            <div className="stat">
-              <span>THE BOOK SO FAR</span>
-              <strong>{total && total > 0n ? `${formatUsdc(total)} USDC` : "…"}</strong>
-            </div>
+            <Stat label="CHOGS ENTERED" value={entries.length.toString()} />
+            <Stat
+              label="THE BOOK SO FAR"
+              value={total && total > 0n ? `${formatUsdc(total)} USDC` : "…"}
+            />
           </div>
           <ul className="book-list">
             {entries.slice(0, SHOWN).map((e) => (

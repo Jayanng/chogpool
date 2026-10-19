@@ -20,18 +20,36 @@ export type BookEntry = {
   shares: bigint;
 };
 
+/** Pure: turn per-id share reads into the sorted book. `null` means that
+ *  single call failed and is skipped, never guessed at. A Chog enters the
+ *  book only on a positive balance the chain actually returned. */
+export function collectEntries(ids: bigint[], shares: Array<bigint | null>): BookEntry[] {
+  const entries: BookEntry[] = [];
+  ids.forEach((id, i) => {
+    const s = shares[i];
+    if (s !== null && s > 0n) entries.push({ tokenId: id, shares: s });
+  });
+  // Biggest stake first; ties break by Chog id ascending, so the book has
+  // one true order every time.
+  entries.sort((a, b) => (b.shares === a.shares ? Number(a.tokenId - b.tokenId) : b.shares > a.shares ? 1 : -1));
+  return entries;
+}
+
 const BATCH = 400;
 
 /** Read the whole book. Returns every Chog holding shares, biggest stake
- *  first. An empty list means the book is genuinely empty. */
+ *  first. An empty list means the book is genuinely empty. Throws when the
+ *  chain cannot be read at all, so callers can tell "empty" from "unread". */
 export async function readBook(): Promise<BookEntry[]> {
   const pool = DEPLOYED.pool as Address;
-  const entries: BookEntry[] = [];
+  const ids: bigint[] = [];
+  const shares: Array<bigint | null> = [];
 
   for (let start = 1n; start <= BigInt(MAX_SUPPLY); start += BigInt(BATCH)) {
     const end = start + BigInt(BATCH) - 1n > BigInt(MAX_SUPPLY) ? BigInt(MAX_SUPPLY) : start + BigInt(BATCH) - 1n;
     const contracts: Array<{ address: Address; abi: typeof sharesAbi; functionName: "sharesOf"; args: [bigint] }> = [];
     for (let id = start; id <= end; id++) {
+      ids.push(id);
       contracts.push({ address: pool, abi: sharesAbi, functionName: "sharesOf", args: [id] });
     }
     const results = await testnetReadClient.multicall({
@@ -39,12 +57,10 @@ export async function readBook(): Promise<BookEntry[]> {
       allowFailure: true,
       multicallAddress: MULTICALL3,
     });
-    results.forEach((r, j) => {
-      const shares = r.status === "success" ? (r.result as bigint) : 0n;
-      if (shares > 0n) entries.push({ tokenId: contracts[j].args[0], shares });
+    results.forEach((r) => {
+      shares.push(r.status === "success" ? (r.result as bigint) : null);
     });
   }
 
-  entries.sort((a, b) => (b.shares === a.shares ? Number(a.tokenId - b.tokenId) : b.shares > a.shares ? 1 : -1));
-  return entries;
+  return collectEntries(ids, shares);
 }
