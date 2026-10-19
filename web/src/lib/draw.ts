@@ -40,6 +40,14 @@ export async function readCurrentDrawId(): Promise<bigint | null> {
   return id === 0n ? null : id;
 }
 
+/** One draw's state, straight from the engine. currentDrawId stays on a
+ *  finalized draw, so pages that gate on "a race is open" must read the
+ *  state instead of trusting the id alone. */
+export async function readDrawState(drawId: bigint): Promise<DrawStateName> {
+  const state = await call<number>(drawEngine, drawEngineAbi, "stateOf", [drawId]);
+  return drawStateName(state ?? 0);
+}
+
 export async function readRevealDeadline(): Promise<number> {
   const at = await testnetReadClient.readContract({
     address: drawEngine,

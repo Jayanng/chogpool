@@ -11,7 +11,6 @@ import { ipfsToGateway, type ChogRecord } from "../lib/chog";
 import { navigate } from "../lib/router";
 import tileCrowned from "./assets/c100.webp";
 import tileHoodie from "./assets/c25.webp";
-import tileBandana from "./assets/c40.webp";
 
 export default function Landing() {
   const [nextDrawAt, setNextDrawAt] = useState<number | null>(null);
@@ -57,29 +56,51 @@ export default function Landing() {
   }, []);
 
   return (
-    <>
+    <div className="landing">
       <section className="hero hero-scene">
         <div className="hero-glow" aria-hidden="true" />
+        <div className="hero-confetti" aria-hidden="true">
+          <svg style={{ left: "360px", top: "8px", width: "58px" }} viewBox="0 0 24 24" fill="#ffd84d"><path d="M12 0 C13 8 16 11 24 12 C16 13 13 16 12 24 C11 16 8 13 0 12 C8 11 11 8 12 0 Z" /></svg>
+          <svg style={{ left: "250px", top: "26px", width: "34px" }} viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#f3a0c9" /></svg>
+          <svg style={{ left: "452px", top: "10px", width: "122px" }} viewBox="0 0 60 30" fill="none"><path d="M4 22 Q 16 4, 28 22 T 52 22" stroke="#fff" strokeWidth="9" strokeLinecap="round" /></svg>
+          <svg style={{ left: "700px", top: "24px", width: "34px" }} viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#ff2d87" /></svg>
+          <svg style={{ left: "1072px", top: "16px", width: "62px" }} viewBox="0 0 24 24" fill="#fff"><path d="M12 0 C13 8 16 11 24 12 C16 13 13 16 12 24 C11 16 8 13 0 12 C8 11 11 8 12 0 Z" /></svg>
+          <svg style={{ left: "792px", top: "232px", width: "54px" }} viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke="#f3a0c9" strokeWidth="5" fill="none" /></svg>
+          <svg style={{ left: "766px", top: "20px", width: "38px" }} viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#ffd84d" /></svg>
+          <svg style={{ left: "884px", top: "26px", width: "32px" }} viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#ff2d87" /></svg>
+        </div>
         <div className="hero-copy">
-          <Badge tone="accent">MONAD TESTNET · LIVE BUILD</Badge>
-          <p className="kicker">SAVE TO RACE</p>
-          <h1>Your Chog is<br /><em>on the track.</em></h1>
-          <div className="catchphrase">Your dollars never enter the race.</div>
-          <p className="lede">A savings game for Chog holders. Your deposit stays yours. The yield becomes the race.</p>
+          <div className="hero-chips">
+            <span className="pill pill-dark">Prize savings on Monad</span>
+            <span className="pill pill-light">Test funds only</span>
+          </div>
+          <h1>Your dollars<br />never enter<br />the <em>race.</em></h1>
+          <p className="lede">A savings game for Chog holders. Your deposit stays yours and stays withdrawable. Only the yield competes, and every draw is checkable by anyone.</p>
           <div className="hero-actions">
-            <Button onClick={() => navigate("/deposit")}>Enter the track</Button>
-            <Button variant="quiet" onClick={() => navigate("/spectator")}>Watch the next race <span>↗</span></Button>
+            <Button onClick={() => navigate("/deposit")}>Open the app →</Button>
+            <Button variant="quiet" onClick={() => navigate("/race")}>See a real draw</Button>
+          </div>
+          <div className="trust-row">
+            <span className="chip"><span className="dot dot-green" />Principal safe</span>
+            <span className="chip"><span className="dot dot-pink" />Real yield only</span>
+            <span className="chip"><span className="dot dot-yellow" />Re-derivable</span>
           </div>
         </div>
 
         <div className="hero-stage">
-          <img className="hero-tile tile-crowned" src={tileCrowned} alt="Chog #100 from the Chog Genesis collection, crowned" />
-          <img className="hero-tile tile-hoodie" src={tileHoodie} alt="Chog #25 from the Chog Genesis collection in a pink hood" />
-          <img className="hero-tile tile-third" src={tileBandana} alt="A bandana-wearing Chog from the Chog Genesis collection" />
-          <Panel className="track-card">
+          <div className="sticker sticker-lg"><img src={tileCrowned} alt="Chog #100 from the Chog Genesis collection, crowned" /></div>
+          <div className="sticker sticker-sm"><img src={tileHoodie} alt="Chog #25 from the Chog Genesis collection in a pink hood" /></div>
+          <div className="float-pill fp-odds"><b>98.37%</b> odds</div>
+          <div className="float-pill fp-final"><span className="dot dot-green" />Race 01 finalized</div>
+          <div className="float-pill fp-paid"><b>0.000819</b> USDC paid</div>
+        </div>
+      </section>
+
+      <section className="hero-live">
+        <Panel className="track-card">
           <div className="card-top">
             <span>GRAND PRIX</span>
-            <Badge tone="neutral">UI PREVIEW</Badge>
+            <Badge tone="neutral">RACE PREVIEW</Badge>
           </div>
           <Countdown nextDrawAt={nextDrawAt} sourceLabel={sourceLabel} fieldLocked={fieldLocked} />
           <div className="lane lane-one"><div className="lane-label">01 <span>{previewLanes[0] ? `CHOG #${previewLanes[0]}` : "ANY CHOG"}</span></div><div className="runner runner-one">◉</div></div>
@@ -88,7 +109,6 @@ export default function Landing() {
           <div className="track-footer"><span>PRIZE POT</span><strong>{pot === null ? "Yield accumulates live" : `${formatUnits(pot, POT_DECIMALS)} USDC${fixturesOn ? " (fixture)" : ""}`}</strong><span>↗</span></div>
           <p className="track-note">A preview of the race experience. Lane names come from the current draw when one exists and are placeholders otherwise. No race is running.</p>
         </Panel>
-        </div>
       </section>
 
       <Marquee items={["REAL YIELD ONLY", "PRINCIPAL WITHDRAWABLE ANY TIME", "PUBLISHED SEED · RE-VERIFIABLE", "TEST DRIVE AVAILABLE"]} tone="accent" />
@@ -96,7 +116,7 @@ export default function Landing() {
       <section className="proof-grid">
         <div>
           <p className="kicker">THE PROMISE</p>
-          <h2>Your dollars never enter the race.</h2>
+          <h2>Safe by design, checkable by anyone.</h2>
           <p className="muted">The track only competes with yield. Withdraw your principal at any time. Rewards scale with the pool.</p>
         </div>
         <Panel className="proof-panel">
@@ -125,7 +145,7 @@ export default function Landing() {
       </section>
 
       <section className="style-panel">
-        <p className="kicker">BUILT FOR PROOF</p>
+        <p className="kicker">THE FAIRNESS LAYER</p>
         <h2>Built for proof, designed for play.</h2>
         <p className="muted">Every race is a deterministic replay of an on-chain result. The verifier is part of the experience, not a footnote.</p>
         {fixturesOn && <Badge tone="danger">DEV FIXTURE MODE · SIMULATED DATA</Badge>}
@@ -135,9 +155,9 @@ export default function Landing() {
         <ul className="rules-list">
           <li>Test Drive Chogs are clearly labeled everywhere. They never blur into Verified Holder status.</li>
           <li>Traits are real off-chain IPFS metadata. Any boost mapping is our design, derived from real traits.</li>
-          <li>Deposits are principal-safe by design, not by guarantee. Yield sources carry their own risks.</li>
+          <li>The UI only visualizes what the contracts record. It never infers or invents a winner.</li>
         </ul>
       </Card>
-    </>
+    </div>
   );
 }

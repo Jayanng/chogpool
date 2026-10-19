@@ -1,4 +1,4 @@
-// The wallet connection every Phase 4 flow shares. One source of truth for
+// The wallet connection every money flow shares. One source of truth for
 // "who is connected, to which chain, with what balance", so no page re-invents
 // connection state or disagrees with the others about it.
 //
@@ -8,11 +8,16 @@
 //  - Never imply a chain we are not on. Wrong network is a blocking state with
 //    a switch button, not a warning that still lets the user click.
 //  - Read failures never block the connect button; they degrade the balances.
+//  - One store for the whole app: the header and every card read the same
+//    state through WalletProvider, so the header can never show a connected
+//    address while a card shows a connect gate.
+//  - A reload restores an already-authorized wallet silently (eth_accounts,
+//    which never pops the wallet UI). No click should ever be needed twice.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Address, Hash, WalletClient } from "viem";
 import { CHAIN, DEPLOYED } from "../generated/addresses.gen";
-import { connectWallet, detectWallet, onWalletChange, switchToTestnet, testnetReadClient, type WalletState } from "./wallet";
+import { connectWallet, detectWallet, onWalletChange, restoreSession, switchToTestnet, testnetReadClient, type WalletState } from "./wallet";
 import {
   readAllowance,
   readQuoteBalance,
@@ -42,7 +47,7 @@ const EMPTY_BALANCES: MoneyBalances = {
   testChogReadyAt: null,
 };
 
-export function useWallet() {
+function useWalletStore() {
   const [state, setState] = useState<WalletState | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
@@ -52,12 +57,18 @@ export function useWallet() {
   const [txStage, setTxStage] = useState<TxStage>("idle");
   const [txHash, setTxHash] = useState<Hash | null>(null);
   const [txError, setTxError] = useState<string | null>(null);
+  const [txLabel, setTxLabel] = useState<string | null>(null);
+
+  // A connect or disconnect the user clicked beats the silent restore that
+  // may still be in flight when they click it.
+  const userAction = useRef(false);
 
   const walletPresent = useMemo(() => detectWallet().present, []);
   const onWrongChain = state !== null && state.chainId !== CHAIN.monadTestnet.id;
   const deployed = DEPLOYED !== null;
 
   const connect = useCallback(async () => {
+    userAction.current = true;
     setConnecting(true);
     setConnectError(null);
     try {
@@ -70,6 +81,7 @@ export function useWallet() {
   }, []);
 
   const disconnect = useCallback(() => {
+    userAction.current = true;
     setState(null);
     setBalances(EMPTY_BALANCES);
     setTxStage("idle");
@@ -77,8 +89,34 @@ export function useWallet() {
     setTxError(null);
   }, []);
 
-  // Wallet-side account or chain changes: re-read rather than trust stale state.
-  useEffect(() => onWalletChange(() => { void connect(); }), [connect]);
+  // Silent session restore on load: pick up a wallet the site is already
+  // authorized for, without asking. eth_accounts never pops the wallet UI, so
+  // a reload lands connected with no second click. Nothing authorized means
+  // stay disconnected, and a provider failure is not a disconnect.
+  useEffect(() => {
+    let alive = true;
+    void restoreSession()
+      .then((restored) => {
+        if (alive && !userAction.current) setState(restored);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Wallet-side account or chain changes: re-read rather than trust stale
+  // state. The silent read also covers the wallet disconnecting everything,
+  // where asking for accounts would pop the wallet UI at the worst moment.
+  useEffect(
+    () =>
+      onWalletChange(() => {
+        void restoreSession()
+          .then((next) => setState(next))
+          .catch(() => {});
+      }),
+    [],
+  );
 
   const refresh = useCallback(async () => {
     if (!state) {
@@ -114,7 +152,7 @@ export function useWallet() {
    * never tell a user something settled that has not.
    */
   const runTx = useCallback(
-    async (write: (walletClient: WalletClient, account: Address) => Promise<{ ok: true; hash: Hash; detail: string } | { ok: false; error: string }>, onConfirmed?: () => void | Promise<void>) => {
+    async (write: (walletClient: WalletClient, account: Address) => Promise<{ ok: true; hash: Hash; detail: string } | { ok: false; error: string }>, onConfirmed?: () => void | Promise<void>, label?: string) => {
       if (!state) {
         setTxError("Connect a wallet first.");
         setTxStage("failed");
@@ -138,6 +176,7 @@ export function useWallet() {
           return false;
         }
         setTxStage("confirmed");
+        setTxLabel(label ?? null);
         if (onConfirmed) await onConfirmed();
         return true;
       } catch (error) {
@@ -161,10 +200,12 @@ export function useWallet() {
     setTxStage("idle");
     setTxHash(null);
     setTxError(null);
+    setTxLabel(null);
   }, []);
 
   return {
     address: state?.address ?? null,
+    chainId: state?.chainId ?? null,
     walletClient: state?.walletClient ?? null,
     connected: state !== null,
     connecting,
@@ -176,6 +217,7 @@ export function useWallet() {
     reading,
     txStage,
     txHash,
+    txLabel,
     txError,
     connect,
     disconnect,
@@ -187,4 +229,22 @@ export function useWallet() {
   };
 }
 
-export type MoneyWallet = ReturnType<typeof useWallet>;
+export type MoneyWallet = ReturnType<typeof useWalletStore>;
+
+const WalletContext = createContext<MoneyWallet | null>(null);
+
+/** Holds the single wallet store. Mount this once, at the app root. */
+export function WalletProvider({ children }: { children: ReactNode }) {
+  const value = useWalletStore();
+  return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
+}
+
+/**
+ * The wallet store every component shares. Header and cards read the same
+ * state through this, so they can never disagree about who is connected.
+ */
+export function useWallet(): MoneyWallet {
+  const value = useContext(WalletContext);
+  if (value === null) throw new Error("useWallet needs a WalletProvider above it in the app root.");
+  return value;
+}

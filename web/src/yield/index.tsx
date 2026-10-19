@@ -90,7 +90,7 @@ export default function Yield() {
     setNote(null);
     const ok = await wallet.runTx(harvestPot, () => {
       setNote("Harvested. The realized surplus is now in the prize pot.");
-    });
+    }, "Harvested the yield into the prize pot");
     if (ok) void wallet.refresh();
   }
 
@@ -121,7 +121,7 @@ export default function Yield() {
               note="What the LP tokens redeem for right now, measured by the pair."
               tone="lime"
             />
-            <Stat label="LP UNITS HELD" value={state ? state.liquidityUnits.toString() : "…"} note="LP tokens backing the position." />
+            <Stat label="LP UNITS HELD" value={state ? Number(state.liquidityUnits).toLocaleString() : "…"} note="LP tokens backing the position." />
           </div>
           {state && (
             <p className="muted small">

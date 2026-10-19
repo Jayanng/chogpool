@@ -4,42 +4,63 @@ import { Badge, Panel, Skeleton } from "@chogpool/ui";
 import "@chogpool/ui/styles.css";
 import "./styles.css";
 import { usePath, navigate } from "./lib/router";
+import { useWallet, WalletProvider } from "./lib/useWallet";
+import { useGate } from "./lib/gate";
 import { WalletButton } from "./components/WalletButton";
+import { GateModal } from "./components/GateModal";
+import { TxSuccessModal } from "./components/TxSuccessModal";
+import { ConnectGateModal } from "./components/ConnectGateModal";
 import { CHAIN } from "./generated/addresses.gen";
 
 // One async page bundle per route.
 const Landing = lazy(() => import("./landing"));
-const Deposit = lazy(() => import("./money/deposit"));
-const Race = lazy(() => import("./race"));
-const Draft = lazy(() => import("./draft"));
-const Mint = lazy(() => import("./mint"));
-const Yield = lazy(() => import("./yield"));
-const Tips = lazy(() => import("./tips"));
-const Verify = lazy(() => import("./verify"));
-const Spectator = lazy(() => import("./spectator"));
+const Play = lazy(() => import("./sections/Play"));
+const RaceSection = lazy(() => import("./sections/Race"));
+const EarnSection = lazy(() => import("./sections/Earn"));
+const Proof = lazy(() => import("./verify"));
 const StyleGuide = lazy(() => import("./style-guide"));
 
 const routes: Array<{ path: string; label: string; Component: LazyExoticComponent<ComponentType>; hidden?: boolean }> = [
   { path: "/", label: "Track", Component: Landing },
-  { path: "/deposit", label: "Deposit", Component: Deposit },
-  { path: "/race", label: "Race", Component: Race },
-  { path: "/draft", label: "Draft", Component: Draft },
-  { path: "/mint", label: "Mint", Component: Mint },
-  { path: "/yield", label: "Yield", Component: Yield },
-  { path: "/tips", label: "Tips", Component: Tips },
-  { path: "/verify", label: "Verify", Component: Verify },
-  { path: "/spectator", label: "Spectate", Component: Spectator },
-  // Design tool for the team, not user-facing. Reachable only by URL.
+  { path: "/play", label: "Play", Component: Play },
+  { path: "/race", label: "Race", Component: RaceSection },
+  { path: "/earn", label: "Earn", Component: EarnSection },
+  { path: "/proof", label: "Proof", Component: Proof },
+
+  // Aliases keep every existing deep link and navigate() call working.
+  { path: "/deposit", label: "Play", Component: Play },
+  { path: "/mint", label: "Play", Component: Play },
+  { path: "/draft", label: "Play", Component: Play },
+  { path: "/spectator", label: "Race", Component: RaceSection },
+  { path: "/career", label: "Race", Component: RaceSection },
+  { path: "/yield", label: "Earn", Component: EarnSection },
+  { path: "/tips", label: "Earn", Component: EarnSection },
+  { path: "/verify", label: "Proof", Component: Proof },
+
   { path: "/style", label: "Style", Component: StyleGuide, hidden: true },
 ];
 
-const navRoutes = routes.filter((r) => !r.hidden);
+// One nav entry per section: the first route for each label is the primary tab.
+const navRoutes = routes
+  .filter((r) => !r.hidden)
+  .filter((r, i, arr) => arr.findIndex((x) => x.label === r.label) === i);
 
 function App() {
   const path = usePath();
   const match = routes.find((r) => r.path === path) ?? routes[0];
   const Component = match.Component;
   const [menuOpen, setMenuOpen] = useState(false);
+  // The entry gate: a wallet with a real Chog or a Test Drive sails through; any
+  // other connected wallet is held at the door. The mint page stays reachable so
+  // it can be the way in.
+  const wallet = useWallet();
+  const gate = useGate(wallet.address ?? undefined);
+  // Fail closed: the gate stays shut while a check is in flight too, so an
+  // unanswered read never opens the app. Only a settled "in" opens it.
+  const gateBlocked = Boolean(wallet.address) && gate !== "in" && path !== "/mint";
+  // Before a wallet is connected there is no app at all: no nav, and every way
+  // in stops at "connect a wallet first". The landing is the only thing shown.
+  const connectBlocked = !wallet.address && path !== "/";
 
   useEffect(() => setMenuOpen(false), [path]);
 
@@ -64,10 +85,17 @@ function App() {
     return () => mq.removeEventListener("change", onChange);
   }, []);
 
+  // Before a wallet is connected there is no app at all: just the connect wall,
+  // with nothing rendered behind it to peek through.
+  if (connectBlocked) {
+    return <ConnectGateModal onConnect={() => void wallet.connect()} />;
+  }
+
   return (
     <main className="app-shell">
       <nav className="topbar">
         <a className="brand" href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}>CHOG<span>TRACK</span></a>
+        {wallet.address ? (
         <button
           className={`nav-toggle${menuOpen ? " nav-toggle--open" : ""}`}
           aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -76,12 +104,13 @@ function App() {
         >
           <span /><span /><span />
         </button>
+        ) : null}
         <div className={`nav-links${menuOpen ? " nav-links--open" : ""}`}>
-          {navRoutes.map((r) => (
+          {wallet.address && navRoutes.map((r) => (
             <a
               href={r.path}
               key={r.path}
-              className={r.path === match.path ? "nav-active" : ""}
+              className={r.label === match.label ? "nav-active" : ""}
               onClick={(e) => { e.preventDefault(); navigate(r.path); }}
             >
               {r.label}
@@ -102,13 +131,53 @@ function App() {
       </Suspense>
 
       <footer className="footer">
-        <Panel className="footer-panel">
-          <Badge tone="neutral">MONAD TESTNET BUILD</Badge>
-          <span className="footer-note">Deposits are principal-safe by design, not by guarantee. Yield sources carry their own risks.</span>
-        </Panel>
+        <div className="footer-card">
+          <div className="footer-top">
+            <a className="footer-brand" href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}>CHOG<span>TRACK</span></a>
+            <nav className="footer-nav">
+              {wallet.address && navRoutes.map((r) => (
+                <a key={r.path} href={r.path} onClick={(e) => { e.preventDefault(); navigate(r.path); }}>{r.label}</a>
+              ))}
+            </nav>
+          </div>
+          <p className="footer-tag">Your dollars never enter the race.</p>
+          <div className="footer-note">
+            Deposits are principal-safe by design, not by guarantee. Yield sources carry their own risks.
+          </div>
+          <div className="footer-meta">
+            <Badge tone="neutral">MONAD TESTNET BUILD</Badge>
+            <span>Monad testnet · test funds only · draws re-derivable from the published seed</span>
+          </div>
+        </div>
       </footer>
+
+      {gateBlocked && gate === "checking" && (
+        <div
+          className="gate-overlay gate-overlay--checking"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Checking your Chog"
+        >
+          <div className="gate-checking">
+            <p className="kicker">ONE MOMENT</p>
+            <p className="gate-checking__text">Checking your Chog…</p>
+          </div>
+        </div>
+      )}
+      {gateBlocked && gate === "blocked" && <GateModal />}
+      {wallet.txStage === "confirmed" && wallet.txHash && (
+        <TxSuccessModal
+          label={wallet.txLabel}
+          txHash={wallet.txHash}
+          onClose={() => wallet.resetTx()}
+        />
+      )}
     </main>
   );
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(
+  <WalletProvider>
+    <App />
+  </WalletProvider>,
+);

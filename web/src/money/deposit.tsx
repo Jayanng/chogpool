@@ -14,19 +14,23 @@ import { useEffect, useMemo, useState } from "react";
 import { type Address } from "viem";
 import { Badge, Button, Card, Panel, Stat, Toast } from "@chogpool/ui";
 import { useWallet, type MoneyBalances } from "../lib/useWallet";
+import { busyStates } from "../lib/tx-pending";
 import {
   ASSET,
   approveAsset,
+  approveQuoteForRouter,
   claimStableFaucet,
   cooldownLabel,
   depositToPool,
   formatUsdc,
   parseUsdc,
   quoteQuoteToAsset,
+  readQuoteRouterAllowance,
   swapQuoteToAsset,
   withdrawAllFromPool,
 } from "../lib/money";
 import { navigate } from "../lib/router";
+import { loadMyChog } from "../lib/mychog";
 import { shortAddress } from "../lib/wallet";
 import { testnetReadClient } from "../lib/wallet";
 import { CHAIN, DEPLOYED } from "../generated/addresses.gen";
@@ -44,7 +48,14 @@ const mirrorReadAbi = [
 
 const poolReadAbi = [
   { type: "function", name: "sharesOf", stateMutability: "view", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [{ name: "", type: "uint256" }] },
-  { type: "function", name: "depositOf", stateMutability: "view", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [{ name: "", type: "uint256" }] },
+  // depositOf returns the depositor and both counters. Reading it as a bare
+  // uint256 decoded the depositor ADDRESS as the principal and printed a
+  // giant number where the position's principal belongs.
+  { type: "function", name: "depositOf", stateMutability: "view", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [
+      { name: "depositor", type: "address" },
+      { name: "shares", type: "uint256" },
+      { name: "principal", type: "uint256" },
+    ] },
   { type: "function", name: "twabOf", stateMutability: "view", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [{ name: "", type: "uint256" }] },
   { type: "function", name: "oddsBpsOf", stateMutability: "view", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [{ name: "", type: "uint256" }] },
   { type: "function", name: "totalShares", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "uint256" }] },
@@ -83,6 +94,11 @@ async function readWithdrawable(tokenId: bigint): Promise<bigint> {
   return slice > shares ? shares : slice;
 }
 
+// Every money button on this page, for per-button pending tracking. One
+// transaction in flight marks only its own button as sending.
+const MONEY_ACTIONS = ["claim", "swap", "approve", "deposit", "withdraw"] as const;
+type MoneyAction = (typeof MONEY_ACTIONS)[number];
+
 type Position = {
   shares: bigint;
   principal: bigint;
@@ -100,17 +116,27 @@ export default function Deposit() {
   const [poolStats, setPoolStats] = useState<{ totalShares: bigint; totalPrincipal: bigint; pot: bigint; nextDrawAt: number } | null>(null);
   const [quote, setQuote] = useState<bigint | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  // Which action is in flight, so only its own button says "Sending...".
+  const [pending, setPending] = useState<MoneyAction | null>(null);
   // Whether the connected wallet holds the mirror for the entered Chog. The
   // pool rejects deposits against a Chog the depositor does not hold, so this
   // is read up front rather than discovered by a reverted transaction.
   const [holdsMirror, setHoldsMirror] = useState<boolean | null>(null);
 
+  // The Chog this wallet brought to the track, recorded when it was minted. The
+  // form is prefilled with it so nobody types an id they might get wrong.
+  const myChog = useMemo(() => (wallet.address ? loadMyChog(wallet.address) : null), [wallet.address]);
+  useEffect(() => {
+    if (myChog !== null && tokenIdText === "") setTokenIdText(myChog.toString());
+  }, [myChog, tokenIdText]);
+
   const tokenId = useMemo(() => {
+    if (myChog !== null) return myChog;
     const raw = tokenIdText.trim();
     if (!/^\d{1,4}$/.test(raw)) return null;
     const id = BigInt(raw);
     return id >= 1n && id <= MAX_SUPPLY ? id : null;
-  }, [tokenIdText]);
+  }, [myChog, tokenIdText]);
 
   const amount = useMemo(() => parseUsdc(amountText), [amountText]);
 
@@ -140,7 +166,7 @@ export default function Deposit() {
     }
     void (async () => {
       try {
-        const [shares, principal, twab, oddsBps, withdrawable] = await Promise.all([
+        const [shares, deposit, twab, oddsBps, withdrawable] = await Promise.all([
           testnetReadClient.readContract({ address: pool(), abi: poolReadAbi, functionName: "sharesOf", args: [tokenId] }),
           testnetReadClient.readContract({ address: pool(), abi: poolReadAbi, functionName: "depositOf", args: [tokenId] }),
           testnetReadClient.readContract({ address: pool(), abi: poolReadAbi, functionName: "twabOf", args: [tokenId] }),
@@ -151,7 +177,7 @@ export default function Deposit() {
           // the state that used to make "Withdraw all" revert on screen.
           readWithdrawable(tokenId),
         ]);
-        setPosition({ shares, principal, twab, oddsBps, withdrawable });
+        setPosition({ shares, principal: deposit[2], twab, oddsBps, withdrawable });
       } catch {
         setPosition(null);
       }
@@ -195,56 +221,101 @@ export default function Deposit() {
   const stableReady = balances.stableFaucetReadyAt ?? 0;
 
   const needsApproval = amount !== null && amount > 0n && allowance < amount;
-  const canDeposit = amount !== null && amount > 0n && usdc >= amount && !needsApproval;
+  const canDeposit = amount !== null && amount > 0n && usdc >= amount && !needsApproval && holdsMirror === true;
 
   async function claimFaucet() {
     setNote(null);
-    const ok = await wallet.runTx(claimStableFaucet, () => {
-      setNote("Claimed. Swap it into the pool's USDC, then deposit.");
-    });
-    if (ok) void wallet.refresh();
+    setPending("claim");
+    try {
+      const ok = await wallet.runTx(claimStableFaucet, () => {
+        setNote("Claimed. Swap it into the pool's USDC, then deposit.");
+      }, "Claimed 1,000 USDT from the faucet");
+      if (ok) void wallet.refresh();
+    } finally {
+      setPending(null);
+    }
   }
 
   async function swapQuote() {
     setNote(null);
-    const ok = await wallet.runTx(
-      (walletClient, account) => swapQuoteToAsset(walletClient, account, quoteBalance, quote ?? 0n, testnetReadClient),
-      () => setNote("Swapped. Your wallet now holds the pool's USDC."),
-    );
-    if (ok) void wallet.refresh();
+    setPending("swap");
+    try {
+      // The router pulls the quote token with transferFrom, so it needs an
+      // allowance first. A swap without one reverts on chain every time.
+      if (wallet.address && quoteBalance > 0n) {
+        const granted = await readQuoteRouterAllowance(testnetReadClient, wallet.address as Address);
+        if (granted < quoteBalance) {
+          const approved = await wallet.runTx(
+            (walletClient, account) => approveQuoteForRouter(walletClient, account, quoteBalance),
+            () => setNote("Approved the router to take the USDT. Sending the swap now."),
+            "Approved USDT for the swap",
+          );
+          if (!approved) return;
+        }
+      }
+      const ok = await wallet.runTx(
+        (walletClient, account) => swapQuoteToAsset(walletClient, account, quoteBalance, quote ?? 0n, testnetReadClient),
+        () => setNote("Swapped. Your wallet now holds the pool's USDC."),
+        `Swapped ${formatUsdc(quoteBalance)} USDT into USDC`,
+      );
+      if (ok) void wallet.refresh();
+    } finally {
+      setPending(null);
+    }
   }
 
   async function approve() {
     if (amount === null) return;
     setNote(null);
-    const ok = await wallet.runTx(
-      (walletClient, account) => approveAsset(walletClient, account, amount),
-      () => setNote("Approved. You can deposit now."),
-    );
-    if (ok) void wallet.refresh();
+    setPending("approve");
+    try {
+      const ok = await wallet.runTx(
+        (walletClient, account) => approveAsset(walletClient, account, amount),
+        () => setNote("Approved. You can deposit now."),
+        "Approved USDC for the pool",
+      );
+      if (ok) void wallet.refresh();
+    } finally {
+      setPending(null);
+    }
   }
 
   async function deposit() {
     if (amount === null || tokenId === null) return;
     setNote(null);
-    const ok = await wallet.runTx(
-      (walletClient, account) => depositToPool(walletClient, account, tokenId, amount),
-      () => setNote(`Deposited against Chog #${tokenId}. Time in the pool is what earns odds.`),
-    );
-    if (ok) void wallet.refresh();
+    setPending("deposit");
+    try {
+      const ok = await wallet.runTx(
+        (walletClient, account) => depositToPool(walletClient, account, tokenId, amount),
+        () => setNote(`Deposited against Chog #${tokenId}. Time in the pool is what earns odds.`),
+        `Deposited ${formatUsdc(amount)} USDC against Chog #${tokenId}`,
+      );
+      if (ok) void wallet.refresh();
+    } finally {
+      setPending(null);
+    }
   }
 
   async function withdrawAll() {
     if (tokenId === null) return;
     setNote(null);
-    const ok = await wallet.runTx(
-      (walletClient, account) => withdrawAllFromPool(walletClient, account, tokenId),
-      () => setNote("Withdrawn. Principal returns in full; only the yield stays in the pot."),
-    );
-    if (ok) void wallet.refresh();
+    setPending("withdraw");
+    try {
+      const ok = await wallet.runTx(
+        (walletClient, account) => withdrawAllFromPool(walletClient, account, tokenId),
+        () => setNote("Withdrawn. Principal returns in full; only the yield stays in the pot."),
+        `Withdrew your principal from Chog #${tokenId}`,
+      );
+      if (ok) void wallet.refresh();
+    } finally {
+      setPending(null);
+    }
   }
 
-  const busy = wallet.txStage === "pending";
+  // Each button is busy only while its own action is in flight. A claim
+  // waiting on its receipt says nothing about the deposit button, so the
+  // others keep their real labels and stay usable.
+  const busy = busyStates(pending, MONEY_ACTIONS);
 
   return (
     <>
@@ -292,22 +363,22 @@ export default function Deposit() {
                 <Stat
                   label="FAUCET QUOTE"
                   value={wallet.reading ? "…" : `${formatUsdc(quoteBalance)} USDT`}
-                  note={quoteBalance > 0n && quote !== null ? `worth about ${formatUsdc(quote)} USDC` : "claim to receive some"}
+                  note={quoteBalance > 0n && quote !== null ? `worth about ${formatUsdc(quote)} USDC` : "None yet, claim the faucet first"}
                 />
               </div>
 
               <div className="button-row">
-                <Button onClick={() => void claimFaucet()} disabled={busy || stableReady > now}>
+                <Button onClick={() => void claimFaucet()} disabled={busy.claim || stableReady > now}>
                   {stableReady > now
-                    ? `Faucet ready in ${cooldownLabel(stableReady, now)}`
-                    : busy ? "Sending…" : "Claim 1,000 USDT"}
+                    ? `Faucet in ${cooldownLabel(stableReady, now)}`
+                    : busy.claim ? "Sending…" : "Claim 1,000 USDT"}
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => void swapQuote()}
-                  disabled={busy || quoteBalance === 0n}
+                  disabled={busy.swap || quoteBalance === 0n}
                 >
-                  {busy ? "Sending…" : `Swap ${formatUsdc(quoteBalance)} USDT → USDC`}
+                  {busy.swap ? "Sending…" : quoteBalance > 0n ? `Swap ${formatUsdc(quoteBalance)} USDT → USDC` : "Swap USDT → USDC"}
                 </Button>
               </div>
 
@@ -322,17 +393,33 @@ export default function Deposit() {
           <Panel className="feature-panel">
             <Card
               title="Deposit"
-              aside={<Badge tone={needsApproval ? "accent" : "neutral"}>{needsApproval ? "STEP 3 · APPROVE" : "STEP 4 · DEPOSIT"}</Badge>}
+              aside={<Badge tone={needsApproval ? "accent" : "neutral"}>{needsApproval ? "STEP 3 · APPROVE" : "STEP 3 · DEPOSIT"}</Badge>}
               footer="ONE BOOK PER CHOG: DEPOSIT AS MANY CHOGS AS YOU HOLD"
             >
-              <label className="field">
-                <span>CHOG ID (1–1,969)</span>
-                <input inputMode="numeric" placeholder="1462" value={tokenIdText} onChange={(e) => setTokenIdText(e.target.value)} />
-              </label>
+              {myChog !== null ? (
+                <div className="field">
+                  <span>YOUR CHOG</span>
+                  <div className="field-fixed">CHOG #{myChog.toString()}</div>
+                </div>
+              ) : (
+                <label className="field">
+                  <span>CHOG ID (1–1,969)</span>
+                  <input inputMode="numeric" placeholder="1462" value={tokenIdText} onChange={(e) => setTokenIdText(e.target.value)} />
+                </label>
+              )}
               <label className="field">
                 <span>AMOUNT (USDC)</span>
                 <input inputMode="decimal" placeholder="10.00" value={amountText} onChange={(e) => setAmountText(e.target.value)} />
+                <span className="field-hint">
+                  0 to {formatUsdc(usdc)} USDC available
+                  <button type="button" className="field-max" onClick={() => setAmountText(formatUsdc(usdc))}>Max</button>
+                </span>
               </label>
+              <p className="muted small">
+                Getting back is the position's value at the time, not the number you type.
+                LP entry and exit cost are real and can be visible in a small pool.
+                {poolStats ? ` The pool's whole position is worth about ${formatUsdc(poolStats.totalShares)} USDC right now.` : ""}
+              </p>
 
               {position && (
                 <div className="stat-row">
@@ -356,20 +443,20 @@ export default function Deposit() {
 
               <div className="button-row">
                 {needsApproval ? (
-                  <Button onClick={() => void approve()} disabled={busy}>
-                    {busy ? "Sending…" : `Approve ${formatUsdc(amount ?? 0n)} USDC`}
+                  <Button onClick={() => void approve()} disabled={busy.approve}>
+                    {busy.approve ? "Sending…" : `Approve ${formatUsdc(amount ?? 0n)} USDC`}
                   </Button>
                 ) : (
                   <Button
                     onClick={() => void deposit()}
-                    disabled={busy || !canDeposit || tokenId === null || holdsMirror === false}
+                    disabled={busy.deposit || !canDeposit || tokenId === null || holdsMirror !== true}
                   >
-                    {busy ? "Sending…" : "Deposit"}
+                    {busy.deposit ? "Sending…" : "Deposit"}
                   </Button>
                 )}
                 {position && position.shares > 0n && (
-                  <Button variant="outline" onClick={() => void withdrawAll()} disabled={busy}>
-                    {busy ? "Sending…" : "Withdraw all"}
+                  <Button variant="outline" onClick={() => void withdrawAll()} disabled={busy.withdraw}>
+                    {busy.withdraw ? "Sending…" : "Withdraw all"}
                   </Button>
                 )}
               </div>

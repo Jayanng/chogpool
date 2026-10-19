@@ -190,6 +190,35 @@ export async function approveAsset(walletClient: WalletClient, account: Address,
   });
 }
 
+/** What the router may currently pull of the quote token from `account`. */
+export async function readQuoteRouterAllowance(readClient: PublicClient, account: Address): Promise<bigint> {
+  try {
+    return (await readClient.readContract({
+      address: QUOTE,
+      abi: erc20Abi,
+      functionName: "allowance",
+      args: [account, ROUTER],
+    })) as bigint;
+  } catch {
+    // A failed read is not an answer, but for a gate it means "assume nothing is granted".
+    return 0n;
+  }
+}
+
+/**
+ * Approve the router to pull `amount` of the quote token. The router moves
+ * funds with transferFrom, so a swap without this allowance reverts on chain
+ * with TransferHelper::transferFrom failed. Exact-amount, not infinite.
+ */
+export async function approveQuoteForRouter(walletClient: WalletClient, account: Address, amount: bigint): Promise<TxOutcome> {
+  return send(walletClient, account, {
+    address: QUOTE,
+    abi: erc20Abi,
+    functionName: "approve",
+    args: [ROUTER, amount],
+  });
+}
+
 export async function depositToPool(walletClient: WalletClient, account: Address, tokenId: bigint, amount: bigint): Promise<TxOutcome> {
   return send(walletClient, account, { address: DEPLOYED.pool as Address, abi: poolAbi, functionName: "deposit", args: [tokenId, amount] });
 }

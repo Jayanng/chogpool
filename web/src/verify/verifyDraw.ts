@@ -171,10 +171,14 @@ export async function buildVerification(drawId: bigint): Promise<Verification> {
           `blockhash(block ${draw.revealBlock.toString()}) = ${blockHash}`,
           `drawId         = ${draw.drawId.toString()}`,
           `recomputed     = ${recomputed}`,
-          `on chain       = ${draw.finalRandomness}`,
+          // A rehearsal value comes from this draw's own record, not from any
+          // chain read: only its label drops the on-chain voice.
+          rehearsal ? `draw record    = ${draw.finalRandomness}` : `on chain       = ${draw.finalRandomness}`,
           match
             ? "Exact match. The reveal block's hash is folded in, so the operator could not have chosen this randomness at commit time."
-            : "MISMATCH: the recomputed randomness differs from the chain's. Either the inputs shown here differ from what the contract used, or the record has been tampered with.",
+            : rehearsal
+              ? "MISMATCH: the recomputed randomness differs from this draw's record. Either the inputs shown here differ from what the record holds, or the record has been tampered with."
+              : "MISMATCH: the recomputed randomness differs from the chain's. Either the inputs shown here differ from what the contract used, or the record has been tampered with.",
         ],
       });
     }

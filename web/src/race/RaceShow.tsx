@@ -32,6 +32,9 @@ import {
 } from "../lib/result-copy";
 import { Countdown } from "../components/Countdown";
 import { ShareCard, type ShareCardResult } from "../components/ShareCard";
+import { ChogSprite } from "../components/ChogSprite";
+import { appearanceOf } from "./chogArt";
+import { commentaryOf, gapLabel, marginLabel, marginOf, positionMap, puffStops } from "./broadcast";
 import { Confetti } from "./Confetti";
 import { countUpT, countUpValue, ordinalPlace, runnerLeft, trailWidth } from "./visual";
 import type { RaceBundle, RacerDisplay } from "./useRaceBundle";
@@ -93,6 +96,26 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
   const tRef = useRef(0);
   const finishCued = useRef(false);
   const burstTimer = useRef(0);
+  /** Broadcast lines, computed once from the replay's curves: the ticker only
+   *  ever narrates moments the chain's result already contains. */
+  const commentary = useMemo(
+    () => (replay ? commentaryOf(replay.lanes, replay.winner, replay.params.segments) : []),
+    [replay],
+  );
+  /** Photo-finish margin, stamped once there is a single winner to stamp. */
+  const margin = replay ? marginOf(replay.lanes) : null;
+  const shareMargin = draw.winners.length === 1 ? marginLabel(margin) : null;
+  const moving = phase === "running";
+  /** Atmosphere: the gate lifts each time a run starts, the camera nudges on
+   *  each lead change the ticker narrates. Both react to replay state only. */
+  const [runId, setRunId] = useState(0);
+  const [pan, setPan] = useState(false);
+  const wasMoving = useRef(false);
+  const lastLeadLine = useRef<string | null>(null);
+  useEffect(() => {
+    if (moving && !wasMoving.current) setRunId((n) => n + 1);
+    wasMoving.current = moving;
+  }, [moving]);
 
   const winnerViews: WinnerView[] = draw.winners.map((tokenId) => ({
     tokenId,
@@ -194,6 +217,7 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
             imageUrl: view.racer?.imageUrl ?? null,
           })),
           potLabel: formatAsset(draw.potPerWinner),
+          marginLabel: shareMargin,
           zeroPot,
           rehearsal,
         }
@@ -208,12 +232,34 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
     zeroPot,
   });
 
+  const positions = positionMap(
+    racers.map((r) => ({ tokenId: r.tokenId.toString(), progress: progress[r.tokenId.toString()] ?? 0 })),
+    replay ? replay.finishOrder.map((t) => t.toString()) : [],
+  );
+  const leaderProgress = racers.reduce((m, r) => Math.max(m, progress[r.tokenId.toString()] ?? 0), 0);
+  const winnerProgressNow = replay ? (progress[replay.winner.toString()] ?? 0) : 0;
+  const currentEvent =
+    [...commentary].reverse().find((e) => e.at <= winnerProgressNow + 1e-6) ?? commentary[0] ?? null;
+  const tickerLine = currentEvent?.text ?? "";
+  const puffsByToken: Record<string, number[]> = {};
+  if (replay) for (const lane of replay.lanes) puffsByToken[lane.tokenId.toString()] = puffStops(lane);
+
+  useEffect(() => {
+    if (!currentEvent || currentEvent.tokenId === undefined) return;
+    if (lastLeadLine.current === currentEvent.text) return;
+    lastLeadLine.current = currentEvent.text;
+    setPan(true);
+    const timer = window.setTimeout(() => setPan(false), 550);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentEvent?.text]);
+
   return (
     <div className="show">
-      <Panel className={`show-stage${finishBurst ? " show-stage--finish" : ""}${slowmo ? " show-stage--slowmo" : ""}`}>
+      <Panel className={`show-stage${finishBurst ? " show-stage--finish" : ""}${slowmo ? " show-stage--slowmo" : ""}${pan ? " show-stage--pan" : ""}`}>
         <div className="show-top">
           <div>
-            <p className="kicker">RACE {draw.drawId.toString()} · {stateLabel(draw.state)}</p>
+            <p className="kicker">RACE {draw.drawId.toString()} · {stateLabel(draw.state, rehearsal)}</p>
             <h2 className="show-title">{decided ? replayHeadline(rehearsal) : gatesTitle(draw.state)}</h2>
           </div>
           <div className="show-controls">
@@ -255,6 +301,10 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
           </div>
         )}
 
+        {decided && <p className="show-ticker" aria-live="polite">{tickerLine}</p>}
+
+        <div key={runId} className="show-gates" aria-hidden="true" />
+
         <div className="show-lanes">
           {racers.map((racer) => {
             const place = draw.winners.findIndex((w) => w === racer.tokenId);
@@ -271,6 +321,9 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
                 moving={phase === "running"}
                 burst={finishBurst}
                 seed={draw.finalRandomness}
+                position={positions[racer.tokenId.toString()] ?? 1}
+                gapText={gapLabel(leaderProgress, progress[racer.tokenId.toString()] ?? 0)}
+                puffs={puffsByToken[racer.tokenId.toString()] ?? []}
               />
             );
           })}
@@ -282,10 +335,12 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
           </Badge>
           <span className="show-disclosure">{replayDisclosure(rehearsal)}</span>
         </div>
+        {finished && shareMargin && <div className="show-margin">{shareMargin}</div>}
       </Panel>
 
       {decided && phase === "done" && (
         <div className="podium-wrap">
+          <div className="podium-wipe" aria-hidden="true" />
           <Confetti seed={draw.finalRandomness} active count={420} />
           <Podium bundle={bundle} replay={replay} winners={winnerViews} eventsLabel={eventsLabel(events)} />
         </div>
@@ -303,7 +358,7 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
         <section className="share-section">
           <ShareCard
             chog={winnerViews[0]?.racer ? { tokenId: winnerViews[0].racer.tokenId.toString(), imageUrl: winnerViews[0].racer.imageUrl, name: winnerViews[0].racer.name } : null}
-            raceLabel={`Race ${draw.drawId.toString()} · ${stateLabel(draw.state)}`}
+            raceLabel={`Race ${draw.drawId.toString()} · ${stateLabel(draw.state, rehearsal)}`}
             result={shareResult}
           />
         </section>
@@ -312,7 +367,11 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
   );
 }
 
-function stateLabel(state: string): string {
+/** The pill over the show. A rehearsal draw exists only in its own record, so
+ *  its pill names that record and never wears chain-state vocabulary; real
+ *  draws keep the exact state labels they had. */
+function stateLabel(state: string, rehearsal: boolean): string {
+  if (rehearsal) return "REHEARSAL RECORD";
   if (state === "open") return "GATES OPEN";
   if (state === "closed") return "AWAITING REVEAL";
   if (state === "awarded") return "RESULT IN";
@@ -349,6 +408,9 @@ function LaneRow({
   moving,
   burst,
   seed,
+  position,
+  gapText,
+  puffs,
 }: {
   racer: RacerDisplay;
   progress: number;
@@ -361,8 +423,27 @@ function LaneRow({
   moving: boolean;
   burst: boolean;
   seed: Hex;
+  /** Live place on screen right now, 1 = front. */
+  position: number;
+  /** Broadcast gap readout for this lane (LEADING or x.x% BACK). */
+  gapText: string;
+  /** Progress stops where this racer's replay speeds ran hot (dust). */
+  puffs: number[];
 }) {
   const perk = perkEffectFor(drawId, racer.tokenId.toString());
+  const appearance = appearanceOf({ tier: racer.tier, traits: racer.traits, boost: racer.boost, perkId: perk?.id ?? null });
+  const prevPosition = useRef(position);
+  const [placeFlash, setPlaceFlash] = useState(false);
+  useEffect(() => {
+    if (position < prevPosition.current) {
+      setPlaceFlash(true);
+      const timer = window.setTimeout(() => setPlaceFlash(false), 900);
+      prevPosition.current = position;
+      return () => window.clearTimeout(timer);
+    }
+    prevPosition.current = position;
+    return undefined;
+  }, [position]);
   const name = ipfsName(racer.tokenId, racer.name, racer.metadataMissing);
   const idLabel = `CHOG #${racer.tokenId.toString()}`;
   return (
@@ -373,19 +454,31 @@ function LaneRow({
       {isWinner && burst && <Confetti seed={seed} active count={110} frames={110} mode="burst" salt={Number(racer.tokenId % 4096n)} />}
       <div className="show-lane-head">
         <span className="show-lane-id">{idLabel}</span>
-        {racer.badge && racer.badge.badge !== 0 && (
-          <Badge tone={racer.badge.badge === 2 ? "lime" : "neutral"}>{racer.badge.badgeLabel}</Badge>
+        <span className={`show-place${placeFlash ? " show-place--up" : ""}`}>P{position}</span>
+        {racer.badge.state === "value" && (
+          <Badge tone={racer.badge.value.badge === 2 ? "lime" : "neutral"}>{racer.badge.value.badgeLabel}</Badge>
         )}
+        {racer.badge.state === "failed" && <Badge tone="neutral">BADGE UNKNOWN</Badge>}
         {racer.metadataMissing && <Badge tone="danger">METADATA UNREACHABLE</Badge>}
         {racer.tier && <Badge tone="neutral">TIER: {racer.tier.toUpperCase()}</Badge>}
       </div>
       <div className={`show-track${moving ? " show-track--moving" : ""}`}>
         <div className="show-trail" style={{ width: trailWidth(progress) }} />
-        <div className="show-runner" style={{ left: runnerLeft(progress, RUNNER_PX) }}>
+        {puffs.map((stop, i) => (
+          <span
+            key={i}
+            className={`show-puff${moving && progress >= stop ? " show-puff--live" : ""}`}
+            style={{ left: runnerLeft(stop, RUNNER_PX) }}
+            aria-hidden="true"
+          />
+        ))}
+        <div className={`show-runner${appearance.aura ? " show-runner--aura" : ""}`} style={{ left: runnerLeft(progress, RUNNER_PX) }}>
           {racer.imageUrl ? (
             <img src={racer.imageUrl} alt={idLabel} className="show-runner-img" />
-          ) : (
+          ) : racer.metadataMissing ? (
             <span className="show-runner-dot">◉</span>
+          ) : (
+            <ChogSprite appearance={appearance} />
           )}
           <span className="show-runner-plate">{idLabel}</span>
         </div>
@@ -394,6 +487,7 @@ function LaneRow({
       </div>
       <div className="show-lane-meta">
         <span>{formatTickets(racer.tickets)} tickets · {formatBps(share)} of the frozen book</span>
+        <span className={gapText === "LEADING" ? "show-gap show-gap--lead" : "show-gap"}>{gapText}</span>
         {name && <span>IPFS NAME: {name.toUpperCase()}</span>}
         {perk && <span className="show-perk">PERK: {perk.name.toUpperCase()} (SHOW ONLY)</span>}
       </div>
@@ -573,7 +667,7 @@ function WinnerBlock({
     winners: winnerTokens,
     potLabel,
     zeroPot,
-    team: racer?.team ? shortHex(racer.team, 10, 8) : null,
+    team: racer?.team.state === "value" ? shortHex(racer.team.value, 10, 8) : null,
   });
   return (
     <div className={`podium-winner podium-winner--${accent}${place === 1 ? " podium-winner--hero" : ""}`} style={{ animationDelay: `${(place - 1) * 160}ms` }}>
@@ -604,9 +698,10 @@ function WinnerBlock({
           CHOG #{view.tokenId.toString()}
           {name ? ` · IPFS metadata name: ${name}` : ""}
         </h3>
-        {racer?.badge && racer.badge.badge !== 0 && (
-          <Badge tone={racer.badge.badge === 2 ? "lime" : "neutral"}>{racer.badge.badgeLabel}</Badge>
+        {racer?.badge.state === "value" && (
+          <Badge tone={racer.badge.value.badge === 2 ? "lime" : "neutral"}>{racer.badge.value.badgeLabel}</Badge>
         )}
+        {racer?.badge.state === "failed" && <Badge tone="neutral">BADGE UNKNOWN</Badge>}
         {!zeroPot && <PrizeAmount value={pot} paid={!rehearsal} />}
         <p className="muted podium-prize">
           {prizeSentence}

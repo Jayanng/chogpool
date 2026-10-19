@@ -117,7 +117,7 @@ contract ChogMirror is ERC721, EIP712, Ownable, IChogMirror {
         // covers tokenId, mainnetOwner, minter and nonce, and a caller could submit
         // any string at all alongside a valid signature. The only thing standing
         // between the chain and a false metadata URI would be the frontend's
-        // behaviour, "trust our site" is not an answer a judge should have to
+        // behaviour, "trust our site" is not an answer a reviewer should have to
         // accept, and it is not one this contract needs to rely on. Hashing the URI
         // into the struct turns the guarantee into "check the signature", which is
         // checkable by anyone, forever, with no trust in us.

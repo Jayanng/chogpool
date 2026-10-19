@@ -4,8 +4,11 @@ import { ipfsToGateway, readChog, type ChogRecord } from "../lib/chog";
 import { perkOffers, traitsOf, tierOf, type Perk } from "../lib/traits";
 import { clearPick, loadPick, savePick, type DraftPick } from "../lib/draft";
 import { ipfsName } from "../lib/result-copy";
-import { readCurrentRaceId } from "../lib/game";
+import { getRaceSource, readCurrentRaceId } from "../lib/game";
+import { readDrawState } from "../lib/draw";
+import { raceIsDraftable } from "./gate";
 import { navigate } from "../lib/router";
+import type { DrawStateName } from "../types/race";
 
 /**
  * Draft Night: before a race, pick one of three trait-derived perks for a
@@ -15,24 +18,34 @@ import { navigate } from "../lib/router";
  */
 export default function Draft() {
   const [drawKey, setDrawKey] = useState("next");
+  const [drawState, setDrawState] = useState<DrawStateName | null>(null);
   const [input, setInput] = useState("");
   const [state, setState] = useState<{ phase: "idle" | "loading" | "ready" | "error"; record?: ChogRecord; message?: string }>({ phase: "idle" });
   const [pick, setPick] = useState<DraftPick | null>(null);
-  // A pick is only ever saved under a real race ID: under "next" it would
-  // silently never apply to any replay.
-  const hasRace = drawKey !== "next";
+  // A pick is only ever saved under a real race ID and only while that race is
+  // open on chain: under "next" it would silently never apply to any replay,
+  // and a finalized draw has already run. The dev fixture rehearsal flow is
+  // exempt and drafts against its draw 2 exactly as before.
+  const fixtures = getRaceSource()?.kind === "fixture";
+  const hasRace = raceIsDraftable({ drawKey, drawState, fixtures });
 
   useEffect(() => {
     let cancelled = false;
-    readCurrentRaceId()
-      .then((id) => {
-        if (!cancelled && id !== null) setDrawKey(id.toString());
-      })
-      .catch(() => {});
+    (async () => {
+      const id = await readCurrentRaceId().catch(() => null);
+      if (cancelled || id === null) return;
+      // The gate needs the draw's state, not just its id: currentDrawId stays
+      // on a finalized draw. The fixture source has no chain state, so only
+      // the live path reads the engine.
+      const stateOfDraw = fixtures ? null : await readDrawState(id).catch(() => null);
+      if (cancelled) return;
+      setDrawKey(id.toString());
+      setDrawState(stateOfDraw);
+    })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [fixtures]);
 
   const load = useCallback(async () => {
     const raw = input.trim();
@@ -69,7 +82,7 @@ export default function Draft() {
           replay, inside the same +25% presentation cap the contracts use, and it never changes the
           on-chain winner.
         </p>
-        <Badge tone="accent">{drawKey === "next" ? "NO RACE OPEN ON CHAIN YET" : `DRAFTING FOR RACE ${drawKey}`}</Badge>
+        <Badge tone="accent">{hasRace ? `DRAFTING FOR RACE ${drawKey}` : "NO RACE OPEN ON CHAIN YET"}</Badge>
       </section>
 
       <Panel className="feature-panel">

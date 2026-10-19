@@ -47,6 +47,12 @@ export default function Race() {
     setDrawId(BigInt(raw));
   }, [input]);
 
+  // A stale validation message never outlives a successful load: once a draw
+  // is on screen (whichever button loaded it), the old error is gone.
+  useEffect(() => {
+    if (bundle) setInputError("");
+  }, [bundle]);
+
   return (
     <>
       <section className="page-head page-head--compact">
@@ -76,7 +82,7 @@ export default function Race() {
         <div className="hero-actions">
           <Button variant="outline" onClick={jump}>Show that race</Button>
           {drawId !== null && (
-            <Button variant="quiet" onClick={() => readCurrentRaceId().then((id) => { if (id !== null) setDrawId(id); }).catch(() => {})}>
+            <Button variant="quiet" onClick={() => readCurrentRaceId().then((id) => { if (id !== null) { setInputError(""); setDrawId(id); } }).catch(() => {})}>
               Latest race
             </Button>
           )}
@@ -100,7 +106,7 @@ export default function Race() {
         </Panel>
       )}
 
-      {loading && <Panel className="feature-panel"><p className="muted">Reading the draw from the chain…</p></Panel>}
+      {loading && <Panel className="feature-panel"><div className="loading-line"><span className="loading-dot" />Reading the draw from the chain…</div></Panel>}
       {error && (
         <Panel className="feature-panel">
           <p className="viewer-error" role="alert">{error}</p>
