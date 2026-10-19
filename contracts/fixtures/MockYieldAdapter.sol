@@ -40,6 +40,17 @@ contract MockYieldAdapter is IYieldAdapter {
         entryCostBps = bps;
     }
 
+    /// @dev TEST ONLY: simulate the venue's value drifting BELOW what it took in,
+    ///      which is ordinary AMM behaviour and the state the old `withdrawAll`
+    ///      could not survive. The real pair does this through trading; the mock
+    ///      needs a way to reproduce it without a pair.
+    function simulateDrift(uint256 amount) external {
+        if (amount > principal) principal = 0;
+        else principal -= amount;
+        // The tokens leave the venue entirely, so positionValue() drops too.
+        IERC20(asset).safeTransfer(msg.sender, amount);
+    }
+
     modifier onlyPool() {
         if (msg.sender != pool) revert OnlyPool();
         _;
@@ -58,10 +69,18 @@ contract MockYieldAdapter is IYieldAdapter {
     }
 
     /// @inheritdoc IYieldAdapter
+    /// @dev TEST ONLY. Mirrors the REAL adapter's semantics: principal is the cost
+    ///      basis that is RELEASED when value leaves the venue, not a lifetime
+    ///      counter. `PuddleLpAdapter.redeem()` measures the value of the LP slice it
+    ///      removed; the mock's equivalent is the value it handed out, which is why
+    ///      this decrements and the deployed adapter's counter did not. Keeping the
+    ///      two aligned is what lets the unit suite catch a divergence between the
+    ///      mock and the real venue, which is exactly how the original bug shipped.
     function redeem(uint256 amount, address to) external onlyPool {
         uint256 available = IERC20(asset).balanceOf(address(this));
         if (amount > available) revert InsufficientLiquidity(amount, available);
-        principal -= amount;
+        if (amount > principal) principal = 0; // clamp, never underflow
+        else principal -= amount;
         IERC20(asset).safeTransfer(to, amount);
         emit Redeemed(amount, amount);
     }

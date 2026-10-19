@@ -69,6 +69,24 @@ contract PuddleLpAdapter is IYieldAdapter, ReentrancyGuard {
     // ---------------- state ----------------
 
     /// @inheritdoc IYieldAdapter
+    /// @dev Principal CURRENTLY deployed into the yield venue, in asset units.
+    ///      This is the cost basis `harvest()` measures yield against, so it must
+    ///      track what the position actually still holds: it increases by the
+    ///      measured value of every LP slice `supply()` mints, and decreases by
+    ///      the measured value of every LP slice `redeem()` removes.
+    ///
+    ///      It is NOT a lifetime figure. "Cumulative ever pushed in" is a
+    ///      different question, and answering it here is a live-proven failure:
+    ///      a counter that only ever rises ends up far above `positionValue()`
+    ///      after a large withdrawal, `harvest()` then reads every accrual as a
+    ///      loss and returns 0 forever, and the pot can never grow again. The
+    ///      pool-side `lifetimePrincipal()` is where a monotonic figure belongs.
+    ///
+    ///      Measured, never booked from the requested amount: the value of a
+    ///      slice is `_lpValueOfSlice()` against the pair's live reserves, the
+    ///      same measurement on both the supply and the redeem side, so the two
+    ///      cancel and `principalDeployed` stays a faithful cost basis rather
+    ///      than a running total that drifts from reality.
     uint256 public principalDeployed;
 
     /// @dev LP tokens currently held by this adapter.
@@ -187,6 +205,11 @@ contract PuddleLpAdapter is IYieldAdapter, ReentrancyGuard {
         uint256 available = _totalValueInAsset();
         if (available < amount) revert InsufficientLiquidity(amount, available);
 
+        // Snapshot the LP position BEFORE anything leaves it. The cost basis is
+        // released pro-rata to the LP units this call actually removes, which is
+        // the same unit `supply()` books basis in, so the two sides cancel.
+        uint256 lpBefore = lpHeld;
+
         uint256 loose = _assetBalance();
         uint256 missing = amount > loose ? amount - loose : 0;
 
@@ -212,6 +235,38 @@ contract PuddleLpAdapter is IYieldAdapter, ReentrancyGuard {
         uint256 deliver = held < amount ? held : amount;
         if (deliver == 0) revert InsufficientLiquidity(amount, held);
 
+        // Release the cost basis for the LP that just left the position, pro-rata to
+        // the LP units removed.
+        //
+        // Why pro-rata to LP UNITS and not to a value measurement: the value of a
+        // slice read AFTER the removal is not the value it had BEFORE it. Removing
+        // liquidity and swapping the quote side moves the pair's reserves, so
+        // re-measuring the remainder prices it against a pair this very call just
+        // reshaped — on the live testnet pair that reading was demonstrably not the
+        // slice's entry value. LP units are the one quantity that is unchanged by
+        // the reshuffle, and `supply()` books basis per minted slice in the same
+        // units, so deposit-then-withdraw of the same LP returns the basis to where
+        // it started.
+        //
+        // Why this is load-bearing rather than cosmetic: `harvest()` measures yield
+        // as `positionValue() - principalDeployed`. A basis that only ever grows
+        // ends up far above the position after a large withdrawal, every accrual
+        // then reads as a loss, `harvest()` returns 0 forever, and the pot can
+        // never grow again. That is not hypothetical: it is the live state of the
+        // deployed adapter, where 65.47 of basis sat above a position worth 0.83.
+        //
+        // Loose asset is NOT basis. Dust refunded by `supply()` and surplus
+        // over-delivered by a previous `redeem()` or left by `harvest()` never
+        // entered the pair, so consuming it releases no basis. Only LP that
+        // actually leaves does, which is exactly what `lpBefore - lpHeld` counts.
+        uint256 lpRemoved = lpBefore - lpHeld;
+        if (lpRemoved > 0 && lpBefore > 0) {
+            uint256 release = (principalDeployed * lpRemoved) / lpBefore;
+            // Defensive clamp: rounding can never push this past the whole basis.
+            if (release > principalDeployed) release = principalDeployed;
+            principalDeployed -= release;
+        }
+
         IERC20(asset).safeTransfer(to, deliver);
         emit Redeemed(lpHeld, deliver);
     }
@@ -220,6 +275,11 @@ contract PuddleLpAdapter is IYieldAdapter, ReentrancyGuard {
     /// @dev Realizes accrued yield: the LP redemption value above tracked principal.
     ///      Redeems that surplus as LP, swaps it to the asset, and hands it to the pool.
     ///      Principal is untouched, so the pool can still withdraw every depositor in full.
+    /// @dev `principalDeployed` is deliberately NOT decremented here. Harvest realizes
+    ///      the SURPLUS above the basis, not part of the basis itself; the entry cost
+    ///      stays booked until a `redeem()` actually returns that principal to a
+    ///      depositor. Decrementing on harvest would book the same value twice, once
+    ///      as harvested yield and once as released principal.
     function harvest() external nonReentrant onlyPool returns (uint256 amount) {
         uint256 value = _totalValueInAsset();
         if (value <= principalDeployed) return 0;

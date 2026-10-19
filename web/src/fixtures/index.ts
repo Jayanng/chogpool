@@ -31,6 +31,15 @@ export const fixtureGameSource: GameSource = {
   },
   async depositOf(tokenId) {
     const v = mock.deposits.get(tokenId.toString());
+    return v === undefined
+      ? null
+      : { depositor: "", shares: BigInt(Math.round(parseFloat(v) * 1e6)), principal: BigInt(Math.round(parseFloat(v) * 1e6)) };
+  },
+  async withdrawable(tokenId) {
+    // Fixture book: the venue is lossless and stands still, so what is credited is
+    // what is withdrawable. The LIVE source computes this from positionValue()
+    // instead, because a real venue's value drifts.
+    const v = mock.deposits.get(tokenId.toString());
     return v === undefined ? 0n : BigInt(Math.round(parseFloat(v) * 1e6));
   },
   async twabOf(tokenId) {
@@ -66,7 +75,7 @@ export const fixtureGameSource: GameSource = {
 
 // Recorded draws, so the show and the verifier can be exercised in dev before
 // the live stack has draws of its own. Draw 1's numbers are REAL: it is Draw 1
-// as the first testnet stack recorded it (revealed at block 71255613, winner
+// as the first testnet stack recorded it (revealed at block 71518535, winner
 // 1462 out of a 71,186,086-ticket book). The values are quoted, never invented,
 // and the verifier recomputes them exactly the way it recomputes live draws.
 // The CareerStore rows and the RaceRecorded line are a snapshot of what the
@@ -88,8 +97,20 @@ export const fixtureRaceSource: RaceSource = {
         closeAt: 1792068183,
         commitHash: "0x81fec32ffe3e8af0f2181dbc5d29761eba8849b05da20b34dd996d489e5c06a7",
         seed: "0x147a012d4a7e433805ac5d04b5c1f19335d3c4dae4f2cf388b11c9b970acf703",
-        finalRandomness: "0xafb6d2d3faab8959a6dc32ef1d4eaa589d90bc8c6a736ddf967dcc3990c26c09",
-        revealBlock: 71255613n,
+        // AUDIT-CORRECTED 2026-10-18 (GATE3 re-run by a non-author). The previous
+        // value, 0xafb6d2d3…, is NOT the chain's finalRandomness for this draw: the
+        // live engine reports 0xb736d3d2… (cast call finalRandomnessOf(1)). The two
+        // values coincidentally both land inside racer 1462's ticket range, so the
+        // recorded winner stayed correct and no race result was ever wrong — but a
+        // verifier page fed the wrong randomness would have been proving the right
+        // answer from the wrong input, which is the one failure mode a fairness
+        // verifier must never have. The value below is quoted from the chain.
+        finalRandomness: "0xb736d3d207cb065ebc1d62aedae1d0dea2a9ff332e3172fb3f3fcf7b44659ad5",
+        // Same audit: was 71255613, which is not this draw's reveal block. The live
+        // engine reports 71518535. Independent re-derivation (keccak(randomness,0)
+        // mod totalTickets = 32654897, inside 1462's 52934966-ticket range)
+        // reproduces the recorded winner from the corrected values above.
+        revealBlock: 71518535n,
         totalTickets: 71186086n,
         potPerWinner: 22941n,
         winners: [1462n],
@@ -120,7 +141,7 @@ export const fixtureRaceSource: RaceSource = {
     if (drawId !== 2n) return null;
     // MULTI-WIN: the same real Draw 1 seed, reveal block and frozen book,
     // awarded with two winner slots. Everything here is derived, never
-    // invented: keccak256(seed, blockhash(71255613), uint256(2)) gives the
+    // invented: keccak256(seed, blockhash(71518535), uint256(2)) gives the
     // final randomness below, the same formula picks [1462, 954] for two
     // slots (slot 1 lands on the contract's duplicate walk, exactly as the
     // live chain's deriveWinners(1, 2) answered), and the prize is the first
@@ -129,6 +150,14 @@ export const fixtureRaceSource: RaceSource = {
     // order; there is no second on-chain race, so no RaceRecorded event is
     // carried and the trophy copy stays on its plain-read wording. The draw is
     // flagged as a rehearsal so every surface shows it as one.
+    //
+    // AUDIT-CORRECTED 2026-10-18 (GATE3): the block this derives from was
+    // 71255613, which is not Draw 1's reveal block. The live engine reports
+    // 71518535. Re-derived from the correct block the winners are unchanged
+    // ([1462, 954]) and only the intermediate randomness differs, so the
+    // recorded result was never wrong — but the quoted derivation input was,
+    // and a verifier walking the steps would have hit a blockhash that does
+    // not exist in the draw it claims to explain.
     return {
       drawId: 2n,
       rehearsal: true,
@@ -136,8 +165,8 @@ export const fixtureRaceSource: RaceSource = {
       closeAt: 1792068183,
       commitHash: "0x81fec32ffe3e8af0f2181dbc5d29761eba8849b05da20b34dd996d489e5c06a7",
       seed: "0x147a012d4a7e433805ac5d04b5c1f19335d3c4dae4f2cf388b11c9b970acf703",
-      finalRandomness: "0xd897cac8c786f3d036097ed7a86644a3bb0d18d0ae659dab0f95af2bf5f97158",
-      revealBlock: 71255613n,
+      finalRandomness: "0x51b5387687df7f79c37fc5feb25e82475c0abc1f0ef4d98c08699b0e006fea18",
+      revealBlock: 71518535n,
       totalTickets: 71186086n,
       potPerWinner: 11470n,
       winners: [1462n, 954n],

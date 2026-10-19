@@ -28,12 +28,28 @@ const poolAbi = [
       { name: "principal", type: "uint256" },
     ],
   },
+  { type: "function", name: "totalShares", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "uint256" }] },
+  {
+    type: "function",
+    name: "sharesOf",
+    stateMutability: "view",
+    inputs: [{ name: "tokenId", type: "uint256" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
   { type: "function", name: "twabOf", stateMutability: "view", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [{ name: "", type: "uint256" }] },
   { type: "function", name: "oddsBpsOf", stateMutability: "view", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [{ name: "", type: "uint256" }] },
   { type: "function", name: "withdrawAll", stateMutability: "nonpayable", inputs: [{ name: "tokenId", type: "uint256" }], outputs: [] },
 ] as const;
 
+/// The LP venue. `positionValue()` is what the venue can actually deliver right
+/// now, which is the only honest basis for a withdrawable figure: the pool's
+/// `principal` is the credited amount, and the venue's value moves with trading.
+const adapterAbi = [
+  { type: "function", name: "positionValue", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "uint256" }] },
+] as const;
+
 const poolAddress = DEPLOYED.pool as Address;
+const adapterAddress = DEPLOYED.yieldAdapter as Address;
 
 // null when infra/deployments.json has no deployment: the app must build and
 // run honestly without a pool instead of pointing at a zero address.
@@ -63,7 +79,41 @@ export const liveGameSource: GameSource | null = DEPLOYED
           functionName: "depositOf",
           args: [tokenId],
         });
-        return position[1]; // IChogPool.depositOf: (depositor, shares, principal)
+        // IChogPool.depositOf: (depositor, shares, principal). The pool's `principal`
+        // is the credited figure, NOT what the venue can hand back right now: the
+        // venue's value moves with trading, so the honest "you can withdraw this"
+        // number is the position's pro-rata share of `positionValue()`.
+        return {
+          depositor: position[0],
+          shares: position[1],
+          principal: position[2],
+        };
+      },
+      /// What THIS position can actually withdraw right now: its pro-rata slice of
+      /// the venue's live value. This is the figure the corrected withdrawAll pays,
+      /// and it is the only number that should be shown next to a withdraw button.
+      async withdrawable(tokenId) {
+        const [shares, totalShares, venueValue] = await Promise.all([
+          testnetReadClient.readContract({
+            address: poolAddress,
+            abi: poolAbi,
+            functionName: "sharesOf",
+            args: [tokenId],
+          }),
+          testnetReadClient.readContract({
+            address: poolAddress,
+            abi: poolAbi,
+            functionName: "totalShares",
+          }),
+          testnetReadClient.readContract({
+            address: adapterAddress,
+            abi: adapterAbi,
+            functionName: "positionValue",
+          }),
+        ]);
+        if (shares === 0n || totalShares === 0n) return 0n;
+        const slice = (venueValue * shares) / totalShares;
+        return slice > shares ? shares : slice;
       },
       async twabOf(tokenId) {
         return testnetReadClient.readContract({

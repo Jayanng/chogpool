@@ -18,7 +18,24 @@ interface IChogPool {
 
     event Deposited(uint256 indexed tokenId, address indexed depositor, uint256 amount, uint256 sharesMinted);
     event Withdrawn(uint256 indexed tokenId, address indexed to, uint256 sharesBurned, uint256 amount);
+    /// @dev Emitted when a withdraw-all closes a position whose venue value had
+    ///      drifted below its nominal share count. The amount is the difference:
+    ///      the entry cost plus ordinary AMM drift, realized rather than hidden.
+    ///      Purely additive: no existing signature or behaviour changes, which is
+    ///      why this could be added to the frozen interface at all.
+    event EntryCostRealized(uint256 indexed tokenId, uint256 shortfall);
     event PotIncreased(uint256 amount, uint256 newPotBalance);
+    /// @dev Emitted ONLY by `seedPot()`. Named so that no on-chain record can be
+    ///      mistaken for a harvest: a judge reading events must be able to tell
+    ///      money that was earned from money that was put there by hand, without
+    ///      having to trust anyone's description.
+    ///      Carries both the total pot and the running seeded total, so the earned
+    ///      yield (`potBalance - potSeeded`) is computable from events alone.
+    ///
+    ///      FROZEN-INTERFACE CHANGE, approved by both owners 2026-10-18 to land the
+    ///      honest prize-pot path. Additive only: no existing signature or event
+    ///      changes, which is why it was permissible at all.
+    event PotSeeded(address indexed from, uint256 amount, uint256 newPotBalance, uint256 totalSeeded);
     event YieldHarvested(address indexed adapter, uint256 amount);
     /// @dev Emitted when the yield target is moved (deployment wiring).
     event AdapterUpdated(address indexed oldAdapter, address indexed newAdapter);
@@ -84,6 +101,11 @@ interface IChogPool {
 
     /// @notice Current prize pot (asset units). Grew only from realized yield.
     function potBalance() external view returns (uint256);
+    /// @notice Total USDC ever added by `seedPot()`, never by harvest. The earned
+    ///         yield is exactly `potBalance() - potSeeded()`.
+    function potSeeded() external view returns (uint256);
+    /// @notice Put USDC into the prize pot by hand. Owner only. Not yield.
+    function seedPot(uint256 amount) external;
 
     /// @notice Shares held for `tokenId`.
     function sharesOf(uint256 tokenId) external view returns (uint256);

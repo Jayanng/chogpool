@@ -97,7 +97,28 @@
       }
     },
     "ipfsGateway": "https://gateway.pinata.cloud/ipfs/",
-    "chogMetadataBase": "ipfs://bafybeid4ybujnscdipkno7ps5utqelp5ry5ryreqhay3zhgk3a6x4jruqu/"
+    "chogMetadataBase": "ipfs://bafybeid4ybujnscdipkno7ps5utqelp5ry5ryreqhay3zhgk3a6x4jruqu/",
+    "chogPool": {
+      "address": "0xA01EB6B9cD9FB8e831A3DBB4D4Aaa7f1acDB7A83",
+      "source": "live cast call from the deployed stack 2026-10-18",
+      "note": "ChogPool v4. IMMUTABLE: a code fix here needs a redeploy, see docs/GATE4-LOG.md."
+    },
+    "puddleLpAdapter": {
+      "address": "0x025270CaF272bF8EF55FC1aF5Fe7eB81227b9Df3",
+      "source": "live cast call from the deployed stack 2026-10-18",
+      "note": "PuddleLpAdapter. principalDeployed is the monotonic counter fixed in src/."
+    },
+    "racer": {
+      "tokenId": 954,
+      "depositor": "0xEDF094F87BF02E05E95611bb57De17c41C0a071B",
+      "source": "live pool sharesOf(954) 2026-10-18",
+      "note": "racer2's mirror token: 887,422 shares against a venue worth 790,444."
+    },
+    "racer1": {
+      "tokenId": 1462,
+      "source": "live mirror ownerOf check 2026-10-18",
+      "note": "withdrawn earlier; 0 shares remain."
+    }
   },
   "ipfs": {
     "chogMetadataCid": "bafybeid4ybujnscdipkno7ps5utqelp5ry5ryreqhay3zhgk3a6x4jruqu",

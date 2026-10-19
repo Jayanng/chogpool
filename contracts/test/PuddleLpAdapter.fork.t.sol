@@ -225,18 +225,27 @@ contract PuddleLpAdapterForkTest is Test {
         vm.prank(pool);
         adapter.supply(deposited);
 
+        // Capture the basis BEFORE the withdrawal. `principalDeployed` is the cost
+        // basis and `redeem()` now RELEASES it, so reading it afterwards returns 0
+        // and the comparison would be against zero. The old monotonic counter made
+        // this read-after valid by accident; the release semantics make it wrong.
+        uint256 basis = adapter.principalDeployed();
+
         // Withdraw the full amount the pool actually deployed, with no trades in
         // between. Any shortfall beyond slippage would be a real bug.
         vm.prank(pool);
-        adapter.redeem(adapter.principalDeployed(), address(0xbabe));
+        adapter.redeem(basis, address(0xbabe));
 
         uint256 back = IERC20(asset).balanceOf(address(0xbabe));
         assertApproxEqRel(
             back,
-            adapter.principalDeployed(),
+            basis,
             0.001e18,
             "deposit comes back whole when nothing traded"
         );
+
+        // And the basis is genuinely released, which is what keeps harvest alive.
+        assertLe(adapter.principalDeployed(), 1, "round trip releases the whole basis");
     }
 
     /// The entry cost is real and permanent, so shares minted for the NOMINAL
@@ -457,6 +466,134 @@ contract PuddleLpAdapterForkTest is Test {
         // positionValue() must be a real function of the pair, not an internal ledger.
         uint256 value = adapter.positionValue();
         assertGt(value, 0, "value must be readable from the live pair");
+    }
+
+    // ---------- REGRESSION: principal is a cost basis, not a lifetime counter ----------
+
+    /// The deployed adapter's `principalDeployed` only ever increased. After a large
+    /// withdrawal it sat at 65.47 while the position it described was worth 0.83,
+    /// and `harvest()` — which measures yield as `positionValue - principalDeployed` —
+    /// read every accrual as a loss and returned 0 forever. The pot could never grow
+    /// again, on a live stack, with real fees accruing.
+    ///
+    /// This test pins the invariant that makes harvest work: a withdrawal must
+    /// RELEASE the cost basis of what it consumed, so `principalDeployed` always
+    /// tracks what the position still actually holds.
+    function test_Fork_Redeem_ReleasesPrincipalBasis() public needsFork {
+        uint256 deposited = _poolAsset();
+        vm.prank(pool);
+        adapter.supply(deposited);
+
+        uint256 basisAfterSupply = adapter.principalDeployed();
+        assertGt(basisAfterSupply, 0, "principal is tracked on supply");
+        // The basis must be what the venue actually took in, never the nominal
+        // deposit: the entry cost is real and the pool books against the venue.
+        assertLe(basisAfterSupply, deposited, "basis is at most what was deposited");
+
+        // Partial withdrawal of half the position.
+        uint256 half = adapter.positionValue() / 2;
+        vm.prank(pool);
+        adapter.redeem(half, address(0xbabe));
+
+        uint256 basisAfterPartial = adapter.principalDeployed();
+        // The basis must have dropped by roughly what was withdrawn, not by zero
+        // (the old behaviour) and not by the whole position.
+        assertLt(basisAfterPartial, basisAfterSupply, "withdraw must release basis");
+        assertGt(basisAfterPartial, 0, "a partial withdraw leaves basis behind");
+        // The basis that remains must track the value that remains. The tolerance
+        // is the same order as the entry cost plus the pair's own drift, because
+        // the basis is booked at entry while the value is spot.
+        assertApproxEqRel(basisAfterPartial, adapter.positionValue(), 0.05e18, "remaining basis tracks remaining value");
+
+        // Full withdrawal must leave the basis at (or near) zero.
+        uint256 rest = adapter.positionValue();
+        vm.prank(pool);
+        adapter.redeem(rest, address(0xbabe));
+        assertLe(adapter.principalDeployed(), 1, "a drained position has no basis left");
+        assertLt(adapter.positionValue(), 2, "position genuinely drained");
+    }
+
+    /// THE regression, stated as the live failure it prevents: after a full
+    /// withdrawal, harvest must be able to see new yield rather than being pinned
+    /// above it forever. With the monotonic counter, `positionValue` could never
+    /// exceed `principalDeployed` again and `harvest()` returned 0 permanently.
+    function test_Fork_HarvestWorksAfterAFullWithdraw() public needsFork {
+        uint256 deposited = _poolAsset();
+        vm.prank(pool);
+        adapter.supply(deposited);
+
+        // Walk the whole position out, exactly as a withdraw-all does.
+        uint256 all = adapter.positionValue();
+        vm.prank(pool);
+        adapter.redeem(all, address(0xbabe));
+        assertLe(adapter.principalDeployed(), 1, "basis released on full withdraw");
+
+        // Re-deposit into a now-empty position, so the basis is small again.
+        _fundAsset(START);
+        vm.prank(pool);
+        adapter.supply(_poolAsset());
+
+        // Drive real volume so real fees accrue inside the pair.
+        _swapThroughPair(address(this), 20 * ONE, asset, quote);
+        _swapThroughPair(address(this), 20 * ONE, quote, asset);
+
+        // The decisive assertion: the basis tracks the position it describes, so a
+        // surplus is still measurable. With the monotonic counter the basis sat
+        // above the position forever and this inequality could never hold again.
+        //
+        // The bound is the entry cost plus real pair drift, not a hair: the basis is
+        // booked at entry against the pre-swap reserves, while positionValue is a
+        // spot reading, and on this pair the two legitimately differ by a few
+        // percent. What is being pinned is ORDER OF MAGNITUDE, which is what
+        // separates "basis describes the position" from "basis is 79x the position"
+        // (the live failure: 65.47 of basis over a position worth 0.83).
+        uint256 basis = adapter.principalDeployed();
+        uint256 value = adapter.positionValue();
+        assertLe(basis, value + (value / 10), "basis tracks the position it describes");
+        assertGe(basis, value - (value / 10), "basis is not understated either");
+
+        // And a harvest actually moves value when there is any to move.
+        vm.prank(pool);
+        uint256 harvested = adapter.harvest();
+        if (harvested > 0) {
+            assertGe(IERC20(asset).balanceOf(pool), harvested, "harvest delivers asset to the pool");
+        }
+    }
+
+    /// A second supply after a partial withdrawal must book only its own slice,
+    /// and the basis must stay proportional to the position rather than compounding
+    /// against a stale, inflated figure.
+    function test_Fork_SecondSupply_AfterPartialWithdraw_StaysProportional() public needsFork {
+        uint256 deposited = _poolAsset();
+        vm.prank(pool);
+        adapter.supply(deposited);
+
+        // Withdraw half, then supply again.
+        uint256 half = adapter.positionValue() / 2;
+        vm.prank(pool);
+        adapter.redeem(half, address(0xbabe));
+
+        uint256 basisBeforeSecond = adapter.principalDeployed();
+        uint256 lpBeforeSecond = adapter.liquidityUnits();
+
+        _fundAsset(START);
+        vm.prank(pool);
+        adapter.supply(_poolAsset());
+
+        uint256 basisAdded = adapter.principalDeployed() - basisBeforeSecond;
+        assertGt(basisAdded, 0, "second supply books its own slice");
+
+        // Per-LP basis must stay broadly stable across the withdrawal and the
+        // re-supply. A stale basis inflating this ratio is the compounding bug.
+        uint256 perLpBefore = (basisBeforeSecond * 1e18) / lpBeforeSecond;
+        uint256 perLpAfter = (adapter.principalDeployed() * 1e18) / adapter.liquidityUnits();
+        assertApproxEqRel(perLpAfter, perLpBefore, 0.25e18, "per-LP basis stays stable across withdraw and re-supply");
+
+        // And the whole thing still withdraws in full.
+        uint256 all = adapter.positionValue();
+        vm.prank(pool);
+        adapter.redeem(all, address(0xbabe));
+        assertLe(adapter.principalDeployed(), 1, "full withdraw releases the whole basis");
     }
 
     // ---------- helpers ----------

@@ -32,6 +32,7 @@ const adapterAbi = [
 
 const poolAbi = [
   { type: "function", name: "potBalance", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "uint256" }] },
+  { type: "function", name: "potSeeded", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "uint256" }] },
   { type: "function", name: "totalPrincipal", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "uint256" }] },
   { type: "function", name: "totalShares", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "uint256" }] },
 ] as const;
@@ -43,6 +44,8 @@ type YieldState = {
   asset: Address;
   pair: Address;
   pot: bigint;
+  /** Total ever added by seedPot(). The earned yield is exactly `pot - seeded`. */
+  seeded: bigint;
   totalPrincipal: bigint;
   totalShares: bigint;
 };
@@ -59,17 +62,18 @@ export default function Yield() {
     if (!DEPLOYED) return;
     void (async () => {
       try {
-        const [principalDeployed, positionValue, liquidityUnits, asset, pair, pot, totalPrincipal, totalShares] = await Promise.all([
+        const [principalDeployed, positionValue, liquidityUnits, asset, pair, pot, seeded, totalPrincipal, totalShares] = await Promise.all([
           testnetReadClient.readContract({ address: adapter(), abi: adapterAbi, functionName: "principalDeployed" }),
           testnetReadClient.readContract({ address: adapter(), abi: adapterAbi, functionName: "positionValue" }),
           testnetReadClient.readContract({ address: adapter(), abi: adapterAbi, functionName: "liquidityUnits" }),
           testnetReadClient.readContract({ address: adapter(), abi: adapterAbi, functionName: "asset" }),
           testnetReadClient.readContract({ address: adapter(), abi: adapterAbi, functionName: "pair" }),
           testnetReadClient.readContract({ address: pool(), abi: poolAbi, functionName: "potBalance" }),
+          testnetReadClient.readContract({ address: pool(), abi: poolAbi, functionName: "potSeeded" }),
           testnetReadClient.readContract({ address: pool(), abi: poolAbi, functionName: "totalPrincipal" }),
           testnetReadClient.readContract({ address: pool(), abi: poolAbi, functionName: "totalShares" }),
         ]);
-        setState({ principalDeployed, positionValue, liquidityUnits, asset, pair, pot, totalPrincipal, totalShares });
+        setState({ principalDeployed, positionValue, liquidityUnits, asset, pair, pot, seeded, totalPrincipal, totalShares });
       } catch {
         setState(null);
       }
@@ -110,7 +114,7 @@ export default function Yield() {
           footer="REDEMPTION VALUE IS READ FROM THE PAIR, NOT COMPUTED FROM A RATE"
         >
           <div className="stat-row">
-            <Stat label="PRINCIPAL DEPLOYED" value={state ? `${formatUsdc(state.principalDeployed)} USDC` : "…"} note="Tracked deposit value in the LP position." />
+            <Stat label="PRINCIPAL DEPLOYED" value={state ? `${formatUsdc(state.principalDeployed)} USDC` : "…"} note="Current net principal in the LP, net of withdrawals. Entry cost and live drift show up as the gap to POSITION VALUE." />
             <Stat
               label="POSITION VALUE"
               value={state ? `${formatUsdc(state.positionValue)} USDC` : "…"}
@@ -139,8 +143,17 @@ export default function Yield() {
               value={state ? `${formatUsdc(surplus)} USDC` : "…"}
               note="Not prize money yet. It becomes prize money when a harvest realizes it."
             />
-            <Stat label="PRIZE POT" value={state ? `${formatUsdc(state.pot)} USDC` : "…"} note="Only realized, swapped value lands here." tone="accent" />
-            <Stat label="TOTAL DEPOSITED" value={state ? `${formatUsdc(state.totalPrincipal)} USDC` : "…"} note="Current holdings, not lifetime." />
+            <Stat
+              label="PRIZE POT"
+              value={state ? `${formatUsdc(state.pot)} USDC` : "…"}
+              note={
+                state && state.seeded > 0n
+                  ? `Of this, ${formatUsdc(state.seeded)} USDC was seeded by hand for the demo and ${formatUsdc(state.pot - state.seeded)} USDC is yield the LP actually earned. Both are real, traceable transactions; they are not the same thing.`
+                  : "Only realized, swapped value lands here."
+              }
+              tone="accent"
+            />
+            <Stat label="TOTAL DEPOSITED" value={state ? `${formatUsdc(state.totalPrincipal)} USDC` : "…"} note="Current holdings across all Chogs, net of withdrawals. The lifetime figure is separate and monotonic." />
           </div>
 
           <div className="button-row">
@@ -158,6 +171,15 @@ export default function Yield() {
             <p className="muted small">
               No surplus to harvest yet. Fees accrue inside the pair as trading volume happens;
               the surplus appears once the position's redemption value exceeds the deployed principal.
+              The Monad testnet pair is quiet, so on this build the pot is{" "}
+              {state && state.seeded > 0n ? (
+                <>
+                  seeded with faucet USDC (shown above, and tracked separately on-chain) rather than
+                  funded by trading fees. The production venue is Aave on Monad mainnet.
+                </>
+              ) : (
+                <>zero, and nothing about that is hidden.</>
+              )}
             </p>
           )}
         </Card>

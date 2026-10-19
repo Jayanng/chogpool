@@ -53,13 +53,43 @@ const poolReadAbi = [
   { type: "function", name: "nextDrawAt", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "uint64" }] },
 ] as const;
 
+/// The LP venue. `positionValue()` is what the venue can actually deliver right
+/// now, which is the only honest basis for a withdrawable figure.
+const adapterReadAbi = [
+  { type: "function", name: "positionValue", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "uint256" }] },
+] as const;
+
 const pool = () => DEPLOYED.pool as Address;
+const adapter = () => DEPLOYED.yieldAdapter as Address;
+
+/// What a position can actually withdraw right now: its pro-rata slice of the
+/// venue's live value, never more than its own share claim.
+///
+/// WHY THIS IS NOT `depositOf`'s principal. The pool credits shares against the
+/// value it put in at deposit time, and the venue's value then moves with trading,
+/// so "what was credited" and "what the chain can hand back" are different numbers.
+/// Showing the credited figure next to a withdraw button is what produced a button
+/// labelled "Withdraw all" that reverted on screen, right next to copy reading
+/// "What you can withdraw, in full." The number a user acts on must be the number
+/// the chain will honour.
+async function readWithdrawable(tokenId: bigint): Promise<bigint> {
+  const [shares, totalShares, venueValue] = await Promise.all([
+    testnetReadClient.readContract({ address: pool(), abi: poolReadAbi, functionName: "sharesOf", args: [tokenId] }),
+    testnetReadClient.readContract({ address: pool(), abi: poolReadAbi, functionName: "totalShares" }),
+    testnetReadClient.readContract({ address: adapter(), abi: adapterReadAbi, functionName: "positionValue" }),
+  ]);
+  if (shares === 0n || totalShares === 0n) return 0n;
+  const slice = (venueValue * shares) / totalShares;
+  return slice > shares ? shares : slice;
+}
 
 type Position = {
   shares: bigint;
   principal: bigint;
   twab: bigint;
   oddsBps: bigint;
+  /** What the chain will actually pay out right now. May be below `principal`. */
+  withdrawable: bigint;
 };
 
 export default function Deposit() {
@@ -110,13 +140,18 @@ export default function Deposit() {
     }
     void (async () => {
       try {
-        const [shares, principal, twab, oddsBps] = await Promise.all([
+        const [shares, principal, twab, oddsBps, withdrawable] = await Promise.all([
           testnetReadClient.readContract({ address: pool(), abi: poolReadAbi, functionName: "sharesOf", args: [tokenId] }),
           testnetReadClient.readContract({ address: pool(), abi: poolReadAbi, functionName: "depositOf", args: [tokenId] }),
           testnetReadClient.readContract({ address: pool(), abi: poolReadAbi, functionName: "twabOf", args: [tokenId] }),
           testnetReadClient.readContract({ address: pool(), abi: poolReadAbi, functionName: "oddsBpsOf", args: [tokenId] }),
+          // The honest withdrawable figure: this position's pro-rata slice of the
+          // venue's live value. The pool's `principal` is what was credited, and
+          // those are different numbers once the venue has traded, which is exactly
+          // the state that used to make "Withdraw all" revert on screen.
+          readWithdrawable(tokenId),
         ]);
-        setPosition({ shares, principal, twab, oddsBps });
+        setPosition({ shares, principal, twab, oddsBps, withdrawable });
       } catch {
         setPosition(null);
       }
@@ -302,7 +337,15 @@ export default function Deposit() {
               {position && (
                 <div className="stat-row">
                   <Stat label="YOUR SHARES" value={wallet.reading ? "…" : formatUsdc(position.shares)} tone="lime" />
-                  <Stat label="YOUR PRINCIPAL" value={formatUsdc(position.principal)} note="What you can withdraw, in full." />
+                  <Stat
+                    label="WITHDRAWABLE NOW"
+                    value={wallet.reading ? "…" : formatUsdc(position.withdrawable)}
+                    note={
+                      position.withdrawable < position.principal
+                        ? "Your live share of the LP position. Swap fees and price drift move this, so it can sit below your deposit."
+                        : "Your live share of the LP position, paid out in full the moment you withdraw."
+                    }
+                  />
                   <Stat
                     label="YOUR ODDS"
                     value={position.oddsBps === 0n ? ": " : `${(Number(position.oddsBps) / 100).toFixed(2)}%`}

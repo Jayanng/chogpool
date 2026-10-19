@@ -14,8 +14,16 @@ export interface GameSource {
   nextDrawAt(): Promise<number | null>;
   /** Pot balance in smallest unit of the prize token, or null when unknown. */
   potBalance(): Promise<bigint | null>;
-  /** Deposit bound to a Chog tokenId (shares), or null when unknown. */
-  depositOf(tokenId: bigint): Promise<bigint | null>;
+  /** Deposit bound to a Chog tokenId: depositor, shares, principal, or null when unknown. */
+  depositOf(tokenId: bigint): Promise<{ depositor: string; shares: bigint; principal: bigint } | null>;
+  /// What this position can actually withdraw RIGHT NOW: its pro-rata slice of the
+  /// venue's live value. This is deliberately a different question from
+  /// `depositOf`, which answers "what was credited". A shared LP venue's value
+  /// moves with trading, so the honest withdrawable figure is computed from
+  /// `positionValue()` and the position's share of it, never assumed equal to the
+  /// credited principal. Shown next to any withdraw button, because a button that
+  /// promises more than the chain can deliver is the worst thing the UI can do.
+  withdrawable(tokenId: bigint): Promise<bigint | null>;
   /** Time-weighted average balance of a Chog position (IChogPool.twabOf). */
   twabOf(tokenId: bigint): Promise<bigint | null>;
   /** Win probability out of the live book, in basis points 0..10000 (IChogPool.oddsBpsOf). */

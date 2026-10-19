@@ -36,6 +36,35 @@ contract ChogMirror is ERC721, EIP712, Ownable, IChogMirror {
     /// @inheritdoc IChogMirror
     mapping(address => bool) public hasTestDrive;
 
+    /// @notice NOT IMPLEMENTED, deliberately. `testDriveTokenOf(address) returns
+    ///         (uint256)` would let the deposit form auto-fill the Chog a wallet
+    ///         holds the mirror for, so nobody types a wrong id on a fresh browser.
+    ///         It was scoped and then descoped on 2026-10-18, and the reason is
+    ///         load-bearing:
+    ///
+    ///         The pool's `mirror` is `immutable` in ChogPool's constructor, so a
+    ///         mirror redeploy cannot stand alone. It pulls the whole stack with
+    ///         it: new mirror, then new pool (the old one holds the deposits),
+    ///         then the adapter and draw engine re-pointed, plus a migration of
+    ///         the live deposits and the finalized draw. That migration is
+    ///         MigrateStack.s.sol, and it is blocked: it requires the pool owner
+    ///         key, which was created in a prior session and is not on any host in
+    ///         this project. (The owner address is in infra/verified.json under
+    ///         monadTestnet.chogPool, deliberately not repeated here, because a
+    ///         literal in source is what check-addresses.mjs exists to catch.)
+    ///
+    ///         So the honest state is: the convenience feature is worth adding
+    ///         ONLY as a passenger on a redeploy that is happening anyway (for
+    ///         the principalDeployed / withdrawAll fixes). Until that redeploy
+    ///         is unblocked, adding it here would ship code that can never reach
+    ///         a live contract. Nothing is broken meanwhile: the frontend
+    ///         remembers the id from the mint and the on-chain owner check backs
+    ///         it up, so a fresh browser just re-types it.
+    ///
+    ///         IF a redeploy is unblocked, add BOTH in the same pass: this
+    ///         mapping plus a set at mint in mintWithSig and mintTestDrive, and
+    ///         the deposit form's auto-fill reading it.
+
     /// @notice Real mainnet tokenURI, stored verbatim at mint (never invented traits).
     mapping(uint256 => string) private _realURIs;
 

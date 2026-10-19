@@ -25,6 +25,16 @@ const ALLOW_FILES = [
                          // Source files stay under the strict rule above.
   "docs/GATE2-LOG.md",   // gate evidence log: same rule as GATE1-LOG, it quotes the
                          // RPC values and addresses the checks actually produced.
+  "docs/GATE3-LOG.md",   // Phase 3 (race) audit log. Audited by a non-author, so it
+                         // quotes the deployed addresses and live values the re-run
+                         // actually produced. Same rule as GATE1/GATE2.
+  "docs/GATE4-LOG.md",   // Phase 4 (money) audit log: same rule, it quotes the live
+                         // pool/adapter state the withdraw path was verified against.
+  "docs/DECISIONS.md",   // the standing decisions log. A decision that cannot name
+                         // the addresses it was made about is not a record of
+                         // anything: the fresh-stack entry has to quote the deployed
+                         // stack it chose, and the pot entry has to quote the pair
+                         // state that forced the seed. Same rule as the gate logs.
   // Test vectors quote REAL chain values (seeds, blockhashes, commits), the same
   // way the gate logs do: a re-derivation test that cannot name the seed it
   // re-derives is not evidence of anything. The 40-hex pattern also matches the
