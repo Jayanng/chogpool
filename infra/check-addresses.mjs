@@ -18,7 +18,6 @@ const ADDR_RE = /0x[a-fA-F0-9]{40}(?![a-fA-F0-9])/g;
 const ALLOW_FILES = [
   "infra/verified.json",
   "infra/deployments.json",
-  "PLAN.md",             // the plan documents the verified addresses (read-only doc)
   "docs/GATE1-LOG.md",   // the recorded end-to-end run log: EVIDENCE, not source.
                          // It must quote the real addresses and hashes the run
                          // actually produced, or it is not a record of anything.
