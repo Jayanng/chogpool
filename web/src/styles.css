@@ -1793,3 +1793,63 @@ body:has(.gate-overlay), html:has(.gate-overlay) { overflow: hidden; }
 }
 .footer-compact { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
 .footer-fact { margin-top: 4px; font: 500 12px/1.5 'Inter', sans-serif; color: var(--c-muted); }
+
+/* ── The Run: the playable course ───────────────────────────────────── */
+.game-shell { display: grid; gap: 18px; }
+.game-frame {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--line, rgba(120, 100, 200, 0.25));
+  box-shadow: 0 18px 48px rgba(30, 22, 70, 0.28);
+  background: #211b3d;
+}
+.game-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: none;
+  cursor: pointer;
+}
+.game-hud {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  pointer-events: none;
+}
+.game-hud-chip {
+  background: rgba(23, 18, 51, 0.72);
+  color: #efeaff;
+  border: 1px solid rgba(159, 138, 222, 0.5);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+.game-hud-chip--coin { border-color: rgba(198, 232, 92, 0.65); color: #d6f28c; }
+.game-hud-chip--revived { border-color: rgba(255, 196, 110, 0.75); color: #ffd9a6; }
+.game-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  padding: 24px;
+  background: rgba(23, 18, 51, 0.62);
+  backdrop-filter: blur(3px);
+}
+.game-overlay-title { font-size: 26px; font-weight: 700; color: #fff; margin: 0; }
+.game-overlay-text { color: #d9d0f5; max-width: 460px; margin: 0; line-height: 1.55; }
+.game-overlay-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.game-overlay-foot { color: #a99ccf; font-size: 12px; margin: 0; }
+@media (max-width: 640px) {
+  .game-overlay-title { font-size: 20px; }
+  .game-hud-chip { font-size: 10px; padding: 3px 9px; }
+}

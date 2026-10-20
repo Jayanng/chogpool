@@ -15,6 +15,7 @@ import { CHAIN, DEPLOYED } from "./generated/addresses.gen";
 // One async page bundle per route.
 const Landing = lazy(() => import("./landing"));
 const Play = lazy(() => import("./sections/Play"));
+const Game = lazy(() => import("./sections/Game"));
 const RaceSection = lazy(() => import("./sections/Race"));
 const EarnSection = lazy(() => import("./sections/Earn"));
 const Proof = lazy(() => import("./verify"));
@@ -23,6 +24,7 @@ const StyleGuide = lazy(() => import("./style-guide"));
 const routes: Array<{ path: string; label: string; Component: LazyExoticComponent<ComponentType>; hidden?: boolean }> = [
   { path: "/", label: "Track", Component: Landing },
   { path: "/play", label: "Play", Component: Play },
+  { path: "/run", label: "Run", Component: Game },
   { path: "/race", label: "Race", Component: RaceSection },
   { path: "/earn", label: "Earn", Component: EarnSection },
   { path: "/proof", label: "Proof", Component: Proof },
