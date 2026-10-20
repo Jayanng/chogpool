@@ -97,15 +97,32 @@ export default function Yield() {
   return (
     <>
       <section className="page-head">
-        <p className="kicker">YIELD</p>
-        <h1>Where your<br /><em>principal sits.</em></h1>
+        <p className="kicker">THE POT</p>
+        <h1>Where the pot<br /><em>comes from.</em></h1>
         <p className="lede">
-          Deposits go into a real liquidity position, not a ledger entry. This page reads the
-          position's actual redemption value and the pot's actual balance. Nothing here is
-          projected or annualised.
+          The pot grows from real value only. Today that is seeded funds and the game's revive
+          fees, plus whatever harvest has actually realized from the live position. Next it grows
+          through the no-loss adapter's yield. Nothing here is projected or annualised.
         </p>
         <div className="network-note"><span className="status-dot" /> Network: Monad Testnet · test funds only</div>
       </section>
+
+      <Panel className="feature-panel">
+        <Card
+          title="Where the pot grows"
+          footer="REAL VALUE ONLY, TODAY AND LATER"
+        >
+          <div className="stat-row">
+            <Stat label="SEEDED FUNDS" value="Real, on chain" note="Seeded into the pot as real transactions. The card labels it SEEDED wherever it shows." tone="lime" />
+            <Stat label="REVIVE FEES" value="Real, when rounds land" note="Each revive pays a Test $CHOG fee into the round's prize. Live when the round contract is live." tone="accent" />
+            <Stat label="YIELD" value="The future plan" note="The no-loss adapter's realized value feeds the pot next. SponsorAdapter is built and tested for this; AaveAdapter follows when we deploy where Aave is live." />
+          </div>
+          <p className="muted small">
+            No layer of this pot is ever a projected rate or a paper number. What is not live yet
+            says so, on this page and on every card that shows it.
+          </p>
+        </Card>
+      </Panel>
 
       <Panel className="feature-panel">
         <Card
@@ -207,6 +224,11 @@ export default function Yield() {
             swaps in behind that interface without changing the pool, the pot, or this page's
             numbers. The rehearsal is that the whole path, deposit, position, harvest, pot, 
             already works end to end against a real venue, just a different one.
+          </p>
+          <p className="muted">
+            The next venue behind that interface is the SponsorAdapter: built and tested, it holds
+            principal idle and books only value that has physically arrived. Deploying it is the
+            next step, and AaveAdapter is the roadmap venue after.
           </p>
           <p className="muted small">
             Principal is never at risk beyond ordinary AMM impermanent loss, which is the honest
