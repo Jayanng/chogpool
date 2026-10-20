@@ -125,6 +125,31 @@ export default function Yield() {
       </Panel>
 
       <Panel className="feature-panel">
+        <Card title="The pot today" footer="EVERY INCREMENT TRACES TO A REAL TRANSACTION">
+          <div className="stat-row">
+            <Stat
+              label="PRIZE POT"
+              value={state ? `${formatUsdc(state.pot)} USDC` : "…"}
+              note={
+                state && state.seeded > 0n
+                  ? `Of this, ${formatUsdc(state.seeded)} USDC was seeded by hand for the demo and ${formatUsdc(state.pot - state.seeded)} USDC is yield the LP actually earned. Both are real, traceable transactions; they are not the same thing.`
+                  : "Only realized, swapped value lands here."
+              }
+              tone="accent"
+            />
+            <Stat
+              label="UNREALIZED SURPLUS"
+              value={state ? `${formatUsdc(surplus)} USDC` : "…"}
+              note="Not prize money yet. It becomes prize money when a harvest realizes it."
+            />
+            <Stat label="TOTAL DEPOSITED" value={state ? `${formatUsdc(state.totalPrincipal)} USDC` : "…"} note="Current holdings across all Chogs, net of withdrawals. The lifetime figure is separate and monotonic." />
+          </div>
+        </Card>
+      </Panel>
+
+      <details className="mechanics">
+        <summary className="muted small">Show the mechanics behind the pot</summary>
+        <Panel className="feature-panel">
         <Card
           title="The position"
           aside={<Badge tone="accent">REAL LP</Badge>}
@@ -163,25 +188,6 @@ export default function Yield() {
           aside={<Badge tone={surplus > 0n ? "lime" : "neutral"}>{surplus > 0n ? "SURPLUS AVAILABLE" : "NO SURPLUS YET"}</Badge>}
           footer="HARVEST REDEEMS A SLICE, SWAPS IT, AND BOOKS ONLY WHAT ACTUALLY MOVED"
         >
-          <div className="stat-row">
-            <Stat
-              label="UNREALIZED SURPLUS"
-              value={state ? `${formatUsdc(surplus)} USDC` : "…"}
-              note="Not prize money yet. It becomes prize money when a harvest realizes it."
-            />
-            <Stat
-              label="PRIZE POT"
-              value={state ? `${formatUsdc(state.pot)} USDC` : "…"}
-              note={
-                state && state.seeded > 0n
-                  ? `Of this, ${formatUsdc(state.seeded)} USDC was seeded by hand for the demo and ${formatUsdc(state.pot - state.seeded)} USDC is yield the LP actually earned. Both are real, traceable transactions; they are not the same thing.`
-                  : "Only realized, swapped value lands here."
-              }
-              tone="accent"
-            />
-            <Stat label="TOTAL DEPOSITED" value={state ? `${formatUsdc(state.totalPrincipal)} USDC` : "…"} note="Current holdings across all Chogs, net of withdrawals. The lifetime figure is separate and monotonic." />
-          </div>
-
           <div className="button-row">
             <Button
               onClick={() => void harvest()}
@@ -236,6 +242,7 @@ export default function Yield() {
           </p>
         </Card>
       </Panel>
+      </details>
 
       {note && <Toast tone="info" message={note} />}
       {wallet.txError && <Toast tone="danger" message={wallet.txError} />}

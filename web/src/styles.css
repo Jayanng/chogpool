@@ -1868,3 +1868,9 @@ body:has(.gate-overlay), html:has(.gate-overlay) { overflow: hidden; }
   resize: vertical;
 }
 .field textarea:focus { outline: 2px solid rgba(255, 138, 61, 0.5); border-color: transparent; }
+
+/* The pot's engine room: closed by default, open on demand */
+.mechanics { margin: 4px 0 18px; }
+.mechanics summary { cursor: pointer; padding: 10px 2px; }
+.mechanics summary:focus-visible { outline: 2px solid rgba(255, 138, 61, 0.5); border-radius: 8px; }
+.mechanics[open] summary { margin-bottom: 10px; }
