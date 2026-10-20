@@ -63,6 +63,7 @@ export const TESTNET = {
   usdt: "${reg.monadTestnet.puddleUSDT.address}",
   faucetUsdc: "${reg.monadTestnet.faucetUSDC.address}",
   wmon: "${reg.monadTestnet.wmon.address}",
+  multicall3: "${reg.monadTestnet.multicall3.address}",
   stableFaucet: "${reg.monadTestnet.stableFaucet.address}",
   v2Factory: "${reg.monadTestnet.uniswapV2Factory.address}",
   v2Router: "${reg.monadTestnet.uniswapV2Router02.address}",

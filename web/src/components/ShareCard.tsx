@@ -47,6 +47,11 @@ export type ShareCardResult = {
   /** Photo-finish margin stamp ("WON BY 0.8%"), or null when there is no
    *  single winner to stamp. */
   marginLabel?: string | null;
+  /** True when the prize pot is seeded by the team rather than funded by yield.
+   *  The card then says so next to the prize. This is an environment label like
+   *  the testnet badge, not an invented value: the seeded amount is tracked
+   *  on-chain as potSeeded and shown separately on the yield page. */
+  seeded?: boolean;
 };
 
 /** Winner text lives left of the QR block (x 952..1148) and ends by x 920 at
@@ -192,7 +197,7 @@ export function ShareCard({
       ctx.fillStyle = tokens.color.accent;
       ctx.font = "700 30px 'Plus Jakarta Sans', system-ui, sans-serif";
       ctx.fillText(
-        fitLabel(ctx, prizeCanvasLabel(drawWinners(result), result.potLabel, result.zeroPot).toUpperCase(), WIDE_LABEL_MAX),
+        fitLabel(ctx, prizeCanvasLabel(drawWinners(result), result.potLabel, result.zeroPot).toUpperCase() + (result.seeded ? " (SEEDED)" : ""), WIDE_LABEL_MAX),
         NAME_LEFT,
         482,
       );
@@ -245,7 +250,7 @@ export function ShareCard({
         ctx.fillStyle = tokens.color.muted;
         ctx.font = "500 24px 'DM Mono', monospace";
         ctx.fillText(
-          fitLabel(ctx, prizeCanvasLabel(drawWinners(result), result.potLabel, result.zeroPot).toUpperCase(), WIDE_LABEL_MAX),
+          fitLabel(ctx, prizeCanvasLabel(drawWinners(result), result.potLabel, result.zeroPot).toUpperCase() + (result.seeded ? " (SEEDED)" : ""), WIDE_LABEL_MAX),
           NAME_LEFT,
           482,
         );

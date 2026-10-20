@@ -104,7 +104,7 @@ export default function Yield() {
           position's actual redemption value and the pot's actual balance. Nothing here is
           projected or annualised.
         </p>
-        <div className="network-note"><span className="status-dot" /> Play: Monad Testnet · test funds only</div>
+        <div className="network-note"><span className="status-dot" /> Network: Monad Testnet · test funds only</div>
       </section>
 
       <Panel className="feature-panel">
@@ -123,6 +123,15 @@ export default function Yield() {
             />
             <Stat label="LP UNITS HELD" value={state ? Number(state.liquidityUnits).toLocaleString() : "…"} note="LP tokens backing the position." />
           </div>
+          {state && state.principalDeployed === 0n && state.positionValue === 0n && (
+            <div className="empty-note">
+              <p className="muted">
+                No position yet. Nothing has been deposited in this build, so the pair is empty.
+                Fund your wallet and deposit to put the first position in.
+              </p>
+              <Button onClick={() => navigate("/play")}>Deposit to start</Button>
+            </div>
+          )}
           {state && (
             <p className="muted small">
               Pair {shortAddress(state.pair)} · asset {shortAddress(state.asset)}

@@ -435,6 +435,24 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
   to { clip-path: inset(0 0 0 100%); }
 }
 
+/* Entry journey: the entered banner and the live book. */
+.entered-banner {
+  margin: 14px 0 0; padding: 14px 18px; border-radius: 14px;
+  background: rgba(47, 122, 61, 0.1); border: 1px solid rgba(47, 122, 61, 0.35);
+  display: grid; gap: 4px;
+}
+.entered-banner strong { font-size: 16px; letter-spacing: .06em; color: #2f7a3d; }
+.entered-banner span { font-size: 13px; color: #3d2436; }
+.book-list { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 6px; }
+.book-row {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center;
+  padding: 8px 12px; border-radius: 10px; background: rgba(36, 26, 36, 0.05);
+  font-size: 13px;
+}
+.book-id { font-weight: 700; letter-spacing: .04em; }
+.book-stake { font-family: 'dm mono', ui-monospace, monospace; }
+.book-share { font-family: 'dm mono', ui-monospace, monospace; color: #6b4a5c; min-width: 64px; text-align: right; }
+
 /* Photo-finish margin stamp (show only; a restatement of two finish times). */
 .show-margin {
   position: absolute; right: 18px; bottom: 64px; transform: rotate(-6deg);
@@ -1179,7 +1197,7 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 .section-tabs {
   display: inline-flex; gap: 6px; padding: 6px; border-radius: 999px;
   background: var(--c-white); border: 3px solid var(--c-ink); width: fit-content;
-  flex-wrap: wrap; box-shadow: 0 12px 28px rgba(0, 0, 0, .18);
+  flex-wrap: wrap; box-shadow: 4px 4px 0 var(--c-ink);
 }
 .section-tab {
   border: 0; background: transparent; cursor: pointer;
@@ -1229,7 +1247,7 @@ body { background: #f7f3ee; }
 .ui-stat--accent .ui-stat__value { color: #2b4af6; }
 .ui-stat--lime .ui-stat__value { color: #2fae6a; }
 
-.ui-button { border-radius: 999px; font-family: 'Poppins', system-ui, sans-serif; font-weight: 700; letter-spacing: -.01em; }
+.ui-button { border-radius: 999px; font-family: 'Poppins', system-ui, sans-serif; font-weight: 700; letter-spacing: -.01em; border: 2px solid var(--c-ink); box-shadow: 3px 3px 0 var(--c-ink); }
 .ui-button--primary { background: #2b4af6; color: #fff; }
 .ui-button--quiet { background: transparent; color: #241a24; }
 .ui-button--outline { background: transparent; color: #241a24; border: 2px solid #241a24; }
@@ -1242,7 +1260,7 @@ body { background: #f7f3ee; }
 /* readable body copy + headings on the light canvas */
 .lede, .muted { color: #6b4a5c; }
 h1, h2, h3 { color: #241a24; }
-.field input, .viewer-input { background: #fff; border: 2px solid rgba(17,17,17,.16); color: #241a24; }
+.field input, .viewer-input { background: #fff; border: 2px solid #241a24; color: #241a24; }
 .field input::placeholder, .viewer-input::placeholder { color: #7a6270; }
 
 /* Batch 5b spacing fixes: internal panel padding + edge clearance */
@@ -1462,7 +1480,7 @@ body { overflow-x: clip; max-width: 100vw; }
 }
 .footer-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .footer-brand { font-family: 'Poppins', 'Space Grotesk', sans-serif; font-weight: 800; font-size: 22px; letter-spacing: -.02em; color: var(--c-ink); text-decoration: none; }
-.footer-brand span { color: var(--c-blue); }
+.footer-brand span { color: var(--c-blue); margin-left: 6px; }
 .footer-nav { display: flex; gap: 4px; flex-wrap: wrap; }
 .footer-nav a { padding: 8px 14px; border-radius: 999px; font: 600 13px 'Inter', sans-serif; color: var(--c-ink); text-decoration: none; border: 2px solid transparent; }
 .footer-nav a:hover { border-color: var(--c-ink); background: var(--c-yellow); }
@@ -1736,3 +1754,10 @@ body:has(.gate-overlay), html:has(.gate-overlay) { overflow: hidden; }
   padding: 5px 12px; border-radius: 999px; border: 2px solid var(--c-ink);
   background: var(--c-cream); font: 700 11px 'Inter', sans-serif; color: var(--c-ink); cursor: pointer;
 }
+/* Empty states: say what is missing and offer the next move, never just zeros. */
+.empty-note {
+  margin-top: 14px; padding: 16px 18px; border-radius: 14px;
+  border: 2px dashed rgba(36, 26, 36, .3); background: rgba(36, 26, 36, .04);
+  display: flex; flex-direction: column; gap: 12px; align-items: flex-start;
+}
+.empty-note p { margin: 0; max-width: 60ch; }

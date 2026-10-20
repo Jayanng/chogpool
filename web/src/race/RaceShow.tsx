@@ -218,6 +218,9 @@ export function RaceShow({ bundle }: { bundle: RaceBundle }) {
           })),
           potLabel: formatAsset(draw.potPerWinner),
           marginLabel: shareMargin,
+          // Environment label: this testnet demo pot is seeded by the team and
+          // tracked on-chain as potSeeded. Flip to false once yield funds it.
+          seeded: true,
           zeroPot,
           rehearsal,
         }

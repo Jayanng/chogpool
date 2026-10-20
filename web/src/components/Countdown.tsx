@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Button } from "@chogpool/ui";
+import { navigate } from "../lib/router";
 import { formatTime } from "../lib/format";
 
 function format(remaining: number): string {
@@ -59,6 +61,7 @@ export function Countdown({
           No draw scheduled yet. Draws are opened by the pool operator, not on a timer: the countdown appears
           the moment a draw is opened on chain.
         </div>
+        <Button onClick={() => navigate("/play")}>Enter the race</Button>
       </div>
     );
   }

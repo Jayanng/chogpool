@@ -8,8 +8,8 @@ export default function Play() {
   return (
     <SectionHost
       tabs={[
-        { label: "Deposit", path: "/deposit", Component: Deposit },
         { label: "Get a Chog", path: "/mint", Component: Mint },
+        { label: "Enter the race", path: "/deposit", Component: Deposit },
         { label: "Pick a perk", path: "/draft", Component: Draft },
       ]}
     />
