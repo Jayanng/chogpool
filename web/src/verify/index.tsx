@@ -104,6 +104,10 @@ export default function Verify() {
               the operator awards one, its race ID here walks the published seed and the exact formula,
               step by step.
             </p>
+            <div className="empty-note">
+              <p className="muted">In the meantime, the live race is worth a look.</p>
+              <Button onClick={() => navigate("/spectator")}>Watch a race</Button>
+            </div>
           </Card>
         </Panel>
       )}

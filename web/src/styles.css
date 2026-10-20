@@ -1754,3 +1754,10 @@ body:has(.gate-overlay), html:has(.gate-overlay) { overflow: hidden; }
   padding: 5px 12px; border-radius: 999px; border: 2px solid var(--c-ink);
   background: var(--c-cream); font: 700 11px 'Inter', sans-serif; color: var(--c-ink); cursor: pointer;
 }
+/* Empty states: say what is missing and offer the next move, never just zeros. */
+.empty-note {
+  margin-top: 14px; padding: 16px 18px; border-radius: 14px;
+  border: 2px dashed rgba(36, 26, 36, .3); background: rgba(36, 26, 36, .04);
+  display: flex; flex-direction: column; gap: 12px; align-items: flex-start;
+}
+.empty-note p { margin: 0; max-width: 60ch; }

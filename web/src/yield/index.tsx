@@ -123,6 +123,15 @@ export default function Yield() {
             />
             <Stat label="LP UNITS HELD" value={state ? Number(state.liquidityUnits).toLocaleString() : "…"} note="LP tokens backing the position." />
           </div>
+          {state && state.principalDeployed === 0n && state.positionValue === 0n && (
+            <div className="empty-note">
+              <p className="muted">
+                No position yet. Nothing has been deposited in this build, so the pair is empty.
+                Fund your wallet and deposit to put the first position in.
+              </p>
+              <Button onClick={() => navigate("/play")}>Deposit to start</Button>
+            </div>
+          )}
           {state && (
             <p className="muted small">
               Pair {shortAddress(state.pair)} · asset {shortAddress(state.asset)}
