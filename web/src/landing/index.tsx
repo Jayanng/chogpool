@@ -72,7 +72,7 @@ export default function Landing() {
           </div>
           <div className="trust-row">
             <span className="chip"><span className="dot dot-green" />Principal safe</span>
-            <span className="chip"><span className="dot dot-pink" />Real yield only</span>
+            <span className="chip"><span className="dot dot-pink" />Real value only</span>
             <span className="chip"><span className="dot dot-yellow" />Re-derivable</span>
           </div>
         </div>
