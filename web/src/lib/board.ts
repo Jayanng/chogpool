@@ -7,7 +7,6 @@
 import { type Address, parseAbi } from "viem";
 import { DEPLOYED, TESTNET } from "../generated/addresses.gen";
 import { testnetReadClient } from "./wallet";
-import { readCurrentDrawId } from "./draw";
 
 const MULTICALL3 = TESTNET.multicall3 as Address;
 const MAX_SUPPLY = 1969;
@@ -33,10 +32,13 @@ export function podiumOf(entries: Array<{ tokenId: bigint; placement: number | n
 
 const BATCH = 400;
 
-/** The latest race's podium, read live from the CareerStore. */
-export async function readPodium(): Promise<PodiumRow[]> {
-  const raceId = await readCurrentDrawId();
-  if (raceId === null) return [];
+/** How many recent race ids the board looks at. The CareerStore keeps no
+ *  global race counter, so the board scans this window and shows the newest
+ *  race with recorded placements. When the round contract lands, its
+ *  latestRoundId() (see the teammate package) replaces this scan. */
+const RACE_SCAN = 3;
+
+async function podiumOfRace(raceId: bigint): Promise<PodiumRow[]> {
   const store = DEPLOYED.careerStore as Address;
 
   const entries: Array<{ tokenId: bigint; placement: number | null }> = [];
@@ -62,4 +64,16 @@ export async function readPodium(): Promise<PodiumRow[]> {
   }
 
   return podiumOf(entries);
+}
+
+/** The newest race's podium, read live from the CareerStore. Empty means no
+ *  race has recorded placements yet, which is the truth on a fresh stack. */
+export async function readPodium(): Promise<PodiumRow[]> {
+  const scans = await Promise.all(
+    Array.from({ length: RACE_SCAN }, (_, i) => podiumOfRace(BigInt(i + 1))),
+  );
+  for (let i = scans.length - 1; i >= 0; i--) {
+    if (scans[i].length > 0) return scans[i];
+  }
+  return [];
 }
