@@ -1,20 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatUnits } from "viem";
 import { Badge, Button, Card, Marquee, Panel, Stat, tokens } from "@chogpool/ui";
-import { ChogViewer } from "../components/ChogViewer";
-import { ShareCard } from "../components/ShareCard";
 import { getGameSource } from "../lib/game";
 import { readPodium, type PodiumRow } from "../lib/board";
 import { CHAIN } from "../generated/addresses.gen";
 import { POT_DECIMALS } from "../types/game";
-import { ipfsToGateway, type ChogRecord } from "../lib/chog";
 import { navigate } from "../lib/router";
+import { todaySeed } from "../game/Runner";
+import { courseOf } from "../game/course";
 import tileCrowned from "./assets/c100.webp";
 import tileHoodie from "./assets/c25.webp";
 
 export default function Landing() {
   const [pot, setPot] = useState<bigint | null>(null);
-  const [lookedUp, setLookedUp] = useState<ChogRecord | null>(null);
+  // Today's course, for the board's empty state: the real field the run
+  // plays on, derived from today's published seed.
+  const courseStats = useMemo(() => {
+    const seed = todaySeed();
+    const course = courseOf(seed, 45000);
+    return { seed, obstacles: course.length };
+  }, []);
   // The leaderboard's podium, read live from the CareerStore. null while
   // reading or after a failed read (said as such, never shown as empty),
   // [] when the board is genuinely empty. A row exists only when the store
@@ -47,14 +52,9 @@ export default function Landing() {
       <section className="hero hero-scene">
         <div className="hero-glow" aria-hidden="true" />
         <div className="hero-confetti" aria-hidden="true">
-          <svg style={{ left: "360px", top: "8px", width: "58px" }} viewBox="0 0 24 24" fill="#ffd84d"><path d="M12 0 C13 8 16 11 24 12 C16 13 13 16 12 24 C11 16 8 13 0 12 C8 11 11 8 12 0 Z" /></svg>
-          <svg style={{ left: "250px", top: "26px", width: "34px" }} viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#f3a0c9" /></svg>
-          <svg style={{ left: "452px", top: "10px", width: "122px" }} viewBox="0 0 60 30" fill="none"><path d="M4 22 Q 16 4, 28 22 T 52 22" stroke="#fff" strokeWidth="9" strokeLinecap="round" /></svg>
-          <svg style={{ left: "700px", top: "24px", width: "34px" }} viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#ff2d87" /></svg>
-          <svg style={{ left: "1072px", top: "16px", width: "62px" }} viewBox="0 0 24 24" fill="#fff"><path d="M12 0 C13 8 16 11 24 12 C16 13 13 16 12 24 C11 16 8 13 0 12 C8 11 11 8 12 0 Z" /></svg>
-          <svg style={{ left: "792px", top: "232px", width: "54px" }} viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke="#f3a0c9" strokeWidth="5" fill="none" /></svg>
-          <svg style={{ left: "766px", top: "20px", width: "38px" }} viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#ffd84d" /></svg>
-          <svg style={{ left: "884px", top: "26px", width: "32px" }} viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#ff2d87" /></svg>
+          <svg style={{ left: "360px", top: "8px", width: "54px" }} viewBox="0 0 24 24" fill="#ffd84d"><path d="M12 0 C13 8 16 11 24 12 C16 13 13 16 12 24 C11 16 8 13 0 12 C8 11 11 8 12 0 Z" /></svg>
+          <svg style={{ left: "250px", top: "26px", width: "30px" }} viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#f3a0c9" /></svg>
+          <svg style={{ left: "700px", top: "24px", width: "30px" }} viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#ff2d87" /></svg>
         </div>
         <div className="hero-copy">
           <div className="hero-chips">
@@ -94,11 +94,17 @@ export default function Landing() {
           <div className="lane lane-three"><div className="lane-label">3RD <span>{placeName(3)}</span></div><div className="runner runner-three">◉</div></div>
           <div className="track-footer"><span>PRIZE POT</span><strong>{pot === null ? "Reading the chain…" : `${formatUnits(pot, POT_DECIMALS)} USDC${fixturesOn ? " (fixture)" : ""}`}</strong><span>↗</span></div>
           <p className="track-note">The board reads the career store's on-chain record. The round's top 3 land here the moment it settles.</p>
+          {board !== null && board.length === 0 && !boardFailed && (
+            <div className="stat-row">
+              <Stat label="TODAY'S COURSE" value="450m" note={`Seed ${courseStats.seed} · ${courseStats.obstacles} obstacles · the same field for everyone`} />
+              <Stat label="THE BOARD" value="BE FIRST" note="No placement is recorded yet. The first round's podium lands here." tone="accent" />
+            </div>
+          )}
           <Button onClick={() => navigate("/run")}>Play the game</Button>
         </Panel>
       </section>
 
-      <Marquee items={["REAL YIELD ONLY", "PRINCIPAL WITHDRAWABLE ANY TIME", "PUBLISHED SEED · RE-VERIFIABLE", "TEST DRIVE AVAILABLE"]} tone="accent" />
+      <Marquee items={["TOP 3 SPLIT THE POT", "SAME COURSE FOR EVERYONE", "EVERY RUN REPLAYABLE", "PRINCIPAL WITHDRAWABLE ANY TIME"]} tone="accent" />
 
       <section className="proof-grid">
         <div>
@@ -107,34 +113,39 @@ export default function Landing() {
           <p className="muted">Your stake stays yours and stays withdrawable. The top 3 split the pot, and every run is checkable by anyone.</p>
         </div>
         <Panel className="proof-panel">
-          <Stat label="THE LEADERBOARD" value="Top 3 split the pot" note="Rounds open, lock and settle on their own schedule. The podium lands on the board." />
-          <Stat label="FAIRNESS" value="Published seed" note="Run re-derivable from its published seed and inputs on the verifier page." tone="lime" />
+          <Stat label="THE ROSTER" value="1,969 Chogs" note="Every one is a playable athlete, and your entry binds to one of them." tone="lime" />
+          <Stat label="FAIRNESS" value="Published seed" note="Run re-derivable from its published seed and inputs on the verifier page." />
         </Panel>
         <Panel className="proof-panel">
           <Stat label="TRY IT NOW" value="Test Drive" note="No Chog? Claim one clearly-labeled Test Chog and use the full site." tone="accent" />
-          <Button variant="quiet" onClick={() => navigate("/deposit")}>Open the deposit flow ↗</Button>
+          <Button variant="quiet" onClick={() => navigate("/setup")}>Set me up in 2 minutes ↗</Button>
         </Panel>
       </section>
 
-      <section className="viewer-section">
-        <ChogViewer onRecord={setLookedUp} />
-      </section>
-
-      <section className="share-section">
-        <ShareCard
-          chog={lookedUp ? {
-            tokenId: lookedUp.tokenId.toString(),
-            imageUrl: lookedUp.metadata.image ? ipfsToGateway(lookedUp.metadata.image) : null,
-            name: lookedUp.metadata.name ?? `Chog #${lookedUp.tokenId.toString()}`,
-          } : null}
-          raceLabel="Chog Grand Prix"
-        />
+      <section className="proof-grid">
+        <div>
+          <p className="kicker">HOW IT WORKS</p>
+          <h2>Three steps, two minutes.</h2>
+          <p className="muted">From an empty wallet to a proven run. Every step is a real transaction you sign.</p>
+        </div>
+        <Panel className="proof-panel">
+          <Stat label="01 · SET ME UP" value="Two minutes" note="Faucet, swap, Test $CHOG, and a Test Chog minted as your runner, one guided button." tone="accent" />
+          <Button variant="quiet" onClick={() => navigate("/setup")}>Start the setup ↗</Button>
+        </Panel>
+        <Panel className="proof-panel">
+          <Stat label="02 · RUN THE COURSE" value="Your skill" note="Tap to jump, swipe to duck. Coins on the racing line, close calls pay, one revive." />
+          <Button variant="quiet" onClick={() => navigate("/run")}>Play the game ↗</Button>
+        </Panel>
+        <Panel className="proof-panel">
+          <Stat label="03 · PROVE THE RUN" value="The tape" note="Copy the record at the finish and watch every number recompute on the Proof page." tone="lime" />
+          <Button variant="quiet" onClick={() => navigate("/verify")}>Open the Proof page ↗</Button>
+        </Panel>
       </section>
 
       <section className="style-panel">
         <p className="kicker">THE FAIRNESS LAYER</p>
         <h2>Built for proof, designed for play.</h2>
-        <p className="muted">Every race is a deterministic replay of an on-chain result. The verifier is part of the experience, not a footnote.</p>
+        <p className="muted">Every run is a tape of presses on a published seed. The Proof page replays it and recomputes every number. The verifier is part of the experience, not a footnote.</p>
         {fixturesOn && <Badge tone="danger">DEV FIXTURE MODE · SIMULATED DATA</Badge>}
       </section>
 
@@ -142,7 +153,7 @@ export default function Landing() {
         <ul className="rules-list">
           <li>Test Drive Chogs are clearly labeled everywhere. They never blur into Verified Holder status.</li>
           <li>Traits are real off-chain IPFS metadata. Any boost mapping is our design, derived from real traits.</li>
-          <li>The UI only visualizes what the contracts record. It never infers or invents a winner.</li>
+          <li>The UI only displays what the chain and the run's simulation produce. It never invents a placement.</li>
         </ul>
       </Card>
     </div>
