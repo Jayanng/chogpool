@@ -21,6 +21,14 @@ export const CHOG_MARKETPLACE_URL = "https://opensea.io/collection/chog-genesis"
 
 export type GateState = "checking" | "in" | "blocked";
 
+// Lets an action that changes Chog ownership (like minting) tell the gate to
+// re-check right away, instead of waiting for the next poll. Without this the
+// gate still thinks you hold nothing and holds you at the door you just opened.
+let gateRefresh: (() => void) | null = null;
+export function refreshGate(): void {
+  gateRefresh?.();
+}
+
 /** Does this account clear the gate: a real Chog on mainnet, or a Test Drive
  *  already minted on testnet? */
 export async function checkGate(account: Address): Promise<boolean> {
@@ -54,6 +62,13 @@ export function useGate(account: Address | undefined): GateState {
         if (ticket === seq.current) setState("blocked");
       });
   }, [account]);
+
+  useEffect(() => {
+    gateRefresh = run;
+    return () => {
+      if (gateRefresh === run) gateRefresh = null;
+    };
+  }, [run]);
 
   useEffect(() => {
     // A new account starts at "checking" and never inherits the last account's
