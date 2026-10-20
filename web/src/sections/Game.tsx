@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { Badge, Card, Skeleton, Stat } from "@chogpool/ui";
+import { ipfsToGateway } from "../lib/chog";
 import { loadMyChog } from "../lib/mychog";
 import { lookupChog } from "../lib/mirror";
 import { tierOf, traitsOf } from "../lib/traits";
@@ -26,6 +27,7 @@ type Picked =
       owner: string;
       mirrorOwner: string | null;
       testDrive: boolean;
+      image: string | null;
     };
 
 export function Game() {
@@ -49,6 +51,7 @@ export function Game() {
         owner: record.owner,
         mirrorOwner: lookup.mirrorOwner ?? null,
         testDrive: lookup.testDrive === true,
+        image: record.metadata.image ? ipfsToGateway(record.metadata.image) : null,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Lookup failed.";
@@ -111,6 +114,13 @@ export function Game() {
         )}
         {picked.phase === "ready" && (
           <div className="stat-row">
+            {picked.image && (
+              <img
+                className="viewer-image runner-image"
+                src={picked.image}
+                alt={picked.name}
+              />
+            )}
             <Stat label="RUNNER" value={picked.name} />
             <Stat label="CHOG ID" value={picked.tokenId.toString()} />
             {picked.testDrive ? (
@@ -145,7 +155,7 @@ export function Game() {
       </Card>
 
       {picked.phase === "ready" ? (
-        <Runner key={picked.tokenId.toString()} appearance={picked.appearance} />
+        <Runner key={picked.tokenId.toString()} appearance={picked.appearance} imageUrl={picked.image} />
       ) : (
         <Card title="The run" footer="YOUR CHOG STEPS ONTO THE COURSE">
           <p className="muted small">

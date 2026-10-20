@@ -20,6 +20,10 @@ export type Scene = {
   ghost?: { state: RunState; appearance: ChogAppearance } | null;
   groundY: number;
   seedLabel: string;
+  /** the Chog's REAL image from its IPFS metadata, when it loaded. The
+   *  derived sprite below is only the honest fallback when it cannot. */
+  playerImage?: HTMLImageElement | null;
+  ghostImage?: HTMLImageElement | null;
 };
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -30,6 +34,31 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
+}
+
+/** The runner as its real self: the Chog's actual IPFS image, animated to
+ *  run. It bobs on the ground, leans in the air, squashes to duck. */
+function drawChogImage(
+  ctx: CanvasRenderingContext2D,
+  sx: number,
+  groundY: number,
+  height: number,
+  frame: number,
+  ducking: boolean,
+  img: HTMLImageElement,
+  ghost: boolean,
+) {
+  const size = 54;
+  const bob = height === 0 ? Math.sin(frame * 0.28) * 2 : 0;
+  const y = groundY - height - size + bob + (ducking ? 8 : 0);
+  ctx.save();
+  if (ghost) ctx.globalAlpha = 0.34;
+  ctx.translate(sx + size / 2, y + size / 2);
+  if (ducking) ctx.scale(1, 0.74);
+  // lean into the air, wobble on the run
+  ctx.rotate(height > 0 ? -0.12 : Math.sin(frame * 0.28) * 0.045);
+  ctx.drawImage(img, -size / 2, -size / 2, size, size);
+  ctx.restore();
 }
 
 /** Draw one Chog in the world. The same appearance always draws the same
@@ -220,12 +249,23 @@ export function drawScene(ctx: CanvasRenderingContext2D, s: Scene) {
 
   // the ghost of the best run on this course
   if (s.ghost) {
-    drawChog(ctx, s.ghost.state.distance - camX, groundY, s.ghost.state.height, s.ghost.state.frame,
-      s.ghost.state.ducking, s.ghost.appearance, true);
+    const gx = s.ghost.state.distance - camX;
+    if (s.ghostImage && s.ghostImage.complete && s.ghostImage.naturalWidth > 0) {
+      drawChogImage(ctx, gx, groundY, s.ghost.state.height, s.ghost.state.frame,
+        s.ghost.state.ducking, s.ghostImage, true);
+    } else {
+      drawChog(ctx, gx, groundY, s.ghost.state.height, s.ghost.state.frame,
+        s.ghost.state.ducking, s.ghost.appearance, true);
+    }
   }
 
-  // the player
-  drawChog(ctx, s.width * PLAYER_X, groundY, state.height, state.frame, state.ducking, s.appearance, false);
+  // the player: its real image when it loaded, the derived sprite if not
+  const px = s.width * PLAYER_X;
+  if (s.playerImage && s.playerImage.complete && s.playerImage.naturalWidth > 0) {
+    drawChogImage(ctx, px, groundY, state.height, state.frame, state.ducking, s.playerImage, false);
+  } else {
+    drawChog(ctx, px, groundY, state.height, state.frame, state.ducking, s.appearance, false);
+  }
 
   // juice: the slow-motion tint earned by close calls
   if (state.juice > 0) {

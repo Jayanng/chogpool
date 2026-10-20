@@ -37,10 +37,28 @@ function loadBest(seed: string): SavedRun | null {
 
 type Phase = "ready" | "running" | "dead" | "cleared";
 
-export function Runner({ appearance }: { appearance: ChogAppearance }) {
+export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; imageUrl?: string | null }) {
   const seed = useMemo(() => todaySeed(), []);
   const course: PlacedObstacle[] = useMemo(() => courseOf(seed, LEN), [seed]);
   const coins = useMemo(() => coinsOf(course, seed), [course, seed]);
+
+  // The Chog's real image. Until it loads (or if it never does) the renderer
+  // falls back to the derived sprite, exactly like the race show does.
+  const [image, setImage] = useState<HTMLImageElement | null>(null);
+  useEffect(() => {
+    if (!imageUrl) {
+      setImage(null);
+      return;
+    }
+    const img = new Image();
+    img.onload = () => setImage(img);
+    img.onerror = () => setImage(null);
+    img.src = imageUrl;
+    return () => {
+      img.onload = null;
+      img.onerror = null;
+    };
+  }, [imageUrl]);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<RunState>(initialRun());
@@ -198,11 +216,13 @@ export function Runner({ appearance }: { appearance: ChogAppearance }) {
         ghost: ghostRef.current ? { state: ghostRef.current.state, appearance } : null,
         groundY: GROUND_Y,
         seedLabel: seed,
+        playerImage: image,
+        ghostImage: image,
       });
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [appearance, course, coins, seed]);
+  }, [appearance, course, coins, seed, image]);
 
   // Save the best run on this course, for the next runner's ghost.
   const saveIfBest = useCallback(() => {
