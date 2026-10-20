@@ -332,8 +332,8 @@ export default function Deposit() {
           <div className="entered-banner" role="status">
             <strong>CHOG #{(myChog ?? tokenId)?.toString() ?? "?"} IS ENTERED</strong>
             <span>
-              Your stake is in the book and enters every draw. The gate drops when the race is
-              called, and you will find your Chog on the card under Race.
+              Your deposit is booked and this Chog is in every draw from now on. When a race runs,
+              you will see it on the Race page.
             </span>
           </div>
         )}
@@ -508,7 +508,7 @@ export default function Deposit() {
             <Stat
               label="NEXT DRAW"
               value={poolStats && poolStats.nextDrawAt > 0 ? new Date(poolStats.nextDrawAt * 1000).toUTCString() : "None scheduled"}
-              note="The gate drops when the race is called. Deposits are open and every stake is already in the book."
+              note="When a race is called the draw runs and winners are paid. Deposits are open, and every stake is already entered."
             />
           </div>
           <Button variant="outline" onClick={() => navigate("/verify")}>How draws stay fair ↗</Button>
