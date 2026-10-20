@@ -1761,3 +1761,34 @@ body:has(.gate-overlay), html:has(.gate-overlay) { overflow: hidden; }
   display: flex; flex-direction: column; gap: 12px; align-items: flex-start;
 }
 .empty-note p { margin: 0; max-width: 60ch; }
+/* Footer: the standard product shape, a brand column, grouped link columns,
+   and a legal row, kept in the candy sticker language. */
+.footer-grid {
+  display: grid; grid-template-columns: 1.7fr 1fr 1fr 1fr; gap: 32px; align-items: start;
+}
+.footer-brandcol { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
+.footer-tag { margin: 0; font: 700 16px/1.5 'Inter', sans-serif; color: var(--c-ink); max-width: 24ch; }
+.footer-badge { margin-top: 2px; }
+.footer-col { display: flex; flex-direction: column; gap: 11px; }
+.footer-col h4 {
+  margin: 2px 0 4px; font: 700 11px/1 'Inter', sans-serif; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--c-muted);
+}
+.footer-col a {
+  font: 500 14px/1.2 'Inter', sans-serif; color: var(--c-ink); text-decoration: none;
+  width: fit-content; padding-bottom: 2px; border-bottom: 2px solid transparent;
+}
+.footer-col a:hover { border-bottom-color: var(--c-blue); }
+.footer-bottom {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;
+  margin-top: 30px; padding-top: 20px; border-top: 2px solid rgba(36, 26, 36, .16);
+  font: 500 12px/1.6 'Inter', sans-serif; color: var(--c-muted);
+}
+@media (max-width: 900px) {
+  .footer-grid { grid-template-columns: 1fr 1fr; gap: 26px; }
+}
+@media (max-width: 560px) {
+  .footer-grid { grid-template-columns: 1fr; gap: 22px; }
+  .footer-bottom { flex-direction: column; align-items: flex-start; }
+}
+.footer-compact { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
