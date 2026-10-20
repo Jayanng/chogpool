@@ -30,6 +30,7 @@ const routes: Array<{ path: string; label: string; Component: LazyExoticComponen
   // Aliases keep every existing deep link and navigate() call working.
   { path: "/deposit", label: "Play", Component: Play },
   { path: "/mint", label: "Play", Component: Play },
+  { path: "/setup", label: "Play", Component: Play },
   { path: "/run", label: "Race", Component: RaceSection },
   { path: "/replays", label: "Race", Component: RaceSection },
   { path: "/spectator", label: "Race", Component: RaceSection },
