@@ -65,7 +65,7 @@ export function useGate(account: Address | undefined): GateState {
     setState("checking");
     run();
     if (!account) return;
-    const id = window.setInterval(run, 20000);
+    const id = window.setInterval(run, 5000);
     return () => {
       seq.current += 1;
       window.clearInterval(id);

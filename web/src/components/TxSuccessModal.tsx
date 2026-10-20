@@ -4,6 +4,7 @@
 // runs through runTx, so one modal here covers every transaction.
 
 import { CHAIN } from "../generated/addresses.gen";
+import { navigate } from "../lib/router";
 
 type Props = {
   label: string | null;
@@ -43,8 +44,17 @@ export function TxSuccessModal({ label, txHash, onClose }: Props) {
           </button>
         </p>
         <div className="gate-actions">
+          {label && label.startsWith("Minted") && (
+            <button
+              type="button"
+              className="gate-btn gate-btn--primary"
+              onClick={() => { onClose(); navigate("/play"); }}
+            >
+              Fund and deposit →
+            </button>
+          )}
           <a
-            className="gate-btn gate-btn--primary"
+            className={label && label.startsWith("Minted") ? "gate-btn" : "gate-btn gate-btn--primary"}
             href={`${CHAIN.monadTestnet.explorer}/tx/${txHash}`}
             target="_blank"
             rel="noreferrer"
