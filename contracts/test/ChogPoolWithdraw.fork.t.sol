@@ -8,24 +8,35 @@ import {IYieldAdapter} from "../interfaces/IYieldAdapter.sol";
 import {IChogPool} from "../interfaces/IChogPool.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-/// @title ChogPoolWithdraw fork suite — does withdrawAll actually work on the live stack?
-/// @notice Runs against an anvil fork of Monad testnet, with the LIVE deployed pool
-///         and adapter. Every address is read from infra/verified.json at runtime,
-///         never a literal in source.
+/// @title ChogPoolWithdraw fork suite, does withdrawAll work on the deployed stack?
+/// @notice Runs against an anvil fork of Monad testnet. Every address is read from
+///         infra/verified.json at runtime, never a literal in source.
 ///
-/// What this proves that a unit test cannot:
+/// @dev SPLIT INTO TWO SUITES ON PURPOSE, because the stack changed underneath the
+///      original single-purpose version.
 ///
-///  The headline promise is "principal withdrawable any time." On the live stack a
-///  withdraw-all of racer2's position REVERTED (`InsufficientLiquidity(887422,
-///  831362)`), because the pool booked more shares than the venue could deliver. A
-///  blocked withdrawal is the worst thing the demo can show.
+///      This suite now covers the CURRENT stack: it proves the corrected
+///      `withdrawAll` behaves correctly on the deployed pool, including the
+///      pro-rata guard that stops one depositor's withdrawal draining another's
+///      money, and that the pot's seeded/earned split is real on chain.
 ///
-///  This suite proves that on a copy of the real state:
-///   1. the defect is real (the venue holds less than the shares it backs);
-///   2. the corrected withdrawAll does NOT revert and pays a real, positive amount;
-///   3. the payment is the position's honest pro-rata slice, never another
-///      depositor's money;
-///   4. the pool's books stay consistent afterwards.
+///      The proof that the OLD code actually reverted lives in
+///      `StrandedSharesFork.t.sol`, which is pinned to the superseded v6 stack and
+///      still holds the position that reverted. Splitting them is deliberate:
+///      "the old code failed here" and "the new code works here" are questions
+///      about two different contracts, and a suite that answers both by reading
+///      whatever the registry happens to point at will silently start answering
+///      the wrong one. That is exactly how CI broke: this suite read
+///      `verified.json`'s `chogPool` while the other read `deployments.json`, and
+///      the two diverged when the fresh stack was deployed.
+///
+/// @dev WHY THE DEPOSIT-LEVEL PROOF IS A UNIT TEST NOW. The new pool has no
+///      deposits yet, so a fork test cannot exercise a real withdrawal through a
+///      real position. The deposit-level behaviour is pinned by
+///      `ChogPool.t.sol` (five tests, including the two-depositor one that caught
+///      the whole-venue mispayment) and will be re-pinned here on the first real
+///      deposit. Until then this suite asserts what the live stack CAN honestly
+///      assert today.
 ///
 /// Run: forge test --match-contract 'ChogPoolWithdrawForkTest' --rpc-url monad_testnet
 contract ChogPoolWithdrawForkTest is Test {
@@ -34,8 +45,6 @@ contract ChogPoolWithdrawForkTest is Test {
     address poolAddr;
     address adapterAddr;
     address asset;
-    address depositor; // racer2, the only live depositor
-    uint256 racerTokenId;
 
     ChogPool pool;
     PuddleLpAdapter adapter;
@@ -49,8 +58,6 @@ contract ChogPoolWithdrawForkTest is Test {
         poolAddr = vm.parseJsonAddress(json, "$.monadTestnet.chogPool.address");
         adapterAddr = vm.parseJsonAddress(json, "$.monadTestnet.puddleLpAdapter.address");
         asset = vm.parseJsonAddress(json, "$.monadTestnet.puddleUSDC.address");
-        depositor = vm.parseJsonAddress(json, "$.monadTestnet.racer.depositor");
-        racerTokenId = vm.parseJsonUint(json, "$.monadTestnet.racer.tokenId");
 
         string memory rpc = vm.parseJsonString(json, "$.monadTestnet.rpc");
         try this.createForkExternal(rpc) {
@@ -61,8 +68,9 @@ contract ChogPoolWithdrawForkTest is Test {
             return;
         }
 
-        // Attach to the LIVE contracts, not fresh deployments. The whole point is to
-        // exercise the real state, including the real shortfall.
+        // The CURRENT stack, read from the registry's live keys. A fresh deploy
+        // moves these, and this suite is meant to follow them, because it is
+        // testing the code that is actually deployed.
         pool = ChogPool(poolAddr);
         adapter = PuddleLpAdapter(adapterAddr);
     }
@@ -79,79 +87,64 @@ contract ChogPoolWithdrawForkTest is Test {
         _;
     }
 
-    /// The precondition for everything else: the live venue really does hold less
-    /// than the shares racer2's position claims. Without this the fix would be
-    /// solving a problem that does not exist.
-    function test_TheLiveDefectIsReal() public needsFork {
-        if (forkUnavailable) return;
-
-        uint256 venueValue = adapter.positionValue();
-        uint256 racerShares = pool.sharesOf(racerTokenId);
-        uint256 outstanding = pool.totalShares();
-
-        assertGt(racerShares, 0, "racer2 holds shares");
-        assertGt(venueValue, 0, "the venue holds value");
-        assertLt(
-            venueValue, racerShares, "the venue is worth less than the shares it backs - this is what reverted"
-        );
-        assertEq(racerShares, outstanding, "racer2 is the only position on the live pool");
+    /// The wiring the withdraw path depends on must be the real thing. A pool
+    /// pointed at the wrong adapter is the silent failure mode that makes every
+    /// other assertion in this suite meaningless.
+    function test_DeployedWiring_IsCorrect() public needsFork {
+        assertEq(pool.yieldAdapter(), adapterAddr, "the pool points at the registry adapter");
+        assertTrue(adapter.asset() != address(0), "the adapter has a real asset");
+        assertEq(address(adapter.pool()), poolAddr, "the adapter points back at this pool");
     }
 
-    /// The corrected withdrawAll, called as the depositor on the live state, must
-    /// not revert and must pay a real amount.
+    /// The pro-rata guard, on the real deployed code. This is the invariant that
+    /// stopped the first version of the fix from mispaying: reading the venue's
+    /// WHOLE value let one depositor's withdrawAll consume another's money.
     ///
-    /// The old code called `redeem(pos.shares)`, which the venue rejects with
-    /// InsufficientLiquidity because it cannot honour the nominal count. The new code
-    /// asks for the pro-rata slice instead, which the venue CAN honour.
-    ///
-    /// The old code's failure mode is reproduced here first, then the fix's. This is
-    /// the whole point of the fork test: not "the new code runs", but "the old code
-    /// provably fails on this exact state and the new code provably does not".
-    function test_LiveWithdrawAll_DoesNotRevertAndPaysRealValue() public needsFork {
-        uint256 venueValue = adapter.positionValue();
-        uint256 racerShares = pool.sharesOf(racerTokenId);
-        uint256 outstanding = pool.totalShares();
-
-        // 1. The old code's call, reproduced: redeem the NOMINAL share count.
-        //    `redeem` is onlyPool, so it is reached exactly as the pool reached it.
-        //    It reverts because the venue holds less than the shares it backs, which
-        //    is the live defect asserted in test_TheLiveDefectIsReal.
-        vm.prank(poolAddr);
-        vm.expectRevert();
-        adapter.redeem(racerShares, depositor);
-
-        // 2. The fix's call: redeem the pro-rata slice. This is what the corrected
-        //    withdrawAll computes, and it must succeed where the nominal one failed.
-        uint256 deliverable = (venueValue * racerShares) / outstanding;
-        if (deliverable > racerShares) deliverable = racerShares;
-
-        assertGt(deliverable, 0, "the depositor receives real value, not a revert");
-        assertLt(deliverable, racerShares, "and strictly less than the nominal claim, which is why the old code failed");
-
-        uint256 before = IERC20(asset).balanceOf(depositor);
-        vm.prank(poolAddr);
-        adapter.redeem(deliverable, depositor);
-        uint256 paid = IERC20(asset).balanceOf(depositor) - before;
-
-        assertEq(paid, deliverable, "the venue honours exactly the pro-rata slice");
-    }
-
-    /// The pro-rata slice must never exceed the venue's total value, whatever the
-    /// share counts are. This is the guard that stops one depositor's withdrawal
-    /// from draining another's money — the failure mode of the first version of the
-    /// fix, which read `positionValue()` for the whole shared venue.
-    function test_ProRataSliceNeverExceedsTheVenue() public {
-        if (forkUnavailable) return;
-
+    /// Computed from live state rather than a fixture, so it exercises the
+    /// deployed arithmetic against whatever the venue currently holds.
+    function test_ProRataSliceNeverExceedsTheVenue() public needsFork {
         uint256 venueValue = adapter.positionValue();
         uint256 outstanding = pool.totalShares();
 
-        for (uint256 tokenId = 1; tokenId <= 3; tokenId++) {
+        // With no deposits yet the guard is trivially satisfied; assert the
+        // degenerate case honestly rather than skipping it, so the day a deposit
+        // lands this test starts doing real work instead of silently passing.
+        if (outstanding == 0) {
+            assertEq(venueValue, 0, "an empty venue holds nothing, so nothing can be overpaid");
+            return;
+        }
+
+        for (uint256 tokenId = 1; tokenId <= 5; tokenId++) {
             uint256 shares = pool.sharesOf(tokenId);
             if (shares == 0) continue;
             uint256 slice = (venueValue * shares) / outstanding;
             assertLe(slice, venueValue, "a slice never exceeds the whole venue");
             assertLe(slice, shares, "and never exceeds its own claim");
         }
+    }
+
+    /// A withdraw on an empty position must revert rather than pay zero. A silent
+    /// zero-value withdrawal would let the UI claim a success that moved nothing.
+    function test_WithdrawAll_OnUnboundToken_Reverts() public needsFork {
+        // Token 999999 has never been bound, so there is no depositor for it.
+        vm.expectRevert();
+        pool.withdrawAll(999999);
+    }
+
+    /// The pot's composition must be separable on chain. This is the property the
+    /// honest labelling rests on: a judge can compute the earned yield as
+    /// `potBalance - potSeeded` and see it is zero, without trusting any copy.
+    function test_Pot_SeededIsSeparableFromEarned() public needsFork {
+        uint256 balance = pool.potBalance();
+        uint256 seeded = pool.potSeeded();
+
+        // The seeded counter can never exceed the pot, and the pool must actually
+        // hold what it reports.
+        assertLe(seeded, balance, "seeded can never exceed the pot it was added to");
+        assertEq(IERC20(asset).balanceOf(poolAddr), balance, "the pool holds exactly what it reports");
+
+        emit log_named_uint("potBalance", balance);
+        emit log_named_uint("potSeeded", seeded);
+        emit log_named_uint("earned yield (balance - seeded)", balance - seeded);
     }
 }
