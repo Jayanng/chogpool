@@ -243,7 +243,7 @@ export default function Mint() {
               Chog. Your principal stays withdrawable, and only the realized yield feeds the prize
               pot.
             </p>
-            <Button onClick={() => { refreshGate(); navigate("/play"); }}>Fund and deposit →</Button>
+            <Button onClick={() => { refreshGate(); navigate("/deposit"); }}>Fund and deposit →</Button>
           </Card>
         </Panel>
       )}

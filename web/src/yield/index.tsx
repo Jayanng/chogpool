@@ -129,7 +129,7 @@ export default function Yield() {
                 No position yet. Nothing has been deposited in this build, so the pair is empty.
                 Fund your wallet and deposit to put the first position in.
               </p>
-              <Button onClick={() => navigate("/play")}>Deposit to start</Button>
+              <Button onClick={() => navigate("/deposit")}>Deposit to start</Button>
             </div>
           )}
           {state && (

@@ -48,7 +48,7 @@ export function TxSuccessModal({ label, txHash, onClose }: Props) {
             <button
               type="button"
               className="gate-btn gate-btn--primary"
-              onClick={() => { onClose(); navigate("/play"); }}
+              onClick={() => { onClose(); navigate("/deposit"); }}
             >
               Fund and deposit →
             </button>
