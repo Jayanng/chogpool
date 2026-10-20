@@ -77,7 +77,8 @@ export default function Landing() {
           <h1>Your dollars<br />never enter<br />the <em>race.</em></h1>
           <p className="lede">A savings game for Chog holders. Your deposit stays yours and stays withdrawable. Only the yield competes, and every draw is checkable by anyone.</p>
           <div className="hero-actions">
-            <Button onClick={() => navigate("/deposit")}>Open the app →</Button>
+            <Button onClick={() => navigate("/run")}>Play the game →</Button>
+            <Button variant="quiet" onClick={() => navigate("/deposit")}>Open the app</Button>
             <Button variant="quiet" onClick={() => navigate("/race")}>See a real draw</Button>
           </div>
           <div className="trust-row">
