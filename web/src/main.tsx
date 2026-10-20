@@ -10,7 +10,7 @@ import { WalletButton } from "./components/WalletButton";
 import { GateModal } from "./components/GateModal";
 import { TxSuccessModal } from "./components/TxSuccessModal";
 import { ConnectGateModal } from "./components/ConnectGateModal";
-import { CHAIN } from "./generated/addresses.gen";
+import { CHAIN, DEPLOYED } from "./generated/addresses.gen";
 
 // One async page bundle per route.
 const Landing = lazy(() => import("./landing"));
@@ -153,9 +153,11 @@ function App() {
               <a href="/tips" onClick={(e) => { e.preventDefault(); navigate("/tips"); }}>Tips</a>
             </nav>
             <nav className="footer-col">
-              <h4>Trust</h4>
+              <h4>On-chain</h4>
+              <a href={`${CHAIN.monadTestnet.explorer}/address/${DEPLOYED.pool}`} target="_blank" rel="noreferrer">Pool contract ↗</a>
               <a href="/proof" onClick={(e) => { e.preventDefault(); navigate("/proof"); }}>Verify a race</a>
               <a href={CHOG_MARKETPLACE_URL} target="_blank" rel="noreferrer">Chog on OpenSea</a>
+              <span className="footer-fact">Monad Testnet · Chain 10143</span>
             </nav>
           </div>
           ) : (
