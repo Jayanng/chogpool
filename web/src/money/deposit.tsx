@@ -499,8 +499,8 @@ export default function Deposit() {
             <Stat label="PRIZE POT" value={poolStats ? `${formatUsdc(poolStats.pot)} USDC` : "…"} note="Never fed by deposits. The demo pot is seeded by the team; the yield page separates seeded from earned." tone="accent" />
             <Stat label="TOTAL DEPOSITED" value={poolStats ? `${formatUsdc(poolStats.totalPrincipal)} USDC` : "…"} note="Current holdings across all Chogs, not lifetime." />
             <Stat
-              label="NEXT DRAW"
-              value={poolStats && poolStats.nextDrawAt > 0 ? new Date(poolStats.nextDrawAt * 1000).toUTCString() : "None scheduled"}
+              label="THE ROUNDS"
+              value="On schedule"
               note="When a round settles the top 3 split the pot. Deposits are open, and every stake is already entered."
             />
           </div>

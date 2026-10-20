@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { formatUnits } from "viem";
 import { Badge, Button, Card, Marquee, Panel, Stat, tokens } from "@chogpool/ui";
 import { ChogViewer } from "../components/ChogViewer";
-import { Countdown } from "../components/Countdown";
 import { ShareCard } from "../components/ShareCard";
-import { getGameSource, getRaceSource } from "../lib/game";
+import { getGameSource } from "../lib/game";
+import { readPodium, type PodiumRow } from "../lib/board";
 import { CHAIN } from "../generated/addresses.gen";
 import { POT_DECIMALS } from "../types/game";
 import { ipfsToGateway, type ChogRecord } from "../lib/chog";
@@ -13,47 +13,34 @@ import tileCrowned from "./assets/c100.webp";
 import tileHoodie from "./assets/c25.webp";
 
 export default function Landing() {
-  const [nextDrawAt, setNextDrawAt] = useState<number | null>(null);
   const [pot, setPot] = useState<bigint | null>(null);
-  const [sourceLabel, setSourceLabel] = useState("FROM THE GAME SOURCE (nextDrawAt)");
   const [lookedUp, setLookedUp] = useState<ChogRecord | null>(null);
-  // Whether the current draw's field already locked on chain (the draw is
-  // closed or awarded). Unknown until the draw's state is read.
-  const [fieldLocked, setFieldLocked] = useState<boolean | null>(null);
-  // Preview lane names come from the real current draw when one exists; a
-  // null lane renders as a clear placeholder, never an invented tokenId.
-  const [previewLanes, setPreviewLanes] = useState<Array<string | null>>([null, null, null]);
+  // The leaderboard's podium, read live from the CareerStore. null while
+  // reading or after a failed read (said as such, never shown as empty),
+  // [] when the board is genuinely empty. A row exists only when the store
+  // recorded it.
+  const [board, setBoard] = useState<PodiumRow[] | null>(null);
+  const [boardFailed, setBoardFailed] = useState(false);
   const fixturesOn = import.meta.env.VITE_FIXTURES === "1";
 
   useEffect(() => {
     const source = getGameSource();
     if (!source) return;
-    setSourceLabel(
-      source.kind === "fixture"
-        ? "DEV FIXTURE · SIMULATED SCHEDULE · NOT PRODUCTION DATA"
-        : "LIVE FROM THE POOL CONTRACT (nextDrawAt)",
-    );
-    void source.nextDrawAt().then(setNextDrawAt);
     void source.potBalance().then(setPot);
   }, []);
 
   useEffect(() => {
-    const source = getRaceSource();
-    if (!source) return;
-    void (async () => {
-      try {
-        const id = await source.currentDrawId();
-        const draw = id === null ? null : await source.getDraw(id);
-        const ids = (draw?.racers ?? []).slice(0, 3).map((r) => r.tokenId.toString());
-        setPreviewLanes([ids[0] ?? null, ids[1] ?? null, ids[2] ?? null]);
-        setFieldLocked(draw ? draw.state !== "open" : null);
-      } catch {
-        // No draw readable: the lanes stay generic placeholders and the
-        // countdown makes no claim about the field being locked.
-        setFieldLocked(null);
-      }
-    })();
+    void readPodium()
+      .then(setBoard)
+      .catch(() => setBoardFailed(true));
   }, []);
+
+  const placeName = (place: number) => {
+    if (boardFailed) return "BOARD UNREADABLE";
+    if (board === null) return "READING…";
+    const row = board.find((r) => r.place === place);
+    return row ? `CHOG #${row.tokenId.toString()}` : "OPEN";
+  };
 
   return (
     <div className="landing">
@@ -98,14 +85,14 @@ export default function Landing() {
         <Panel className="track-card">
           <div className="card-top">
             <span>GRAND PRIX</span>
-            <Badge tone="neutral">RACE PREVIEW</Badge>
+            <Badge tone="neutral">THE LEADERBOARD</Badge>
           </div>
-          <Countdown nextDrawAt={nextDrawAt} sourceLabel={sourceLabel} fieldLocked={fieldLocked} />
-          <div className="lane lane-one"><div className="lane-label">01 <span>{previewLanes[0] ? `CHOG #${previewLanes[0]}` : "ANY CHOG"}</span></div><div className="runner runner-one">◉</div></div>
-          <div className="lane lane-two"><div className="lane-label">02 <span>{previewLanes[1] ? `CHOG #${previewLanes[1]}` : "ANY CHOG"}</span></div><div className="runner runner-two">◉</div></div>
-          <div className="lane lane-three"><div className="lane-label">03 <span>{previewLanes[2] ? `CHOG #${previewLanes[2]}` : "ANY CHOG"}</span></div><div className="runner runner-three">◉</div></div>
-          <div className="track-footer"><span>PRIZE POT</span><strong>{pot === null ? "Yield accumulates live" : `${formatUnits(pot, POT_DECIMALS)} USDC${fixturesOn ? " (fixture)" : ""}`}</strong><span>↗</span></div>
-          <p className="track-note">A preview of the race experience. Lane names come from the current draw when one exists and are placeholders otherwise. No race is running.</p>
+          <div className="lane lane-one"><div className="lane-label">1ST <span>{placeName(1)}</span></div><div className="runner runner-one">◉</div></div>
+          <div className="lane lane-two"><div className="lane-label">2ND <span>{placeName(2)}</span></div><div className="runner runner-two">◉</div></div>
+          <div className="lane lane-three"><div className="lane-label">3RD <span>{placeName(3)}</span></div><div className="runner runner-three">◉</div></div>
+          <div className="track-footer"><span>PRIZE POT</span><strong>{pot === null ? "Reading the chain…" : `${formatUnits(pot, POT_DECIMALS)} USDC${fixturesOn ? " (fixture)" : ""}`}</strong><span>↗</span></div>
+          <p className="track-note">The board reads the career store's on-chain record. The round's top 3 land here the moment it settles.</p>
+          <Button onClick={() => navigate("/run")}>Play the game</Button>
         </Panel>
       </section>
 
@@ -118,7 +105,7 @@ export default function Landing() {
           <p className="muted">Your stake stays yours and stays withdrawable. The top 3 split the pot, and every run is checkable by anyone.</p>
         </div>
         <Panel className="proof-panel">
-          <Stat label="NEXT DRAW" value={nextDrawAt ? "Counting down" : "Not scheduled yet"} note="Rounds open, lock and settle on their own schedule." />
+          <Stat label="THE LEADERBOARD" value="Top 3 split the pot" note="Rounds open, lock and settle on their own schedule. The podium lands on the board." />
           <Stat label="FAIRNESS" value="Published seed" note="Run re-derivable from its published seed and inputs on the verifier page." tone="lime" />
         </Panel>
         <Panel className="proof-panel">
@@ -138,7 +125,7 @@ export default function Landing() {
             imageUrl: lookedUp.metadata.image ? ipfsToGateway(lookedUp.metadata.image) : null,
             name: lookedUp.metadata.name ?? `Chog #${lookedUp.tokenId.toString()}`,
           } : null}
-          raceLabel={nextDrawAt ? "Next race counting down" : "Race schedule pending"}
+          raceLabel="Chog Grand Prix"
         />
       </section>
 
