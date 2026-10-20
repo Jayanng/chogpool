@@ -24,6 +24,10 @@ type SavedRun = {
   revived: boolean;
   /** where the one revive happened in the tape, for a faithful ghost */
   reviveAt?: number | null;
+  /** the sim's own numbers, so the saved run is also a verifiable record */
+  distancePx?: number;
+  coins?: number;
+  closeCalls?: number;
 };
 const BEST_KEY = "chogpool.best-run.v1";
 
@@ -43,6 +47,13 @@ function loadBest(seed: string): SavedRun | null {
     return null;
   }
 }
+
+/** The saved best run on a course, for the Replays stage. */
+export function loadBestRun(seed: string): SavedRun | null {
+  return loadBest(seed);
+}
+
+export type { SavedRun };
 
 type Phase = "ready" | "running" | "dead" | "cleared";
 
@@ -280,6 +291,10 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
       score: st.score,
       distance: Math.floor(st.distance / 10),
       revived: revivedRef.current,
+      reviveAt: reviveAtRef.current,
+      distancePx: st.distance,
+      coins: st.coins,
+      closeCalls: st.closeCalls,
     };
     const prev = loadBest(seed);
     if (!prev || saved.score > prev.score) {
