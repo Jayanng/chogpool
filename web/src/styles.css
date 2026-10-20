@@ -963,9 +963,10 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 }
 
 .hero-scene h1 {
-  color: var(--c-white); font-weight: 900; line-height: .9; letter-spacing: -.04em;
-  font-size: clamp(52px, 7vw, 108px); margin: 0;
+  color: var(--c-white); font-weight: 900; line-height: .96; letter-spacing: -.04em;
+  font-size: clamp(30px, 4.2vw, 56px); margin: 0;
 }
+.hero-scene h1 .line { display: block; white-space: nowrap; }
 .hero-scene h1 em { font-style: normal; color: var(--c-yellow); }
 
 .hero-scene .catchphrase {
@@ -986,9 +987,12 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 /* pill buttons, scoped to the hero */
 .hero-scene .ui-button {
   border-radius: 999px; font-family: 'poppins', sans-serif; font-weight: 700;
-  padding: 16px 28px; letter-spacing: -.01em; border: 0;
+  padding: 19px 36px; letter-spacing: -.01em; border: 0; font-size: 18px;
 }
-.hero-scene .ui-button--primary { background: var(--c-white); color: var(--c-ink); box-shadow: 3px 3px 0 var(--c-ink); }
+.hero-scene .ui-button--primary {
+  background: var(--c-yellow); color: var(--c-ink);
+  box-shadow: 5px 5px 0 var(--c-ink);
+}
 .hero-scene .ui-button--quiet { background: var(--c-ink); color: var(--c-white); box-shadow: 3px 3px 0 rgba(0,0,0,.35); }
 .hero-scene .ui-button:hover:not(:disabled) { transform: translatey(-2px); }
 
@@ -997,8 +1001,12 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
   border: 9px solid var(--c-white); border-radius: 30px;
   box-shadow: 0 0 0 5px var(--c-ink), 0 22px 46px rgba(20,20,50,.32), 0 5px 12px rgba(20,20,50,.18);
 }
+.hero-stage .sticker { transform: scale(1.16); }
 .tile-crowned { right: 34px !important; top: -28px !important; }
 .tile-third { right: 30px !important; bottom: -18px !important; }
+/* breathing room at the fold so the trust chips never kiss the edge */
+.hero { padding: 70px 0 116px !important; }
+.hero-confetti svg { opacity: .88; }
 
 /* candy app card */
 .track-card {

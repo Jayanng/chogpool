@@ -61,7 +61,11 @@ export default function Landing() {
             <span className="pill pill-dark">Skill game on Monad</span>
             <span className="pill pill-light">Test funds only</span>
           </div>
-          <h1>Your stake<br />stays yours.<br />Your skill <em>wins the pot.</em></h1>
+          <h1>
+            <span className="line">Your stake</span>
+            <span className="line">stays yours.</span>
+            <span className="line">Your skill <em>wins the pot.</em></span>
+          </h1>
           <p className="lede">A skill game for Chog holders. Enter with a stake, run the seeded course, and the top 3 split the pot. Your stake stays withdrawable, and every run is checkable by anyone.</p>
           <div className="hero-actions">
             <Button onClick={() => navigate("/run")}>Play the game →</Button>
