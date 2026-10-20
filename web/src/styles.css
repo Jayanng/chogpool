@@ -1856,3 +1856,15 @@ body:has(.gate-overlay), html:has(.gate-overlay) { overflow: hidden; }
 
 /* The runner's real Chog image on the game card */
 .runner-image { width: 72px; height: 72px; border-radius: 16px; flex: none; }
+
+/* The run-record textarea on the Proof page: the field's input look */
+.field textarea {
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(17, 17, 17, 0.18);
+  background: rgba(255, 255, 255, 0.05);
+  color: #241a24;
+  font: 500 13px 'DM Mono', ui-monospace, monospace;
+  resize: vertical;
+}
+.field textarea:focus { outline: 2px solid rgba(255, 138, 61, 0.5); border-color: transparent; }

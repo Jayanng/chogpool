@@ -103,7 +103,6 @@ type Position = {
   shares: bigint;
   principal: bigint;
   twab: bigint;
-  oddsBps: bigint;
   /** What the chain will actually pay out right now. May be below `principal`. */
   withdrawable: bigint;
 };
@@ -166,18 +165,17 @@ export default function Deposit() {
     }
     void (async () => {
       try {
-        const [shares, deposit, twab, oddsBps, withdrawable] = await Promise.all([
+        const [shares, deposit, twab, withdrawable] = await Promise.all([
           testnetReadClient.readContract({ address: pool(), abi: poolReadAbi, functionName: "sharesOf", args: [tokenId] }),
           testnetReadClient.readContract({ address: pool(), abi: poolReadAbi, functionName: "depositOf", args: [tokenId] }),
           testnetReadClient.readContract({ address: pool(), abi: poolReadAbi, functionName: "twabOf", args: [tokenId] }),
-          testnetReadClient.readContract({ address: pool(), abi: poolReadAbi, functionName: "oddsBpsOf", args: [tokenId] }),
           // The honest withdrawable figure: this position's pro-rata slice of the
           // venue's live value. The pool's `principal` is what was credited, and
           // those are different numbers once the venue has traded, which is exactly
           // the state that used to make "Withdraw all" revert on screen.
           readWithdrawable(tokenId),
         ]);
-        setPosition({ shares, principal: deposit[2], twab, oddsBps, withdrawable });
+        setPosition({ shares, principal: deposit[2], twab, withdrawable });
       } catch {
         setPosition(null);
       }
@@ -287,7 +285,7 @@ export default function Deposit() {
     try {
       const ok = await wallet.runTx(
         (walletClient, account) => depositToPool(walletClient, account, tokenId, amount),
-        () => setNote(`Deposited against Chog #${tokenId}. Time in the pool is what earns odds.`),
+        () => setNote(`Deposited against Chog #${tokenId}. It is entered.`),
         `Deposited ${formatUsdc(amount)} USDC against Chog #${tokenId}`,
       );
       if (ok) void wallet.refresh();
@@ -448,11 +446,6 @@ export default function Deposit() {
                         : "Your live share of the LP position, paid out in full the moment you withdraw."
                     }
                   />
-                  <Stat
-                    label="YOUR ODDS"
-                    value={position.oddsBps === 0n ? ": " : `${(Number(position.oddsBps) / 100).toFixed(2)}%`}
-                    note="Time-weighted share of the draw. Grows with time held, not last-minute size."
-                  />
                 </div>
               )}
 
@@ -508,10 +501,10 @@ export default function Deposit() {
             <Stat
               label="NEXT DRAW"
               value={poolStats && poolStats.nextDrawAt > 0 ? new Date(poolStats.nextDrawAt * 1000).toUTCString() : "None scheduled"}
-              note="When a race is called the draw runs and winners are paid. Deposits are open, and every stake is already entered."
+              note="When a round settles the top 3 split the pot. Deposits are open, and every stake is already entered."
             />
           </div>
-          <Button variant="outline" onClick={() => navigate("/verify")}>How draws stay fair ↗</Button>
+          <Button variant="outline" onClick={() => navigate("/verify")}>How runs stay fair ↗</Button>
         </Card>
       </Panel>
 

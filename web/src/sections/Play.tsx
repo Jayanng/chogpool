@@ -2,7 +2,6 @@
 import { SectionHost } from "../components/SectionHost";
 import Deposit from "../money/deposit";
 import Mint from "../mint";
-import Draft from "../draft";
 
 export default function Play() {
   return (
@@ -10,7 +9,6 @@ export default function Play() {
       tabs={[
         { label: "Get a Chog", path: "/mint", Component: Mint },
         { label: "Enter the race", path: "/deposit", Component: Deposit },
-        { label: "Pick a perk", path: "/draft", Component: Draft },
       ]}
     />
   );

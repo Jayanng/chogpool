@@ -71,11 +71,11 @@ export default function Landing() {
         </div>
         <div className="hero-copy">
           <div className="hero-chips">
-            <span className="pill pill-dark">Prize savings on Monad</span>
+            <span className="pill pill-dark">Skill game on Monad</span>
             <span className="pill pill-light">Test funds only</span>
           </div>
-          <h1>Your dollars<br />never enter<br />the <em>race.</em></h1>
-          <p className="lede">A savings game for Chog holders. Your deposit stays yours and stays withdrawable. Only the yield competes, and every draw is checkable by anyone.</p>
+          <h1>Your stake stays yours.<br />Your skill <em>wins the pot.</em></h1>
+          <p className="lede">A skill game for Chog holders. Enter with a stake, run the seeded course, and the top 3 split the pot. Your stake stays withdrawable, and every run is checkable by anyone.</p>
           <div className="hero-actions">
             <Button onClick={() => navigate("/run")}>Play the game →</Button>
             <Button variant="quiet" onClick={() => navigate("/deposit")}>Open the app</Button>
@@ -91,9 +91,6 @@ export default function Landing() {
         <div className="hero-stage">
           <div className="sticker sticker-lg"><img src={tileCrowned} alt="Chog #100 from the Chog Genesis collection, crowned" /></div>
           <div className="sticker sticker-sm"><img src={tileHoodie} alt="Chog #25 from the Chog Genesis collection in a pink hood" /></div>
-          <div className="float-pill fp-odds"><b>98.37%</b> odds</div>
-          <div className="float-pill fp-final"><span className="dot dot-green" />Race 01 finalized</div>
-          <div className="float-pill fp-paid"><b>0.000819</b> USDC paid</div>
         </div>
       </section>
 
@@ -118,11 +115,11 @@ export default function Landing() {
         <div>
           <p className="kicker">THE PROMISE</p>
           <h2>Safe by design, checkable by anyone.</h2>
-          <p className="muted">The track only competes with yield. Withdraw your principal at any time. Rewards scale with the pool.</p>
+          <p className="muted">Your stake stays yours and stays withdrawable. The top 3 split the pot, and every run is checkable by anyone.</p>
         </div>
         <Panel className="proof-panel">
-          <Stat label="NEXT DRAW" value={nextDrawAt ? "Counting down" : "Not scheduled yet"} note="Draws are opened on chain by the operator: no timer, no promised cadence." />
-          <Stat label="FAIRNESS" value="Published seed" note="Winner re-derivable from the published seed on the verifier page." tone="lime" />
+          <Stat label="NEXT DRAW" value={nextDrawAt ? "Counting down" : "Not scheduled yet"} note="Rounds open, lock and settle on their own schedule." />
+          <Stat label="FAIRNESS" value="Published seed" note="Run re-derivable from its published seed and inputs on the verifier page." tone="lime" />
         </Panel>
         <Panel className="proof-panel">
           <Stat label="TRY IT NOW" value="Test Drive" note="No Chog? Claim one clearly-labeled Test Chog and use the full site." tone="accent" />

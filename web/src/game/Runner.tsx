@@ -7,6 +7,7 @@ import { Card, Stat } from "@chogpool/ui";
 import { appearanceOf, type ChogAppearance } from "../race/chogArt";
 import { courseOf, type PlacedObstacle } from "./course";
 import { drawScene } from "./render";
+import { buildRunRecord } from "./runRecord";
 import { coinsOf, initialRun, revive, step, type Input, type RunState } from "./sim";
 
 const LEN = 45000;
@@ -15,7 +16,15 @@ const GROUND_Y = 300;
 const W = 860;
 const H = 380;
 
-type SavedRun = { seed: string; inputs: Input[]; score: number; distance: number; revived: boolean };
+type SavedRun = {
+  seed: string;
+  inputs: Input[];
+  score: number;
+  distance: number;
+  revived: boolean;
+  /** where the one revive happened in the tape, for a faithful ghost */
+  reviveAt?: number | null;
+};
 const BEST_KEY = "chogpool.best-run.v1";
 
 /** Today's course: one seed for everyone playing today. The round contract
@@ -62,14 +71,16 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<RunState>(initialRun());
-  const ghostRef = useRef<{ state: RunState; tape: Input[] } | null>(null);
+  const ghostRef = useRef<{ state: RunState; tape: Input[]; reviveAt: number | null; revivedUsed: boolean } | null>(null);
   const inputsRef = useRef<Input[]>([]);
   const revivedRef = useRef(false);
+  const reviveAtRef = useRef<number | null>(null);
   const keysRef = useRef({ jumpHeld: false, duck: false, jumpQueued: false });
   const [phase, setPhase] = useState<Phase>("ready");
   const phaseRef = useRef<Phase>("ready");
   const [hud, setHud] = useState({ score: 0, coins: 0, closeCalls: 0, distance: 0, revived: false });
   const [best, setBest] = useState<SavedRun | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
     setBest(loadBest(seed));
@@ -83,13 +94,20 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
       ghostRef.current = null;
       return;
     }
-    ghostRef.current = { state: initialRun(), tape: saved.inputs };
+    ghostRef.current = {
+      state: initialRun(),
+      tape: saved.inputs,
+      reviveAt: saved.reviveAt ?? null,
+      revivedUsed: false,
+    };
   }, [seed]);
 
   const startRun = useCallback(() => {
     stateRef.current = initialRun();
     inputsRef.current = [];
     revivedRef.current = false;
+    reviveAtRef.current = null;
+    setCopied(null);
     startGhost();
     phaseRef.current = "running";
     setPhase("running");
@@ -99,9 +117,31 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
   const doRevive = useCallback(() => {
     stateRef.current = revive(stateRef.current);
     revivedRef.current = true;
+    // The tape index where the revive happened: the next pressed input
+    // continues the run after this point.
+    reviveAtRef.current = inputsRef.current.length;
     phaseRef.current = "running";
     setPhase("running");
   }, []);
+
+  // The run record: what a verifier needs to replay this exact run. Copied
+  // at the finish line so nobody has to trust a screenshot.
+  const copyRecord = useCallback(async () => {
+    const st = stateRef.current;
+    const record = buildRunRecord({
+      seed,
+      lengthPx: LEN,
+      state: st,
+      inputs: inputsRef.current,
+      reviveAt: reviveAtRef.current,
+    });
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(record));
+      setCopied("Run record copied. Paste it on the Proof page to re-run it.");
+    } catch {
+      setCopied("The browser blocked the clipboard. The record is below, select and copy it.");
+    }
+  }, [seed]);
 
   // Input: keyboard and touch. Tap = jump, hold = higher, hold low = duck.
   useEffect(() => {
@@ -177,9 +217,16 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
           stateRef.current = step(s, input, course, coins);
 
           const g = ghostRef.current;
-          if (g && g.state.alive) {
-            const gi = g.tape[g.state.frame] ?? { jump: false, jumpHeld: false, duck: false };
-            g.state = step(g.state, gi, course, coins);
+          if (g) {
+            // The ghost lives its recorded run, including its one revive.
+            if (!g.state.alive && g.reviveAt !== null && !g.revivedUsed) {
+              g.state = revive(g.state);
+              g.revivedUsed = true;
+            }
+            if (g.state.alive) {
+              const gi = g.tape[g.state.frame] ?? { jump: false, jumpHeld: false, duck: false };
+              g.state = step(g.state, gi, course, coins);
+            }
           }
 
           if (stateRef.current.juice > 0) stateRef.current.juice -= 1;
@@ -237,7 +284,7 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
     const prev = loadBest(seed);
     if (!prev || saved.score > prev.score) {
       try {
-        localStorage.setItem(BEST_KEY, JSON.stringify(saved));
+        localStorage.setItem(BEST_KEY, JSON.stringify({ ...saved, reviveAt: reviveAtRef.current }));
       } catch {
         // storage full or blocked: the run still stands, it just leaves no ghost
       }
@@ -301,9 +348,13 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
               <button className="btn btn-secondary" onClick={startRun}>
                 Run again
               </button>
+              <button className="btn btn-secondary" onClick={() => void copyRecord()}>
+                Copy run record
+              </button>
             </div>
             <p className="game-overlay-foot">
               Replayable from this course seed and the run's inputs. Seed {seed}
+              {copied ? ` · ${copied}` : ""}
             </p>
           </div>
         )}
@@ -314,9 +365,15 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
             <p className="game-overlay-text">
               Score {hud.score}, {hud.coins} Test $CHOG collected, {hud.closeCalls} close calls.
             </p>
-            <button className="btn btn-primary" onClick={startRun}>
-              Run again
-            </button>
+            <div className="game-overlay-actions">
+              <button className="btn btn-primary" onClick={startRun}>
+                Run again
+              </button>
+              <button className="btn btn-secondary" onClick={() => void copyRecord()}>
+                Copy run record
+              </button>
+            </div>
+            {copied && <p className="game-overlay-foot">{copied}</p>}
           </div>
         )}
       </div>
