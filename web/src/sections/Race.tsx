@@ -8,7 +8,6 @@ import { BookPanel } from "../race/BookPanel";
 export default function Race() {
   return (
     <>
-      <BookPanel />
       <SectionHost
       tabs={[
         { label: "Race show", path: "/race", Component: RaceShow },
@@ -16,6 +15,7 @@ export default function Race() {
         { label: "Career", path: "/career", Component: Career },
       ]}
     />
+      <BookPanel />
     </>
   );
 }
