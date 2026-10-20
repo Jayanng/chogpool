@@ -964,7 +964,7 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 
 .hero-scene h1 {
   color: var(--c-white); font-weight: 900; line-height: .96; letter-spacing: -.04em;
-  font-size: clamp(30px, 4.2vw, 56px); margin: 0;
+  font-size: clamp(2rem, 8.2cqw, 3.5rem); margin: 0;
 }
 .hero-scene h1 .line { display: block; white-space: nowrap; }
 .hero-scene h1 em { font-style: normal; color: var(--c-yellow); }
@@ -1327,11 +1327,11 @@ body { overflow-x: clip; max-width: 100vw; }
    flows instead of overlapping the copy or overflowing the gutters. */
 .hero-scene { overflow: visible; }
 .hero.hero-scene { padding: clamp(2.5rem, 5vw, 4.5rem) 0; }
-.hero-scene h1 { font-size: clamp(30px, 4.2vw, 56px); }
+.hero-scene h1 { font-size: clamp(2rem, 8.2cqw, 3.5rem); }
 
 @media (max-width: 860px) {
   .hero.hero-scene { padding: clamp(2rem, 5vw, 3rem) 0; }
-  .hero-scene h1 { font-size: clamp(2.35rem, 9vw, 3.25rem); line-height: .95; }
+  .hero-scene h1 { font-size: clamp(1.7rem, 8.2cqw, 2.6rem); line-height: .95; }
   .hero-stage {
     min-height: auto; display: flex; flex-wrap: wrap; gap: 14px;
     align-items: center; justify-content: center; margin-top: 32px;
@@ -1364,7 +1364,7 @@ body { overflow-x: clip; max-width: 100vw; }
     grid-template-columns: 1fr; gap: 28px;
     padding: clamp(2rem, 5vw, 3rem) 0;
   }
-  .hero-scene h1 { font-size: clamp(2.4rem, 8vw, 3.75rem); line-height: .95; }
+  .hero-scene h1 { font-size: clamp(1.9rem, 8.2cqw, 3.2rem); line-height: .95; }
   .hero-stage {
     min-height: auto; display: flex; flex-wrap: wrap; gap: 14px;
     align-items: center; justify-content: center; margin-top: 30px;
@@ -1382,13 +1382,14 @@ body { overflow-x: clip; max-width: 100vw; }
 }
 
 /* ===================== HERO HEADLINE: 3 clean lines =====================
-   The headline is broken into 3 lines ("Your dollars / never enter / the
-   race."). Each line must fit on one row, so the copy column is widened and the
-   type is sized to the column via container units so it holds 3 lines at any
-   width instead of wrapping to 5. */
+   The headline is broken into 3 lines ("Your stake / stays yours. / Your
+   skill wins the pot."). Each line must fit on one row, so the type is sized
+   to the column via container units at a rate the LONGEST line can hold:
+   'Your skill wins the pot.' measures ~10.85px of width per 1px of font, so
+   8.2cqw guarantees it fits with margin at any column width. */
 .hero-copy { container-type: inline-size; }
 .hero.hero-scene { grid-template-columns: 1.22fr 0.95fr; }
-.hero-scene h1 { font-size: clamp(2.5rem, 13cqw, 6.25rem); line-height: .92; }
+.hero-scene h1 { font-size: clamp(2rem, 8.2cqw, 3.5rem); line-height: .92; }
 
 /* ===================== QA POLISH: sub-nav, disabled, inputs =====================
    The section sub-nav pill was landing on the topbar divider (broken rule +
