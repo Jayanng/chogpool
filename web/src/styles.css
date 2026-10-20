@@ -1883,3 +1883,11 @@ body:has(.gate-overlay), html:has(.gate-overlay) { overflow: hidden; }
 .mechanics summary { cursor: pointer; padding: 10px 2px; }
 .mechanics summary:focus-visible { outline: 2px solid rgba(255, 138, 61, 0.5); border-radius: 8px; }
 .mechanics[open] summary { margin-bottom: 10px; }
+
+/* The hero's primary CTA carries the pitch: sized above the fold line so
+   it reads as the one action (appended last to win the cascade). */
+.hero-scene .hero-actions .ui-button {
+  padding: 19px 38px;
+  font-size: 18px;
+  min-height: 56px;
+}
