@@ -99,25 +99,29 @@
     "ipfsGateway": "https://gateway.pinata.cloud/ipfs/",
     "chogMetadataBase": "ipfs://bafybeid4ybujnscdipkno7ps5utqelp5ry5ryreqhay3zhgk3a6x4jruqu/",
     "chogPool": {
-      "address": "0xA01EB6B9cD9FB8e831A3DBB4D4Aaa7f1acDB7A83",
-      "source": "live cast call from the deployed stack 2026-10-18",
-      "note": "ChogPool v4. IMMUTABLE: a code fix here needs a redeploy, see docs/GATE4-LOG.md."
+      "address": "0x79D30244bD59c01aD1963800791522e3dAA876e0",
+      "source": "fresh deploy, blocks 72463194-72463267, 2026-10-18",
+      "note": "LIVE pool. Carries the withdrawAll pro-rata fix and seedPot(). See docs/DECISIONS.md."
     },
     "puddleLpAdapter": {
-      "address": "0x025270CaF272bF8EF55FC1aF5Fe7eB81227b9Df3",
-      "source": "live cast call from the deployed stack 2026-10-18",
-      "note": "PuddleLpAdapter. principalDeployed is the monotonic counter fixed in src/."
+      "address": "0x96EB00390bA95970310EF2721C7948CdFD6aF7Ed",
+      "source": "fresh deploy, blocks 72463194-72463267, 2026-10-18",
+      "note": "LIVE adapter. principalDeployed now released pro-rata on redeem()."
     },
-    "racer": {
-      "tokenId": 954,
-      "depositor": "0xEDF094F87BF02E05E95611bb57De17c41C0a071B",
-      "source": "live pool sharesOf(954) 2026-10-18",
-      "note": "racer2's mirror token: 887,422 shares against a venue worth 790,444."
-    },
-    "racer1": {
-      "tokenId": 1462,
-      "source": "live mirror ownerOf check 2026-10-18",
-      "note": "withdrawn earlier; 0 shares remain."
+    "supersededV6Stack": {
+      "pool": "0xA01EB6B9cD9FB8e831A3DBB4D4Aaa7f1acDB7A83",
+      "adapter": "0x025270CaF272bF8EF55FC1aF5Fe7eB81227b9Df3",
+      "mirror": "0xF4abBB637c05B7F8df7dCed5830fBcb2c62dDa50",
+      "drawEngine": "0x1FcA003BD5B9503ea444420193C33e3e040200aE",
+      "careerStore": "0x4E202c0B08087159f7694f544B63323bBe59c5Fd",
+      "source": "the stack deployed before 2026-10-18, still live and untouched on chain",
+      "note": "SUPERSEDED, NOT DELETED. Kept because StrandedSharesFork.t.sol documents the defect this stack exhibited (monotonic principalDeployed, stranded residue). The old pool is immutable so it cannot be fixed; the fix lives in the new stack. Do not point the app at these.",
+      "racer": {
+        "tokenId": 954,
+        "depositor": "0xEDF094F87BF02E05E95611bb57De17c41C0a071B",
+        "source": "live pool sharesOf(954) 2026-10-18",
+        "note": "racer2's mirror token on the OLD stack: 887,422 shares against a venue worth 790,444. This is the position the withdrawAll fix was written for."
+      }
     }
   },
   "ipfs": {
