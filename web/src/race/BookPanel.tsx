@@ -39,7 +39,7 @@ export function BookPanel() {
   }, []);
 
   return (
-    <Card title="The book" footer="READ LIVE FROM THE POOL CONTRACT · SHARESOF(1..1,969)">
+    <Card title="The book" footer="READ LIVE FROM THE POOL CONTRACT · ONE BOOK PER CHOG, IDS 1 TO 1,969">
       {entries === null ? (
         unread ? (
           <p className="muted small">
