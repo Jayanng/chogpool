@@ -104,7 +104,7 @@ export default function Yield() {
           position's actual redemption value and the pot's actual balance. Nothing here is
           projected or annualised.
         </p>
-        <div className="network-note"><span className="status-dot" /> Play: Monad Testnet · test funds only</div>
+        <div className="network-note"><span className="status-dot" /> Network: Monad Testnet · test funds only</div>
       </section>
 
       <Panel className="feature-panel">
