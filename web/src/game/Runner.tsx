@@ -1,20 +1,22 @@
 // The Run: a playable race on the seeded course, with the ghost of the
 // course's best run beside you. Every number on screen comes from the sim
 // (game/sim.ts), and every run is replayable from its seed and its inputs.
+//
+// Controls: tap or press space to jump, hold for the full arc, swipe down
+// (or press down) to duck. The canvas is DPI-crisp and takes a taller,
+// closer camera on narrow screens, so the game is the same game on a phone.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, Stat } from "@chogpool/ui";
-import { appearanceOf, type ChogAppearance } from "../race/chogArt";
+import { type ChogAppearance } from "../race/chogArt";
 import { courseOf, type PlacedObstacle } from "./course";
-import { drawScene } from "./render";
+import { drawScene, spawnBurst, spawnConfetti, spawnDust, type Particle, type Popup } from "./render";
 import { buildRunRecord } from "./runRecord";
 import { coinsOf, initialRun, revive, step, type Input, type RunState } from "./sim";
+import { playCue } from "../lib/sound";
 
 const LEN = 45000;
 const STEP_MS = 1000 / 60;
-const GROUND_Y = 300;
-const W = 860;
-const H = 380;
 
 type SavedRun = {
   seed: string;
@@ -80,13 +82,19 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
     };
   }, [imageUrl]);
 
+  const frameRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const dimsRef = useRef({ scale: 1, logicalW: 940, logicalH: 430, groundY: 318 });
   const stateRef = useRef<RunState>(initialRun());
   const ghostRef = useRef<{ state: RunState; tape: Input[]; reviveAt: number | null; revivedUsed: boolean } | null>(null);
   const inputsRef = useRef<Input[]>([]);
   const revivedRef = useRef(false);
   const reviveAtRef = useRef<number | null>(null);
   const keysRef = useRef({ jumpHeld: false, duck: false, jumpQueued: false });
+  const particlesRef = useRef<Particle[]>([]);
+  const popupsRef = useRef<Popup[]>([]);
+  const shakeRef = useRef(0);
+  const ptrRef = useRef({ id: -1, startY: 0, swiped: false });
   const [phase, setPhase] = useState<Phase>("ready");
   const phaseRef = useRef<Phase>("ready");
   const [hud, setHud] = useState({ score: 0, coins: 0, closeCalls: 0, distance: 0, revived: false });
@@ -96,6 +104,37 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
   useEffect(() => {
     setBest(loadBest(seed));
   }, [seed]);
+
+  // Responsive canvas: crisp on every screen, a closer camera on phones.
+  useEffect(() => {
+    const el = frameRef.current;
+    const canvas = canvasRef.current;
+    if (!el || !canvas) return;
+    const compute = () => {
+      const cssW = el.clientWidth || 900;
+      const narrow = cssW < 680;
+      const cssH = narrow
+        ? Math.min(cssW * 1.18, (window.innerHeight || 700) * 0.72)
+        : cssW * 0.46;
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      canvas.width = Math.round(cssW * dpr);
+      canvas.height = Math.round(cssH * dpr);
+      canvas.style.width = `${cssW}px`;
+      canvas.style.height = `${cssH}px`;
+      const renderScale = cssW / (narrow ? 560 : 940);
+      const logicalW = cssW / renderScale;
+      const logicalH = cssH / renderScale;
+      dimsRef.current = { scale: renderScale * dpr, logicalW, logicalH, groundY: logicalH * 0.74 };
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    window.addEventListener("resize", compute);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", compute);
+    };
+  }, []);
 
   // The ghost: the best recorded run on this exact course, stepped beside
   // the player from its input tape. Honest to the pixel: it is that run.
@@ -118,11 +157,15 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
     inputsRef.current = [];
     revivedRef.current = false;
     reviveAtRef.current = null;
+    particlesRef.current = [];
+    popupsRef.current = [];
+    shakeRef.current = 0;
     setCopied(null);
     startGhost();
     phaseRef.current = "running";
     setPhase("running");
     setHud({ score: 0, coins: 0, closeCalls: 0, distance: 0, revived: false });
+    playCue("gates");
   }, [startGhost]);
 
   const doRevive = useCallback(() => {
@@ -133,6 +176,8 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
     reviveAtRef.current = inputsRef.current.length;
     phaseRef.current = "running";
     setPhase("running");
+    shakeRef.current = 0.7;
+    playCue("fanfare");
   }, []);
 
   // The run record: what a verifier needs to replay this exact run. Copied
@@ -154,7 +199,8 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
     }
   }, [seed]);
 
-  // Input: keyboard and touch. Tap = jump, hold = higher, hold low = duck.
+  // Input: keyboard and gestures. Tap = jump, hold = higher, swipe down or
+  // press down = duck. The whole frame is the touch target.
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW") {
@@ -180,25 +226,38 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
     };
   }, [startRun]);
 
-  const canvasDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const low = e.clientY - rect.top > rect.height * 0.62;
+  const frameDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (phaseRef.current === "dead" || phaseRef.current === "cleared") return;
+    const p = ptrRef.current;
+    p.id = e.pointerId;
+    p.startY = e.clientY;
+    p.swiped = false;
     if (phaseRef.current === "ready") startRun();
-    if (low) {
-      keysRef.current.duck = true;
-    } else {
-      keysRef.current.jumpQueued = true;
-      keysRef.current.jumpHeld = true;
-    }
-    e.currentTarget.setPointerCapture(e.pointerId);
+    keysRef.current.jumpQueued = true;
+    keysRef.current.jumpHeld = true;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
   };
-  const canvasUp = () => {
+  const frameMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const p = ptrRef.current;
+    if (p.id !== e.pointerId || p.swiped) return;
+    if (e.clientY - p.startY > 36) {
+      // a deliberate downward swipe is the duck gesture
+      p.swiped = true;
+      keysRef.current.jumpHeld = false;
+      keysRef.current.duck = true;
+    }
+  };
+  const frameUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (ptrRef.current.id !== e.pointerId) return;
+    ptrRef.current.id = -1;
     keysRef.current.jumpHeld = false;
     keysRef.current.duck = false;
   };
 
   // The loop: fixed 60Hz sim steps inside a display loop, so the physics is
-  // identical on every machine and the replay stays exact.
+  // identical on every machine and the replay stays exact. Close calls run
+  // the clock at half speed for a beat: presentation only, the tape is
+  // unaffected because the tape is per step, not per second.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -211,7 +270,9 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
 
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame);
-      acc += Math.min(120, now - last);
+      const st0 = stateRef.current;
+      const dilation = st0.juice > 0 ? 0.5 : 1;
+      acc += Math.min(120, now - last) * dilation;
       last = now;
 
       while (acc >= STEP_MS) {
@@ -225,7 +286,32 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
           };
           keysRef.current.jumpQueued = false;
           inputsRef.current.push(input);
+          const before = s;
           stateRef.current = step(s, input, course, coins);
+          const st = stateRef.current;
+          const { logicalW, groundY } = dimsRef.current;
+          const playerX = logicalW * 0.26 + 18;
+
+          // effects, all presentation: the sim's numbers are untouched
+          if (st.alive && st.height === 0 && st.frame % 14 === 0) {
+            spawnDust(particlesRef.current, playerX, groundY + 2, 2);
+          }
+          if (before.height > 3 && st.height === 0) {
+            spawnDust(particlesRef.current, playerX, groundY + 2, 7);
+            shakeRef.current = Math.max(shakeRef.current, 0.22);
+          }
+          if (st.coins > before.coins) {
+            spawnBurst(particlesRef.current, playerX + 10, groundY - st.height - 30, "#c6e85c", 10);
+            popupsRef.current.push({ x: playerX + 20, y: groundY - st.height - 52, text: "+25", life: 42, color: "#c6e85c" });
+          }
+          if (st.closeCalls > before.closeCalls) {
+            popupsRef.current.push({ x: playerX + 26, y: groundY - st.height - 66, text: "CLOSE! +15", life: 52, color: "#ffd84d" });
+            shakeRef.current = Math.max(shakeRef.current, 0.55);
+          }
+          if (before.alive && !st.alive) {
+            spawnBurst(particlesRef.current, playerX + 10, groundY - st.height - 28, "#f0679c", 18, 4.2);
+            shakeRef.current = 1;
+          }
 
           const g = ghostRef.current;
           if (g) {
@@ -242,10 +328,11 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
 
           if (stateRef.current.juice > 0) stateRef.current.juice -= 1;
 
-          const st = stateRef.current;
           if (st.distance >= LEN) {
             phaseRef.current = "cleared";
             setPhase("cleared");
+            spawnConfetti(particlesRef.current, playerX + 60, groundY - 140);
+            playCue("finish");
           } else if (!st.alive) {
             phaseRef.current = "dead";
             setPhase("dead");
@@ -262,20 +349,27 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
         }
       }
 
-      // slow-motion juice: stretch frames while the tint is on
       const st = stateRef.current;
+      const dims = dimsRef.current;
+      shakeRef.current = Math.max(0, shakeRef.current - 0.045);
       drawScene(ctx, {
-        width: W,
-        height: H,
+        width: dims.logicalW,
+        height: dims.logicalH,
+        scale: dims.scale,
         appearance,
         state: st,
         course,
         coins,
         ghost: ghostRef.current ? { state: ghostRef.current.state, appearance } : null,
-        groundY: GROUND_Y,
+        groundY: dims.groundY,
         seedLabel: seed,
         playerImage: image,
         ghostImage: image,
+        particles: particlesRef.current,
+        popups: popupsRef.current,
+        shake: shakeRef.current,
+        progress: Math.min(1, st.distance / LEN),
+        lengthPx: LEN,
       });
     };
     raf = requestAnimationFrame(frame);
@@ -313,16 +407,18 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
 
   return (
     <div className="game-shell">
-      <div className="game-frame">
+      <div
+        className="game-frame"
+        ref={frameRef}
+        onPointerDown={frameDown}
+        onPointerMove={frameMove}
+        onPointerUp={frameUp}
+        onPointerCancel={frameUp}
+      >
         <canvas
           ref={canvasRef}
-          width={W}
-          height={H}
           className="game-canvas"
-          onPointerDown={canvasDown}
-          onPointerUp={canvasUp}
-          onPointerCancel={canvasUp}
-          aria-label="The run. Space or tap to jump, hold to jump higher, down arrow or hold low to duck."
+          aria-label="The run. Tap or press space to jump, hold to jump higher, swipe down or press down to duck."
         />
         <div className="game-hud" aria-live="polite">
           <span className="game-hud-chip">SCORE {hud.score}</span>
@@ -336,7 +432,7 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
           <div className="game-overlay">
             <p className="game-overlay-title">The run is on</p>
             <p className="game-overlay-text">
-              Space or tap to jump. Hold for the full arc. Duck under the gates.
+              Tap anywhere to jump. Hold for the full arc. Swipe down to duck under the gates.
               {best ? " The ghost beside you is your best run on this course." : " First run on this course is yours."}
             </p>
             <button className="btn btn-primary" onClick={startRun}>
@@ -405,7 +501,7 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
         <p className="muted small">
           Distance carries the score. Coins on the racing line are 25 points each and land in your
           Test $CHOG purse when the round contract is live. Close calls, passing an obstacle within
-          a hand's width, pay 15 points and a flick of slow motion. The same seed always builds the
+          a hand's width, pay 15 points and a beat of slow motion. The same seed always builds the
           same course, so the leaderboard compares skill, not luck.
         </p>
       </Card>
