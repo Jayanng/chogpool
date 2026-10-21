@@ -285,6 +285,40 @@ If more runway is wanted for the judging week, the recorder's operator claims fr
 their own machine and transfers to the engine. Otherwise 1,000 CHOG covers 10,000
 coins of runs, which is the documented budget.
 
+### The weekly cycle, once the round is open
+
+Two transactions per week, nothing else:
+
+1. **`closeRound(roundId)`** — operator, once the close time passes. Snapshots the
+   pot and the revive fees, so a later harvest cannot move a prize players have
+   already played for.
+2. **`settleRound(roundId, top3)`** — operator, with the three tokenIds in
+   placement order. Pays 50/30/20 of the snapshotted pot in USDC through
+   `payPot`, pays the accumulated revive fees on the same split in Test $CHOG, and
+   records the placings through `CareerStore`.
+
+**CHECK THE TREASURY AS PART OF EVERY SETTLE.** This is a standing duty, agreed
+with the product side. The recorder pays coins at submission from the engine's own
+Test $CHOG balance, so an empty treasury starts rejecting live players'
+submissions and the board stops filling mid-week.
+
+```bash
+cast call <TEST_CHOG> "balanceOf(address)(uint256)" <ENGINE> --rpc-url monad_testnet
+```
+
+Read it before every settle. If it is running low, top up from the owner's daily
+faucet claim (1,000 Test $CHOG per address per day, which covers 10,000 coins of
+runs at 0.1 each):
+
+```bash
+cast send <TEST_CHOG> "claim()" --rpc-url monad_testnet --private-key $PRIVATE_KEY
+cast send <TEST_CHOG> "transfer(address,uint256)" <ENGINE> <amount> \
+  --rpc-url monad_testnet --private-key $PRIVATE_KEY
+```
+
+The recorder address holds an unclaimed 1,000 Test $CHOG but its key is not on
+this host, so the owner's daily claim is the only top-up path available here.
+
 ### The sequence, for anyone re-running it on a fresh stack
 
 1. Deploy GameEngine with parameters:
