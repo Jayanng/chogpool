@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import {Test} from "forge-std/Test.sol";
 import {ChogPool} from "../src/ChogPool.sol";
 import {GameEngine} from "../src/GameEngine.sol";
+import {DrawEngine} from "../src/DrawEngine.sol";
 import {CareerStore} from "../src/CareerStore.sol";
 import {MockYieldAdapter} from "../fixtures/MockYieldAdapter.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
@@ -451,6 +452,118 @@ contract GameEngineTest is Test {
         assertEq(store.raceCountOf(T_C), 1);
     }
 
+    // ---------- 8. the migration wiring, proven rather than assumed ----------
+
+    /// @dev THE TEST FOR THE CALL WE ALMOST SHIPPED WITHOUT. Every other test in
+    ///      this file runs on a CareerStore that `setUp` already wired to the
+    ///      engine, so none of them can catch a deploy that forgets
+    ///      `careerStore.setDrawEngine`. This one builds the wiring the deploy
+    ///      script is supposed to produce, then proves the recordRace path works
+    ///      end to end through it.
+    ///
+    ///      WHAT GOES WRONG WITHOUT IT: `settleRound` pays the winners, emits
+    ///      RoundSettled, looks completely successful, and then reverts on the
+    ///      recordRace call inside it. The leaderboard silently never fills, and
+    ///      a user watching the demo sees paid winners and an empty career page.
+    ///      That is the worst failure mode available: money moved, nothing recorded.
+    function test_SettleThenRecordRace_ReadsBackThroughTheSwappedCareerStore() public {
+        // Build the deployed state: the pool and the CareerStore both pointing at
+        // this engine, exactly as DeployGameEngine.s.sol leaves them.
+        // The store's owner is this test contract, not the GameEngine's owner, so
+        // the wiring call comes from here.
+        store.setDrawEngine(address(engine));
+
+        _deposit(alice, T_A, 100 * ONE);
+        _deposit(bob, T_B, 100 * ONE);
+        _deposit(carol, T_C, 100 * ONE);
+        _seedPot(100 * ONE);
+
+        uint256 roundId = _openRound();
+        _submit(roundId, _ids(T_A, T_B, T_C), _scores(300, 200, 100), _flags(false, false, false));
+        vm.prank(operator_);
+        engine.closeRound(roundId);
+
+        // Before settlement the career books are empty, which is what makes the
+        // read-back below meaningful rather than reading pre-seeded state.
+        assertEq(store.raceCountOf(T_A), 0, "no races recorded yet");
+
+        // This call is the one that reverts when the CareerStore was never wired.
+        vm.prank(operator_);
+        engine.settleRound(roundId, _winners(T_A, T_B, T_C));
+
+        // The placings must read back through the CareerStore the deploy wired.
+        (uint32 gold, uint32 silver, uint32 bronze) = store.trophiesOf(T_A);
+        assertEq(gold, 1, "first place took gold through the swapped store");
+        assertEq(silver, 0);
+        assertEq(bronze, 0);
+
+        (gold, silver, bronze) = store.trophiesOf(T_B);
+        assertEq(silver, 1, "second place took silver through the swapped store");
+
+        (gold, silver, bronze) = store.trophiesOf(T_C);
+        assertEq(bronze, 1, "third place took bronze through the swapped store");
+
+        assertEq(store.raceCountOf(T_A), 1, "one race recorded for first place");
+        assertEq(store.raceCountOf(T_B), 1, "one race recorded for second place");
+        assertEq(store.raceCountOf(T_C), 1, "one race recorded for third place");
+
+        uint256[] memory races = store.racesOf(T_A);
+        assertEq(races.length, 1, "the race id is recorded");
+        assertEq(races[0], roundId, "and it is the round id, so the leaderboard joins");
+    }
+
+    /// @dev The negative half of the same property. A CareerStore still pointing
+    ///      at the OLD engine must refuse the new engine's recordRace. This is
+    ///      what a deploy missing the second transaction actually produces, pinned
+    ///      as a revert rather than described in a comment.
+    function test_RecordRace_Reverts_WhenTheCareerStoreWasNeverRewired() public {
+        // Fresh store, still wired to a DrawEngine that is NOT this engine.
+        CareerStore unwired = new CareerStore(address(this));
+        DrawEngine oldEngine = new DrawEngine(address(this), operator_);
+        unwired.setDrawEngine(address(oldEngine));
+
+        GameEngine freshEngine =
+            new GameEngine(address(this), operator_, address(unwired), address(testChog), authority_);
+        freshEngine.setPool(address(pool));
+        // The POOL is wired to the new engine, exactly as the deploy script does
+        // it, so payPot works and the prize pays. The ONLY unwired consumer left
+        // is the CareerStore. Without this line the test reverts at payPot and
+        // proves nothing about recordRace.
+        pool.setDrawEngine(address(freshEngine));
+
+        _deposit(alice, T_A, 100 * ONE);
+        _deposit(bob, T_B, 100 * ONE);
+        _deposit(carol, T_C, 100 * ONE);
+        _seedPot(100 * ONE);
+
+        // A round on the NEW engine, while the store still points at the old one.
+        vm.prank(operator_);
+        uint256 roundId = freshEngine.openRound(bytes32("course-seed"), uint64(block.timestamp + 1 hours));
+        vm.prank(authority_);
+        freshEngine.submitScores(
+            roundId, _ids(T_A, T_B, T_C), _scores(300, 200, 100), _flags(false, false, false)
+        );
+        vm.prank(operator_);
+        freshEngine.closeRound(roundId);
+
+        // Settlement reaches recordRace and is refused by the unwired store.
+        vm.prank(operator_);
+        vm.expectRevert();
+        freshEngine.settleRound(roundId, _winners(T_A, T_B, T_C));
+
+        // And the leaderboard is empty, which is the silent damage.
+        assertEq(unwired.raceCountOf(T_A), 0, "nothing was recorded");
+    }
+
+    /// @dev The wiring read-back the deploy script asserts, pinned here so the
+    ///      assertion itself is covered by a test rather than trusted.
+    function test_BothWirings_ReadBackAfterTheSwap() public {
+        store.setDrawEngine(address(engine));
+
+        assertEq(pool.drawEngine(), address(engine), "the pool accepts the engine");
+        assertEq(store.drawEngine(), address(engine), "the store accepts the engine");
+    }
+
     // ---------- access control ----------
 
     function test_OnlyTheAuthority_CanSubmitScores() public {
@@ -550,6 +663,21 @@ contract GameEngineTest is Test {
         bool[] memory v = new bool[](2);
         v[0] = a;
         v[1] = b;
+        return v;
+    }
+
+    /// @dev settleRound takes a fixed `uint256[3]`, which is the one place a plain
+    ///      array literal will not do. Built explicitly so the placement order is
+    ///      readable at the call site.
+    function _winners(uint256 first, uint256 second, uint256 third)
+        internal
+        pure
+        returns (uint256[3] memory)
+    {
+        uint256[3] memory v;
+        v[0] = first;
+        v[1] = second;
+        v[2] = third;
         return v;
     }
 }

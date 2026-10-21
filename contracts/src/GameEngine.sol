@@ -9,11 +9,11 @@ import {ICareerStore} from "../interfaces/ICareerStore.sol";
 import {ITestChogToken} from "../interfaces/ITestChogToken.sol";
 import {DrawEngine} from "./DrawEngine.sol";
 
-/// @title GameEngine, DrawEngine v2: the same commit-reveal draw plus skill rounds.
-/// @notice Extends DrawEngine rather than replacing it. Every draw function
-///         (openDraw/commit/reveal/award/finalize) is inherited untouched, so the
-///         existing fixtures, tests and the fairness verifier keep working. What is
-///         added is the round flow the product actually ships:
+/// @title GameEngine, DrawEngine v2: skill rounds, and the draw path it carries.
+/// @notice Extends DrawEngine rather than replacing it. The draw functions
+///         (openDraw/commit/reveal/award/finalize) are inherited untouched, so
+///         the existing fixtures, tests and the fairness verifier keep working.
+///         What is added is the round flow the product actually ships:
 ///
 ///           openRound -> players play -> submitScores -> settleRound
 ///
@@ -29,6 +29,9 @@ import {DrawEngine} from "./DrawEngine.sol";
 ///      redeploy, no deposit migration, the stranding fix and the seeded pot stay
 ///      exactly where they are. Keeping the draw machinery also costs nothing, per
 ///      the spec, and preserves the commit-reveal path for the production roadmap.
+///      NOTE: the product has retired random draws entirely; the inherited code is
+///      dead weight that exists only because removing it would touch a frozen
+///      interface and it costs nothing to carry.
 ///
 /// @dev SCORE INTEGRITY, OWNED RATHER THAN HIDDEN. Scores are produced in the
 ///      browser and submitted by the game authority. That is the honest middle
@@ -38,6 +41,13 @@ import {DrawEngine} from "./DrawEngine.sol";
 ///      record a score for a token that has no position in the pool. Verifying a
 ///      score from the seed plus signed inputs is a roadmap item and is NOT claimed
 ///      here. Nothing in this contract pretends a submitted score is proven.
+///
+/// @dev COINS ARE DELIBERATELY NOT HERE. The game client tracks coins per run and
+///      the site copy describes them. There is no coin balance in this contract
+///      and no per-coin Test $CHOG payout, by explicit decision: less surface
+///      before the deadline, and the only currency this contract moves is the
+///      revive fee and the revive-fee bonus split. `coinsOf` does not exist for
+///      that reason, not by omission.
 contract GameEngine is DrawEngine {
     // ---------------- constants ----------------
 
@@ -374,6 +384,17 @@ contract GameEngine is DrawEngine {
     }
 
     // ---------------- views ----------------
+
+    /// @notice The newest round id, so the leaderboard can find it directly.
+    /// @dev WHY THIS EXISTS. The CareerStore has no global round counter, so a
+    ///      leaderboard that wants "the current round" has to scan race ids and
+    ///      guess. This is the exact getter, and it is what the frontend binds to
+    ///      instead of probing.
+    /// @dev Returns `currentRoundId` rather than exposing it under a second name:
+    ///      one source of truth, and 0 means "no round has ever been opened".
+    function latestRoundId() external view returns (uint256) {
+        return currentRoundId;
+    }
 
     function roundState(uint256 roundId) external view returns (RoundState) {
         return _rounds[roundId].state;

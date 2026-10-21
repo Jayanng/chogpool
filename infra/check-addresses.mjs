@@ -47,6 +47,12 @@ const ALLOW_FILES = [
                          // must quote the real hash the chain returned, or it is
                          // not a record of anything. The check itself is documented
                          // in TESTING.md §5 with no address literals.
+  "docs/GAME-ENGINE-HANDOFF.md", // the contract-side handoff for the engine swap.
+                         // Same rule as the gate logs: it has to name the live
+                         // stack the deploy actually touches, or a teammate
+                         // running it cannot tell which pool to repoint. The
+                         // deploy script and every source file stay literal-free
+                         // and read their addresses from infra/.
   "package-lock.json",
   "pnpm-lock.yaml",
 ];

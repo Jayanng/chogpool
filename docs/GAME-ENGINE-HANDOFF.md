@@ -38,15 +38,29 @@ These contracts are already deployed and will not change:
 
 ---
 
-## 3. The One Migration Step
+## 3. The Migration: TWO setDrawEngine Calls, Not One
 
-After deploying GameEngine, the pool needs to point to it:
+After deploying GameEngine, **both** consumers of the engine must be repointed:
 
 ```solidity
-ChogPool.setDrawEngine(gameEngineAddress)
+ChogPool.setDrawEngine(gameEngine)       // makes payPot accept the engine
+CareerStore.setDrawEngine(gameEngine)    // makes recordRace accept it
 ```
 
-This is the ONLY pool configuration change needed. The pool's `drawEngine` is mutable, so this single transaction swaps the entire game logic without redeploying the pool or migrating any deposits.
+**Why the second one is not optional.** `CareerStore.recordRace` is gated to its
+own recorded engine (`onlyDrawEngine`). If the pool is wired but the store is not:
+
+- `settleRound` pays all three winners in USDC and Test $CHOG,
+- it then calls `recordRace`, which reverts,
+- so the whole settlement reverts — but the winners have *already been paid* by
+  that point in the function,
+- the round looks like a total failure to the operator and the leaderboard stays
+  empty forever.
+
+A test suite that wires both in `setUp` can never catch this. The deploy script
+calls both and reads both back; `GameEngine.t.sol` pins the negative case as a
+revert, and the trace in the test shows the three `payPot` transfers succeeding
+before `recordRace` fails.
 
 ---
 
@@ -106,10 +120,17 @@ This creates a self-funding bonus pool where the game funds part of its own priz
 
 ## 5. Key Design Decisions
 
-### 5.1 Course Seed is Immutable
+### 5.1 Coins Are Score-Only, By Decision
+The game client tracks coins per run and the site copy describes them. **There is
+no coin balance in this contract and no per-coin Test $CHOG payout.** This was an
+explicit decision to reduce surface before the deadline: the only currency this
+contract moves is the revive fee and the revive-fee bonus split. The site copy is
+being reworded to match. `coinsOf` does not exist for this reason, not by omission.
+
+### 5.2 Course Seed is Immutable
 The `courseSeed` is set at `openRound` and can never change. Every player in the round faces the identical course, and anyone can re-derive the course from the seed in the Proof page. The operator choosing the seed affects every player equally.
 
-### 5.2 Access Control
+### 5.3 Access Control
 - **Operator**: Can open rounds, close rounds, settle rounds (same role model as existing draw)
 - **Game Authority**: Can submit scores (starts as operator, can be changed via `setGameAuthority`)
 - **Owner**: Can change operator, game authority, career store, and test CHOG token addresses
@@ -173,12 +194,21 @@ error FeePullFailed(uint256 roundId, uint256 tokenId, uint256 fee);
    - testChog: 0x94a4456e3051B37ECb1AA46423779F35cc9D063d
    - gameAuthority: [operator address initially]
 
-2. Call `ChogPool.setDrawEngine(gameEngineAddress)` from owner
+2. **Both** wiring transactions, from the pool owner:
+   - `ChogPool.setDrawEngine(gameEngine)`
+   - `CareerStore.setDrawEngine(gameEngine)`
 
-3. Verify wiring:
+3. Verify both wirings:
    ```bash
    cast call 0x79D30244bD59c01aD1963800791522e3dAA876e0 "drawEngine()" --rpc-url https://testnet-rpc.monad.xyz
+   cast call 0x336258EB8099cE594a3d0154C9e8CF9Fa7fa8C67 "drawEngine()" --rpc-url https://testnet-rpc.monad.xyz
    ```
+   Both must return the new GameEngine address.
+
+**Run it by hand or with the script.** `contracts/script/DeployGameEngine.s.sol` does all
+three steps and reads both wirings back. The key stays on the owner's machine and
+is passed via `--private-key`; it is never written to a file, a message or the
+chat.
 
 ---
 
@@ -229,7 +259,7 @@ error FeePullFailed(uint256 roundId, uint256 tokenId, uint256 fee);
 ## 12. Testing
 
 The contract package includes:
-- **GameEngine.t.sol**: 17 unit tests covering all mandatory properties
+- **GameEngine.t.sol**: 20 unit tests covering all mandatory properties
 - **DrawEngineCareer.t.sol**: 9 integration tests for draw + career integration
 
 Run tests:
@@ -237,7 +267,25 @@ Run tests:
 forge test --match-contract GameEngineTest
 ```
 
-All 187 contract tests pass (170 existing + 17 new GameEngine tests).
+All 190 contract tests pass (170 existing + 20 GameEngine tests).
+
+### The view functions the frontend binds to
+
+| Function | Returns | Purpose |
+|---|---|---|
+| `latestRoundId()` | `uint256` | newest round id, 0 if none |
+| `roundState(roundId)` | `RoundState` | None/Open/Closed/Settled |
+| `roundClosesAt(roundId)` | `uint64` | entry window end |
+| `courseSeedOf(roundId)` | `bytes32` | the fixed course seed |
+| `scoreOf(roundId, tokenId)` | `uint256` | that run's score |
+| `revivedOf(roundId, tokenId)` | `bool` | whether that run used its revive |
+| `hasRun(roundId, tokenId)` | `bool` | whether a run was recorded at all |
+| `participantCount(roundId)` | `uint32` | how many runs are recorded |
+| `potAtClose(roundId)` / `chogAtClose(roundId)` | `uint256` | the settled snapshots |
+| `roundWinnersOf(roundId)` | `uint256[3]` | winners, once settled |
+| `reviveFee()` | `uint256` | the current revive fee, one source of truth |
+
+`coinsOf` is absent by decision — see 5.1.
 
 ---
 
