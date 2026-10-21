@@ -87,6 +87,12 @@ contract DeployGameEngine is Script {
         GameEngine engine = new GameEngine(msg.sender, operator, careersAddr, testChogAddr, authority);
         console2.log("GameEngine     :", address(engine));
 
+        // The constructor never sets `pool`: it lives in the DrawEngine base and
+        // is wired separately. Without it every submitScores reverts bare on the
+        // sharesOf read against address(0), which is exactly what a missed
+        // wiring produced on the second engine. Wire it here and read it back.
+        engine.setPool(poolAddr);
+
         // Migration transaction 1 of 3: makes payPot accept the new engine, so
         // the prize can be paid at all.
         ChogPool(poolAddr).setDrawEngine(address(engine));
@@ -115,6 +121,7 @@ contract DeployGameEngine is Script {
         // the recorder cannot submit at all.
         require(ChogPool(poolAddr).drawEngine() == address(engine), "pool.drawEngine did not wire");
         require(CareerStore(careersAddr).drawEngine() == address(engine), "careerStore.drawEngine did not wire");
+        require(engine.pool() == poolAddr, "engine.pool did not wire");
         require(engine.gameAuthority() == authority, "engine.gameAuthority did not set");
 
         console2.log("--- wired and verified ---");
