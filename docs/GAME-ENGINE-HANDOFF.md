@@ -205,31 +205,67 @@ error FeePullFailed(uint256 roundId, uint256 tokenId, uint256 fee);
 
 ## 9. Deployment Sequence
 
+**STATUS: DEPLOYED 2026-10-21 on Monad testnet (chain 10143).** All four steps
+were broadcast and verified by reading the chain back, not from the script log.
+
+| Step | Tx | Result |
+|---|---|---|
+| Deploy GameEngine | `0x4d6b5a95d1004dac064e62de47ca9c31b63e464b571b44bc37f08e7f5e982602` | block 72923959, 4,860,865 gas, success |
+| `pool.setDrawEngine` | `0xa421b37093e3fee0064f92f863a37789cade79f21f6f66e6397cc8699fd0f80c` | block 72923968, 43,544 gas, success |
+| `careerStore.setDrawEngine` | `0x53a5db2a9f19e7dd87304bf4c0e3417e3833126af9468278fd2ad22612b3d4bd` | block 72923974, 43,334 gas, success |
+| Fund the treasury (claim 1,000 CHOG) | `0xc4d728eea57639ba4cb9773384509912ae2cf5dd065fcb1943b4e76b15cf385c` | block 72924196, success |
+| Fund the treasury (transfer to engine) | `0x135bd1808922c5e55409c6fbc14f704029d26d829a6ec13b34a7993b056e9c85` | block 72924219, success |
+
+**Deployed GameEngine: `0x437ae585f336F1d3Edc13Aa49b63E8e268f2c4c7`**
+
+Read back from the chain after the run, which is the only evidence that counts:
+
+```
+pool.drawEngine        = 0x437ae585f336F1d3Edc13Aa49b63E8e268f2c4c7
+careerStore.drawEngine = 0x437ae585f336F1d3Edc13Aa49b63E8e268f2c4c7
+engine.operator        = 0x6297D796f5BBD8224293d6fA12d10C1F4b986291
+engine.gameAuthority   = 0x6297D796f5BBD8224293d6fA12d10C1F4b986291
+engine.coinRate        = 100000000000000000 (0.1 CHOG per coin)
+engine.reviveFee       = 10000000000000000000 (10 CHOG)
+engine Test $CHOG      = 1000000000000000000000 (1,000 CHOG treasury)
+engine.latestRoundId   = 0 (no round opened yet)
+```
+
+### The sequence, for anyone re-running it on a fresh stack
+
 1. Deploy GameEngine with parameters:
-   - owner: 0x6297D796f5BBD8224293d6fA12d10C1F4b986291
-   - operator: [operator address]
-   - careerStore: 0x336258EB8099cE594a3d0154C9e8CF9Fa7fa8C67
-   - testChog: 0x94a4456e3051B37ECb1AA46423779F35cc9D063d
-   - gameAuthority: [operator address initially]
+   - owner: the pool owner
+   - operator: the address that will open/close/settle rounds
+   - careerStore: the deployed CareerStore
+   - testChog: the deployed TestChogToken
+   - gameAuthority: starts as the operator
 
 2. **Both** wiring transactions, from the pool owner:
    - `ChogPool.setDrawEngine(gameEngine)`
    - `CareerStore.setDrawEngine(gameEngine)`
 
-3. **Fund the coin treasury:** transfer Test $CHOG to the engine address. Without
-   this every `submitScores` reverts and no round can be played.
+3. **Fund the coin treasury:** claim from the faucet, then transfer Test $CHOG to
+   the engine address. Without this every `submitScores` reverts and no round can
+   be played. 1,000 CHOG covers 10,000 coins of runs.
 
 4. Verify both wirings:
    ```bash
-   cast call 0x79D30244bD59c01aD1963800791522e3dAA876e0 "drawEngine()" --rpc-url https://testnet-rpc.monad.xyz
-   cast call 0x336258EB8099cE594a3d0154C9e8CF9Fa7fa8C67 "drawEngine()" --rpc-url https://testnet-rpc.monad.xyz
+   cast call <POOL> "drawEngine()" --rpc-url https://testnet-rpc.monad.xyz
+   cast call <CAREER_STORE> "drawEngine()" --rpc-url https://testnet-rpc.monad.xyz
    ```
    Both must return the new GameEngine address.
 
-**Run it by hand or with the script.** `contracts/script/DeployGameEngine.s.sol` does all
-three steps and reads both wirings back. The key stays on the owner's machine and
-is passed via `--private-key`; it is never written to a file, a message or the
-chat.
+**Two traps this repo has already recorded, both of which the dry run caught
+before any broadcast:**
+
+- Running `forge script` from the repo root instead of `contracts/` fails to
+  compile. Always `cd contracts` first.
+- Without `--private-key`, `msg.sender` inside the script is Foundry's
+  `DefaultSender` (`0x1804c8AB…`), so `setDrawEngine` reverts
+  `OwnableUnauthorizedAccount`. **A simulation writes files and prints a
+  plausible log; only the chain is evidence.** The dry run reproduced this exact
+  revert, which is why the broadcast was run with `--private-key` and
+  `DEPLOY_OPERATOR` set.
 
 ---
 
