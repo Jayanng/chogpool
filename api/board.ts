@@ -108,7 +108,13 @@ export default async function handler(req: Req, res: Res) {
         ),
       ]);
       for (const log of scores) {
-        byToken.set(log.args.tokenId!.toString(), {
+        const key = log.args.tokenId!.toString();
+        // The walk runs newest block first, and best-run-counts emits a fresh
+        // event on every replacement. The FIRST record seen for a token is its
+        // newest state; later iterations are older history and must not
+        // overwrite it.
+        if (byToken.has(key)) continue;
+        byToken.set(key, {
           tokenId: log.args.tokenId!,
           score: log.args.score!,
           coins: log.args.coins!,
