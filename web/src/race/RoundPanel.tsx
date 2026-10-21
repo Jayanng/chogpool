@@ -85,8 +85,8 @@ export function RoundPanel() {
 
   return (
     <Card
-      title="The round"
-      footer="READ LIVE FROM THE ROUND ENGINE · REVIVES AND COINS ARE CONTRACT RULES"
+      title="The week"
+      footer="READ LIVE FROM THE ROUND ENGINE · ONE WEEK PER CONTRACT ROUND · REVIVES AND COINS ARE CONTRACT RULES"
     >
       <h3 className="card-title">{headline.title}</h3>
       <p className="muted small">{headline.note}</p>

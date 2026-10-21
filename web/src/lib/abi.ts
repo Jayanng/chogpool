@@ -101,6 +101,7 @@ export const gameEngineAbi = parseAbi([
   "event RoundOpened(uint256 indexed roundId, bytes32 courseSeed, uint64 closesAt)",
   "event RoundClosed(uint256 indexed roundId, uint256 potAtClose, uint256 chogAtClose)",
   "event RevivePaid(uint256 indexed roundId, uint256 indexed tokenId, uint256 fee)",
+  "event ScoreRecorded(uint256 indexed roundId, uint256 indexed tokenId, uint256 score, uint256 coins, bool revived, address submittedBy, uint256 coinPayout)",
 ]);
 
 export const testChogAbi = parseAbi([

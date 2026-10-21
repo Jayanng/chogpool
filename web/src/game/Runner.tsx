@@ -465,7 +465,8 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
             </div>
             <p className="game-overlay-foot">
               Replayable from this course seed and the run's inputs. Seed {seed}
-              {copied ? ` · ${copied}` : ""}
+              {copied ? ` · ${copied}` : ""} Send the copied run record to the keeper to rank in
+              this week's standings.
             </p>
           </div>
         )}
@@ -485,6 +486,9 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
               </button>
             </div>
             {copied && <p className="game-overlay-foot">{copied}</p>}
+            <p className="game-overlay-foot">
+              Send the copied run record to the keeper to rank in this week's standings.
+            </p>
           </div>
         )}
       </div>

@@ -3,6 +3,8 @@ import { formatUnits } from "viem";
 import { Badge, Button, Card, Marquee, Panel, Stat, tokens } from "@chogpool/ui";
 import { getGameSource } from "../lib/game";
 import { readPodium, type PodiumRow } from "../lib/board";
+import { readRound } from "../lib/rounds";
+import { readWeekStandings, standingsNote, type WeekStandings } from "../lib/standings";
 import { CHAIN } from "../generated/addresses.gen";
 import { POT_DECIMALS } from "../types/game";
 import { navigate } from "../lib/router";
@@ -26,6 +28,12 @@ export default function Landing() {
   // recorded it.
   const [board, setBoard] = useState<PodiumRow[] | null>(null);
   const [boardFailed, setBoardFailed] = useState(false);
+  // This week's standings, ranked by score, read from the engine's score
+  // events. null while reading, and a failed read is said as such: the list
+  // must never be shown as "empty" when it is actually unreadable.
+  const [week, setWeek] = useState<WeekStandings | null>(null);
+  const [weekRound, setWeekRound] = useState<number | null>(null);
+  const [weekFailed, setWeekFailed] = useState(false);
   const fixturesOn = import.meta.env.VITE_FIXTURES === "1";
 
   useEffect(() => {
@@ -38,6 +46,23 @@ export default function Landing() {
     void readPodium()
       .then(setBoard)
       .catch(() => setBoardFailed(true));
+  }, []);
+
+  useEffect(() => {
+    void readRound()
+      .then((r) => {
+        if (!r.ok) {
+          setWeekFailed(true);
+          return;
+        }
+        if (r.round === null) {
+          setWeekRound(0);
+          return;
+        }
+        setWeekRound(Number(r.round.id));
+        void readWeekStandings(r.round.id).then((w) => (w ? setWeek(w) : setWeekFailed(true)));
+      })
+      .catch(() => setWeekFailed(true));
   }, []);
 
   const placeName = (place: number) => {
@@ -93,11 +118,32 @@ export default function Landing() {
           <div className="lane lane-two"><div className="lane-label">2ND <span>{placeName(2)}</span></div><div className="runner runner-two">◉</div></div>
           <div className="lane lane-three"><div className="lane-label">3RD <span>{placeName(3)}</span></div><div className="runner runner-three">◉</div></div>
           <div className="track-footer"><span>PRIZE POT</span><strong>{pot === null ? "Reading the chain…" : `${formatUnits(pot, POT_DECIMALS)} USDC${fixturesOn ? " (fixture)" : ""}`}</strong><span>↗</span></div>
-          <p className="track-note">The board reads the career store's on-chain record. The round's top 3 land here the moment it settles.</p>
+          <p className="track-note">The lanes are the all-time board, read from the career store's on-chain record. This week's top 3 land here the moment it settles.</p>
+          <div className="stat-row">
+            <p className="kicker">THIS WEEK'S STANDINGS</p>
+            {weekFailed ? (
+              <p className="muted small">Could not read this week's standings from the chain. Refresh the page to try again.</p>
+            ) : weekRound === 0 ? (
+              <p className="muted small">No week is open yet. The keeper opens weeks on the countdown, and every recorded run ranks here.</p>
+            ) : week === null ? (
+              <p className="muted small">Reading this week's standings…</p>
+            ) : week.rows.length === 0 ? (
+              <p className="muted small">No runs recorded on chain for this week yet. Play and send your run record to the keeper to rank here.</p>
+            ) : (
+              <ul className="rules-list">
+                {week.rows.slice(0, 5).map((r, i) => (
+                  <li key={r.tokenId.toString()}>
+                    #{i + 1} Chog #{r.tokenId.toString()} · {r.score.toString()} pts · {r.coins.toString()} coins{r.revived ? " · revived" : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {week !== null && <p className="track-note">{standingsNote(week)}</p>}
+          </div>
           {board !== null && board.length === 0 && !boardFailed && (
             <div className="stat-row">
               <Stat label="TODAY'S COURSE" value="450m" note={`Seed ${courseStats.seed} · ${courseStats.obstacles} obstacles · the same field for everyone`} />
-              <Stat label="THE BOARD" value="BE FIRST" note="No placement is recorded yet. The first round's podium lands here." tone="accent" />
+              <Stat label="THE BOARD" value="BE FIRST" note="No placement is recorded yet. The first week's podium lands here." tone="accent" />
             </div>
           )}
           <Button onClick={() => navigate("/run")}>Play the game</Button>

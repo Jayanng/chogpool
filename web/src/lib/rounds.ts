@@ -31,29 +31,29 @@ export function stateName(state: number): RoundStateName | null {
   return STATE_NAMES[state] ?? null;
 }
 
-/** The two lines a round card leads with. Pure copy, tested as such. */
+/** The two lines a week card leads with. Pure copy, tested as such. */
 export function roundHeadline(round: RoundView | null): { title: string; note: string } {
   if (round === null) {
     return {
-      title: "No round opened yet",
-      note: "The round engine is deployed and live on chain. A round appears here the moment the operator opens one.",
+      title: "No week opened yet",
+      note: "The round engine is deployed and live on chain. The next week appears here the moment the keeper opens it.",
     };
   }
   switch (round.state) {
     case "open":
       return {
-        title: `Round ${round.id.toString()} is open`,
-        note: "Runs play now and the field is live. The operator closes the round to lock it.",
+        title: `Week ${round.id.toString()} is open`,
+        note: "Play now and send your run record to the keeper to record. The week closes on the timer below.",
       };
     case "closed":
       return {
-        title: `Round ${round.id.toString()} is locked`,
-        note: "Submissions are in. Settlement pays the top three on chain and records the placings.",
+        title: `Week ${round.id.toString()} is locked`,
+        note: "Runs are in. Settlement pays the top 3 on chain.",
       };
     case "settled":
       return {
-        title: `Round ${round.id.toString()} is settled`,
-        note: "Winners were paid on chain and the placings are on the board.",
+        title: `Week ${round.id.toString()} is settled`,
+        note: "Winners were paid and the placings are on the all-time board.",
       };
   }
 }

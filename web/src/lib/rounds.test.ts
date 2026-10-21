@@ -16,20 +16,21 @@ describe("stateName", () => {
 });
 
 describe("roundHeadline", () => {
-  it("says no round was opened when the chain has none", () => {
+  it("says no week was opened when the chain has none", () => {
     const h = roundHeadline(null);
-    expect(h.title).toBe("No round opened yet");
+    expect(h.title).toBe("No week opened yet");
     expect(h.note).toContain("deployed and live on chain");
   });
 
-  it("names the round in every live state", () => {
+  it("names the week in every live state and points the player at the keeper", () => {
     const base = { id: 7n, closesAt: 0n, participants: 3 };
     const open: RoundView = { ...base, state: "open" };
     const closed: RoundView = { ...base, state: "closed" };
     const settled: RoundView = { ...base, state: "settled" };
-    expect(roundHeadline(open).title).toBe("Round 7 is open");
-    expect(roundHeadline(closed).title).toBe("Round 7 is locked");
-    expect(roundHeadline(settled).title).toBe("Round 7 is settled");
+    expect(roundHeadline(open).title).toBe("Week 7 is open");
+    expect(roundHeadline(closed).title).toBe("Week 7 is locked");
+    expect(roundHeadline(settled).title).toBe("Week 7 is settled");
+    expect(roundHeadline(open).note).toContain("keeper");
   });
 
   it("never promises payment before settlement", () => {
@@ -40,8 +41,8 @@ describe("roundHeadline", () => {
     expect(roundHeadline(open).note.toLowerCase()).not.toContain("paid");
     // Settled is the only state allowed to say winners were paid.
     const settled: RoundView = { id: 1n, state: "settled", closesAt: 0n, participants: 0 };
-    expect(roundHeadline(settled).note).toContain("paid on chain");
-    expect(roundHeadline(open).note).not.toContain("paid on chain");
-    expect(roundHeadline(closed).note).not.toContain("paid on chain");
+    expect(roundHeadline(settled).note).toContain("Winners were paid");
+    expect(roundHeadline(open).note).not.toContain("Winners were paid");
+    expect(roundHeadline(closed).note).not.toContain("Winners were paid");
   });
 });
