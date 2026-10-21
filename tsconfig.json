@@ -7,8 +7,7 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "strict": true,
-    "noEmit": false,
-    "types": ["node"]
+    "noEmit": false
   },
   "include": ["api/**/*.ts"]
 }

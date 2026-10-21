@@ -30,6 +30,11 @@ const poolAbi = parseAbi(["function sharesOf(uint256 tokenId) view returns (uint
 type Req = { method?: string; body?: unknown };
 type Res = { status: (code: number) => Res; json: (payload: unknown) => void };
 
+// The only Node surface this function uses. Declared here rather than pulling
+// @types/node: the function builder installs production dependencies only, and
+// a missing type library aborts its compile.
+declare const process: { env: Record<string, string | undefined> };
+
 const publicClient = createPublicClient({ transport: http(RPC) });
 
 export default async function handler(req: Req, res: Res) {
