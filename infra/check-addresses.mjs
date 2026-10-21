@@ -53,6 +53,10 @@ const ALLOW_FILES = [
                          // running it cannot tell which pool to repoint. The
                          // deploy script and every source file stay literal-free
                          // and read their addresses from infra/.
+  "docs/STRANDING-ANSWER.md", // the on-chain finding for the withdrawal promise:
+                         // same rule as the gate logs, it quotes the live pool
+                         // address and the real shares/value figures the probe
+                         // returned, or it is not evidence of anything.
   "package-lock.json",
   "pnpm-lock.yaml",
 ];
