@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["ES2022", "DOM"],
+    "outDir": "api/_gen",
+    "rootDir": "web/src",
+    "declaration": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true
+  },
+  "include": [
+    "web/src/game/physics.ts",
+    "web/src/game/course.ts",
+    "web/src/game/sim.ts",
+    "web/src/game/runRecord.ts",
+    "web/src/lib/submit.ts",
+    "web/src/generated/addresses.gen.ts"
+  ]
+}

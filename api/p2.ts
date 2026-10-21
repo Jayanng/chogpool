@@ -1,4 +1,4 @@
-import { verifyRunRecord } from "../web/src/game/runRecord.js";
+import { verifyRunRecord } from "./_gen/game/runRecord.js";
 
 type Res = { status: (code: number) => Res; json: (payload: unknown) => void };
 export default function handler(_req: unknown, res: Res) {

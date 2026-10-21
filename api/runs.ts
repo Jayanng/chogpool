@@ -9,9 +9,9 @@
 
 import { createPublicClient, createWalletClient, http, parseAbi, type Abi } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { DEPLOYED } from "../web/src/generated/addresses.gen.js";
-import { verifyRunRecord } from "../web/src/game/runRecord.js";
-import { parseSubmission } from "../web/src/lib/submit.js";
+import { DEPLOYED } from "./_gen/generated/addresses.gen.js";
+import { verifyRunRecord } from "./_gen/game/runRecord.js";
+import { parseSubmission } from "./_gen/lib/submit.js";
 
 const RPC = "https://testnet-rpc.monad.xyz";
 
