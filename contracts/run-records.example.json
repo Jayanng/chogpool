@@ -1,0 +1,24 @@
+{
+  "roundId": 1,
+  "count": 1,
+  "runs": [
+    {
+      "tokenId": 20,
+      "record": {
+        "version": 1,
+        "seed": "example-seed-from-the-run-record",
+        "lengthPx": 6000,
+        "inputs": [{ "jump": true, "jumpHeld": true, "duck": false }],
+        "reviveAt": null,
+        "claimed": {
+          "score": 1234,
+          "distance": 6000,
+          "coins": 12,
+          "closeCalls": 3,
+          "cleared": true,
+          "revived": false
+        }
+      }
+    }
+  ]
+}
