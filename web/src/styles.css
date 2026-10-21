@@ -1274,10 +1274,10 @@ body { background: #f7f3ee; }
 .hero-stage .fp-final { left: 6px !important; }
 .hero-stage .fp-paid { right: 44px !important; }
 
-/* generous vertical rhythm */
-.proof-grid { padding: 76px 0; gap: 26px; }
-.viewer-section, .share-section { padding: 42px 0; }
-.style-panel { padding: 78px 0; }
+/* tight professional vertical rhythm */
+.proof-grid { padding: 32px 0; gap: 20px; }
+.viewer-section, .share-section { padding: 32px 0; }
+.style-panel { padding: 32px 0; }
 .page-head { padding: 72px 0 34px; }
 .deposit-grid { padding-bottom: 64px; gap: 26px; }
 
@@ -1332,7 +1332,7 @@ body { overflow-x: clip; }
 :root {
   --container: 1200px;
   --pad-x: clamp(1.5rem, 4vw, 2rem);           /* 24px mobile -> 32px desktop */
-  --section-y: clamp(3.5rem, 7vw, 6rem);       /* 56px mobile -> 96px desktop */
+  --section-y: clamp(1.75rem, 3.5vw, 2.75rem); /* 28px mobile -> 44px desktop */
   --gutter: clamp(1.25rem, 3vw, 2rem);         /* card/panel internal padding */
 }
 
@@ -1343,7 +1343,7 @@ body { overflow-x: clip; max-width: 100vw; }
 
 /* section rhythm: consistent vertical air on every page */
 .proof-grid { padding-block: var(--section-y); gap: var(--gutter); }
-.viewer-section, .share-section { padding-block: clamp(2rem, 5vw, 3.5rem); gap: var(--gutter); }
+.viewer-section, .share-section { padding-block: clamp(1.5rem, 3vw, 2rem); gap: var(--gutter); }
 .style-panel { padding-block: var(--section-y); }
 .page-head { padding-block: clamp(2.5rem, 6vw, 4.5rem) clamp(1.75rem, 3vw, 2.5rem); }
 .deposit-grid { padding-bottom: var(--section-y); gap: var(--gutter); }
