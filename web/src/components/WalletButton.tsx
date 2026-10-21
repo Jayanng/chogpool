@@ -28,6 +28,18 @@ export function WalletButton() {
       <div className="wallet-slot">
         <Badge tone="lime">{chainLabel(wallet.chainId)}</Badge>
         <span className="wallet-note">{shortAddress(wallet.address)}</span>
+        <button
+          type="button"
+          className="wallet-disconnect"
+          aria-label="Disconnect wallet"
+          title="Disconnect wallet"
+          onClick={() => wallet.disconnect()}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <path d="M12 4v7" />
+            <path d="M7.5 6.8a7 7 0 1 0 9 0" />
+          </svg>
+        </button>
         {wallet.onWrongChain && (
           <Button
             variant="outline"
