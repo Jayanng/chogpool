@@ -159,7 +159,7 @@ contract GameEngine is DrawEngine {
     error ClosesAtNotInFuture(uint64 closesAt);
     error ReviveAlreadyUsed(uint256 roundId, uint256 tokenId);
     error NotInPool(uint256 tokenId);
-    error AlreadyRecorded(uint256 roundId, uint256 tokenId);
+    error NotABetterScore(uint256 roundId, uint256 tokenId, uint256 currentScore, uint256 submittedScore);
     error LengthMismatch(uint256 tokenIds, uint256 scores);
     error EmptyTop3();
     error DuplicateWinner(uint256 tokenId);
@@ -316,6 +316,28 @@ contract GameEngine is DrawEngine {
     ///      without its coins paid is a promise broken on screen, so the call is
     ///      all-or-nothing: either the run is recorded and the coins arrived, or
     ///      nothing happened.
+    ///
+    /// @dev BEST RUN COUNTS, NOT FIRST RUN. A Chog that already has an entry in
+    ///      this round may re-submit with a HIGHER score, which replaces the entry
+    ///      and pays only the coin difference, `max(0, newCoins - oldCoins)`. A
+    ///      score that is not strictly higher is refused with `NotABetterScore`.
+    ///
+    ///      WHY. A judge's first run is a learning run. Ranking the first run
+    ///      would put their worst score on the board and make the game look broken
+    ///      when it is not. The best run is the honest entry.
+    ///
+    ///      WHY THE DIFFERENCE AND NOT A FULL PAYOUT. The player was already paid
+    ///      for the coins on their previous entry. Paying the full amount again
+    ///      would double-pay them and drain the treasury without any new coins
+    ///      having been collected. Paying only the increase keeps the purse
+    ///      exactly equal to `bestCoins * COIN_RATE` at all times.
+    ///
+    ///      WHY NO CLAWBACK. A better run may collect FEWER coins than the worse
+    ///      one, and the difference is then negative. It is clamped to zero and
+    ///      nothing is taken back: clawing back would mean the engine moving a
+    ///      player's tokens without consent, which is a different and much worse
+    ///      thing than a mismatch. The purse can therefore exceed the best run's
+    ///      coins, and that is the honest cost of not taking tokens back.
     function submitScores(
         uint256 roundId,
         uint256[] calldata tokenIds,
@@ -333,25 +355,50 @@ contract GameEngine is DrawEngine {
 
         for (uint256 i = 0; i < tokenIds.length; i++) {
             uint256 tokenId = tokenIds[i];
-            if (IChogPool(pool).sharesOf(tokenId) == 0) revert NotInPool(tokenId);
-            if (_hasRun[roundId][tokenId]) revert AlreadyRecorded(roundId, tokenId);
-
-            _hasRun[roundId][tokenId] = true;
-            _scores[roundId][tokenId] = scores[i];
-            _coins[roundId][tokenId] = coins[i];
-            _revived[roundId][tokenId] = revived[i];
-            r.participantCount += 1;
-
-            // The coin payout for this run, from the engine's own treasury.
-            uint256 payout = coins[i] * COIN_RATE;
-            if (payout > 0) {
-                (address depositor,,) = IChogPool(pool).depositOf(tokenId);
-                bool ok = testChog.transfer(depositor, payout);
-                if (!ok) revert CoinPayoutFailed(roundId, tokenId, payout);
-            }
-
-            emit ScoreRecorded(roundId, tokenId, scores[i], coins[i], revived[i], msg.sender, payout);
+            _recordRun(roundId, tokenId, scores[i], coins[i], revived[i]);
         }
+    }
+
+    /// @dev One entry per call, split out of `submitScores` so the loop body stays
+    ///      inside the stack frame. `via_ir` is off in this project, and turning it
+    ///      on to fix one function would change codegen for all ninety files.
+    ///
+    /// @dev The `AlreadyRecorded` refusal is gone: a Chog with an entry may replace
+    ///      it with a strictly higher score, paying only the coin difference.
+    function _recordRun(uint256 roundId, uint256 tokenId, uint256 score, uint256 coins, bool revived)
+        internal
+    {
+        Round storage r = _rounds[roundId];
+        if (IChogPool(pool).sharesOf(tokenId) == 0) revert NotInPool(tokenId);
+
+        // A second entry is only accepted when it beats the one it replaces.
+        if (_hasRun[roundId][tokenId] && score <= _scores[roundId][tokenId]) {
+            revert NotABetterScore(roundId, tokenId, _scores[roundId][tokenId], score);
+        }
+
+        // Only the coins the player has NOT already been paid for move now.
+        // `previous` doubles as the "was this Chog already in" flag: it is
+        // non-zero exactly when an entry exists, and a first entry with zero
+        // coins has nothing to pay either way, so the two readings agree.
+        uint256 previous = _coins[roundId][tokenId];
+        uint256 coinDelta = coins > previous ? coins - previous : 0;
+
+        if (!_hasRun[roundId][tokenId]) r.participantCount += 1;
+
+        _hasRun[roundId][tokenId] = true;
+        _scores[roundId][tokenId] = score;
+        _coins[roundId][tokenId] = coins;
+        _revived[roundId][tokenId] = revived;
+
+        // The coin payout for this run, from the engine's own treasury.
+        uint256 payout = coinDelta * COIN_RATE;
+        if (payout > 0) {
+            (address depositor,,) = IChogPool(pool).depositOf(tokenId);
+            bool ok = testChog.transfer(depositor, payout);
+            if (!ok) revert CoinPayoutFailed(roundId, tokenId, payout);
+        }
+
+        emit ScoreRecorded(roundId, tokenId, score, coins, revived, msg.sender, payout);
     }
 
     /// @notice Settle a closed round: pay the top 3 on-chain and record the placings.

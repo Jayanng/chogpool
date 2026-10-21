@@ -657,6 +657,180 @@ contract GameEngineTest is Test {
         assertEq(COIN_RATE, 0.1 ether, "and it is 0.1 Test $CHOG per coin");
     }
 
+    // ---------- 10. best run counts, not first run ----------
+
+    /// @dev A higher second score REPLACES the entry. The board must rank the
+    ///      player's best run, not their first one: a judge's first run is a
+    ///      learning run, and ranking it would make the game look broken.
+    function test_BestRunCounts_HigherScoreReplacesTheEntry() public {
+        _deposit(alice, T_A, 100 * ONE);
+        uint256 roundId = _openRound();
+
+        // First, weaker run.
+        _submit(roundId, _single(T_A), _single(100), _coins1(10), _singleFlag(false));
+        assertEq(engine.scoreOf(roundId, T_A), 100, "the first run is the entry");
+
+        // Then a better one.
+        _submit(roundId, _single(T_A), _single(250), _coins1(18), _singleFlag(false));
+
+        assertEq(engine.scoreOf(roundId, T_A), 250, "the better run replaced it");
+        assertEq(engine.coinsOf(roundId, T_A), 18, "and so did its coin count");
+        assertTrue(engine.hasRun(roundId, T_A), "the run still exists");
+        assertEq(engine.participantCount(roundId), 1, "one Chog, still one participant");
+    }
+
+    /// @dev A score that is not strictly higher is refused, by name, so the
+    ///      recorder can distinguish "worse run, skip it" from a real failure.
+    function test_BestRunCounts_WorseScoreIsRefused_ByName() public {
+        _deposit(alice, T_A, 100 * ONE);
+        uint256 roundId = _openRound();
+        _submit(roundId, _single(T_A), _single(100), _coins1(10), _singleFlag(false));
+
+        vm.prank(authority_);
+        vm.expectRevert(
+            abi.encodeWithSelector(GameEngine.NotABetterScore.selector, roundId, T_A, 100, 50)
+        );
+        engine.submitScores(roundId, _single(T_A), _single(50), _coins1(99), _singleFlag(false));
+    }
+
+    /// @dev An EQUAL score is refused too. "Not strictly higher" is the rule, and
+    ///      allowing a tie would let a run be resubmitted endlessly for the same
+    ///      score, which is a replay rather than a replacement.
+    function test_BestRunCounts_EqualScoreIsRefused() public {
+        _deposit(alice, T_A, 100 * ONE);
+        uint256 roundId = _openRound();
+        _submit(roundId, _single(T_A), _single(100), _coins1(10), _singleFlag(false));
+
+        vm.prank(authority_);
+        vm.expectRevert(abi.encodeWithSelector(GameEngine.NotABetterScore.selector, roundId, T_A, 100, 100));
+        engine.submitScores(roundId, _single(T_A), _single(100), _coins1(20), _singleFlag(false));
+    }
+
+    /// @dev The refused run must not have changed anything: the entry, the coins
+    ///      and the purse all stay exactly as the accepted run left them.
+    function test_BestRunCounts_RefusedRunLeavesTheEntryUntouched() public {
+        _deposit(alice, T_A, 100 * ONE);
+        uint256 roundId = _openRound();
+        _submit(roundId, _single(T_A), _single(100), _coins1(10), _singleFlag(false));
+
+        uint256 purseBefore = testChog.balanceOf(alice);
+        vm.prank(authority_);
+        vm.expectRevert();
+        engine.submitScores(roundId, _single(T_A), _single(50), _coins1(99), _singleFlag(false));
+
+        assertEq(engine.scoreOf(roundId, T_A), 100, "score unchanged");
+        assertEq(engine.coinsOf(roundId, T_A), 10, "coins unchanged");
+        assertEq(testChog.balanceOf(alice), purseBefore, "purse unchanged");
+    }
+
+    /// @dev THE COIN DIFFERENCE, PAID EXACTLY. The player was already paid for
+    ///      the coins on their previous entry, so only the increase moves. Paying
+    ///      the full amount again would double-pay and drain the treasury.
+    function test_BestRunCounts_OnlyTheCoinDifferenceIsPaid() public {
+        _deposit(alice, T_A, 100 * ONE);
+        uint256 roundId = _openRound();
+
+        uint256 start = testChog.balanceOf(alice);
+        _submit(roundId, _single(T_A), _single(100), _coins1(10), _singleFlag(false));
+        uint256 afterFirst = testChog.balanceOf(alice);
+        assertEq(afterFirst - start, 10 * COIN_RATE, "10 coins paid 1.0 CHOG");
+
+        // A better run with 8 more coins.
+        _submit(roundId, _single(T_A), _single(200), _coins1(18), _singleFlag(false));
+        uint256 afterSecond = testChog.balanceOf(alice);
+
+        // Exactly the difference, not the full 18 coins.
+        assertEq(afterSecond - afterFirst, 8 * COIN_RATE, "only the 8 new coins paid");
+        assertEq(afterSecond - start, 18 * COIN_RATE, "the purse equals the best run's coins exactly");
+    }
+
+    /// @dev A better run that collects FEWER coins pays nothing and takes nothing
+    ///      back. Clawing back would mean the engine moving a player's tokens
+    ///      without consent, which is a worse thing than the mismatch.
+    function test_BestRunCounts_FewerCoinsPaysNoClawback() public {
+        _deposit(alice, T_A, 100 * ONE);
+        uint256 roundId = _openRound();
+
+        _submit(roundId, _single(T_A), _single(100), _coins1(10), _singleFlag(false));
+        uint256 purseBefore = testChog.balanceOf(alice);
+        assertGt(purseBefore, 0, "the first run paid");
+
+        // Better score, fewer coins.
+        _submit(roundId, _single(T_A), _single(300), _coins1(4), _singleFlag(false));
+
+        assertEq(testChog.balanceOf(alice), purseBefore, "nothing was clawed back");
+        assertEq(engine.coinsOf(roundId, T_A), 4, "the best run's coins are recorded");
+        assertEq(engine.scoreOf(roundId, T_A), 300, "and its score ranks");
+    }
+
+    /// @dev The old entry's numbers must be GONE, not merely shadowed. A leaderboard
+    ///      reading a stale score would rank the wrong run.
+    function test_BestRunCounts_OldEntryNumbersAreGone() public {
+        _deposit(alice, T_A, 100 * ONE);
+        uint256 roundId = _openRound();
+        _submit(roundId, _single(T_A), _single(100), _coins1(10), _singleFlag(true));
+        _submit(roundId, _single(T_A), _single(400), _coins1(25), _singleFlag(false));
+
+        assertEq(engine.scoreOf(roundId, T_A), 400, "score replaced");
+        assertEq(engine.coinsOf(roundId, T_A), 25, "coins replaced");
+        assertFalse(engine.revivedOf(roundId, T_A), "the revive flag replaced too");
+    }
+
+    /// @dev The placements at settlement must read the FINAL entries. This is the
+    ///      end-to-end property: replace runs, then settle, and the podium must
+    ///      reflect the best runs rather than the first ones.
+    function test_BestRunCounts_SettlementReadsTheFinalEntries() public {
+        _deposit(alice, T_A, 100 * ONE);
+        _deposit(bob, T_B, 100 * ONE);
+        _deposit(carol, T_C, 100 * ONE);
+        _seedPot(100 * ONE);
+        uint256 roundId = _openRound();
+
+        // First pass: alice 100, bob 300, carol 200.
+        _submit(roundId, _ids(T_A, T_B, T_C), _scores(100, 300, 200), _coins3(10, 10, 10), _flags(false, false, false));
+        // Second pass: alice overtakes everyone with 500.
+        _submit(roundId, _single(T_A), _single(500), _coins1(30), _singleFlag(false));
+
+        vm.prank(operator_);
+        engine.closeRound(roundId);
+
+        // Alice's best run wins, even though bob beat her on the first pass.
+        vm.prank(operator_);
+        engine.settleRound(roundId, _winners(T_A, T_B, T_C));
+
+        (uint32 gold, uint32 silver, uint32 bronze) = store.trophiesOf(T_A);
+        assertEq(gold, 1, "alice's BEST run took gold");
+        assertEq(silver, 0, "and nothing else");
+        assertEq(bronze, 0, "and nothing else");
+
+        (, silver, bronze) = store.trophiesOf(T_B);
+        assertEq(silver, 1, "bob took silver on his first-pass score");
+        assertEq(bronze, 0);
+
+        (, , bronze) = store.trophiesOf(T_C);
+        assertEq(bronze, 1, "carol took bronze");
+
+        // And the leaderboard reads the final numbers.
+        assertEq(engine.scoreOf(roundId, T_A), 500, "the board shows the best run");
+        assertEq(engine.roundWinnersOf(roundId)[0], T_A, "and alice is first on the podium");
+    }
+
+    /// @dev Each Chog is capped independently: a better run for one Chog does not
+    ///      reset or affect another Chog's entry.
+    function test_BestRunCounts_EachChogIsIndependent() public {
+        _deposit(alice, T_A, 100 * ONE);
+        _deposit(bob, T_B, 100 * ONE);
+        uint256 roundId = _openRound();
+
+        _submit(roundId, _ids2(T_A, T_B), _scores2(100, 200), _coins2(5, 7), _pairFlag(false, false));
+        _submit(roundId, _single(T_A), _single(900), _coins1(50), _singleFlag(false));
+
+        assertEq(engine.scoreOf(roundId, T_A), 900, "alice replaced hers");
+        assertEq(engine.scoreOf(roundId, T_B), 200, "bob's is untouched");
+        assertEq(engine.coinsOf(roundId, T_B), 7, "and so are his coins");
+        assertEq(engine.participantCount(roundId), 2, "still two participants");
+    }
+
     // ---------- access control ----------
 
     function test_OnlyTheAuthority_CanSubmitScores() public {
@@ -764,6 +938,20 @@ contract GameEngineTest is Test {
     }
 
     function _pair(uint256 a, uint256 b) internal pure returns (uint256[] memory) {
+        uint256[] memory v = new uint256[](2);
+        v[0] = a;
+        v[1] = b;
+        return v;
+    }
+
+    function _ids2(uint256 a, uint256 b) internal pure returns (uint256[] memory) {
+        uint256[] memory v = new uint256[](2);
+        v[0] = a;
+        v[1] = b;
+        return v;
+    }
+
+    function _scores2(uint256 a, uint256 b) internal pure returns (uint256[] memory) {
         uint256[] memory v = new uint256[](2);
         v[0] = a;
         v[1] = b;
