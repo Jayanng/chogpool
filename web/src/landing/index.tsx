@@ -126,13 +126,29 @@ export default function Landing() {
             ) : week.rows.length === 0 ? (
               <p className="muted small">No runs yet this week. Play one and it ranks here.</p>
             ) : (
-              <ul className="rules-list">
-                {week.rows.slice(0, 5).map((r, i) => (
-                  <li key={r.tokenId.toString()}>
-                    #{i + 1} Chog #{r.tokenId.toString()} · {r.score.toString()} pts · {r.coins.toString()} coins{r.revived ? " · revived" : ""}
-                  </li>
-                ))}
-              </ul>
+              <table className="standings-table">
+                <thead>
+                  <tr>
+                    <th>RANK</th>
+                    <th>CHOG</th>
+                    <th className="num">SCORE</th>
+                    <th className="num">COINS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {week.rows.slice(0, 5).map((r, i) => (
+                    <tr key={r.tokenId.toString()} className={i < 3 ? `place-${i + 1}` : undefined}>
+                      <td className="rank">#{i + 1}</td>
+                      <td>
+                        Chog #{r.tokenId.toString()}
+                        {r.revived && <span className="revived">revived</span>}
+                      </td>
+                      <td className="num">{r.score.toString()}</td>
+                      <td className="num">{r.coins.toString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
             {week !== null && <p className="track-note">{standingsNote(week)}</p>}
           </div>

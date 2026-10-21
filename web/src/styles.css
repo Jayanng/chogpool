@@ -856,6 +856,46 @@ h2 { font-size: clamp(28px, 3.4vw, 44px); margin: 0 0 12px; }
 .verify-lines { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: 13px; line-height: 1.7; color: #6b4a5c; overflow-wrap: anywhere; }
 .verify-lines--fail li::marker { color: #ff6e6e; }
 .verify-lines--pass li::marker { color: #2fae6a; }
+/* THE WEEK'S STANDINGS, as a proper table: aligned columns, right-aligned
+   numerics, one row per Chog. Compact enough for the phone. */
+.standings-table { width: 100%; border-collapse: collapse; }
+.standings-table th {
+  text-align: left;
+  color: #6b4a5c;
+  letter-spacing: .12em;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 8px 7px;
+  border-bottom: 1px solid rgba(17,17,17,.12);
+}
+.standings-table td {
+  padding: 9px 8px;
+  border-bottom: 1px solid rgba(17,17,17,.05);
+  font-family: 'dm mono', ui-monospace, monospace;
+  font-size: 12px;
+  color: #241a24;
+}
+.standings-table tbody tr:last-child td { border-bottom: 0; }
+.standings-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.standings-table .rank {
+  font-family: 'plus jakarta sans', 'inter', system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 12px;
+  color: #241a24;
+  width: 52px;
+}
+.standings-table tr.place-1 .rank { color: #6b4df0; }
+.standings-table .revived {
+  margin-left: 8px;
+  font-family: 'inter', system-ui, sans-serif;
+  font-size: 9px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: #6b4a5c;
+  background: rgba(107,77,240,.08);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
 .verify-table-wrap { overflow-x: auto; }
 .verify-table { width: 100%; min-width: 430px; border-collapse: collapse; font: 500 12px 'dm mono', ui-monospace, monospace; }
 .verify-table th { text-align: left; color: #6b4a5c; letter-spacing: .1em; font-weight: 500; padding: 8px 10px; border-bottom: 1px solid rgba(17,17,17,.14); }
