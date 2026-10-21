@@ -114,21 +114,17 @@ export default function Landing() {
             <span>GRAND PRIX</span>
             <Badge tone="neutral">THE LEADERBOARD</Badge>
           </div>
-          <div className="lane lane-one"><div className="lane-label">1ST <span>{placeName(1)}</span></div><div className="runner runner-one">◉</div></div>
-          <div className="lane lane-two"><div className="lane-label">2ND <span>{placeName(2)}</span></div><div className="runner runner-two">◉</div></div>
-          <div className="lane lane-three"><div className="lane-label">3RD <span>{placeName(3)}</span></div><div className="runner runner-three">◉</div></div>
-          <div className="track-footer"><span>PRIZE POT</span><strong>{pot === null ? "Reading the chain…" : `${formatUnits(pot, POT_DECIMALS)} USDC${fixturesOn ? " (fixture)" : ""}`}</strong><span>↗</span></div>
-          <p className="track-note">The lanes are the all-time board, read from the career store's on-chain record. This week's top 3 land here the moment it settles.</p>
+          <div className="track-footer"><span>PRIZE POT</span><strong>{pot === null ? "Reading the chain…" : `${formatUnits(pot, POT_DECIMALS)} USDC${fixturesOn ? " (fixture)" : ""}`}</strong></div>
           <div className="stat-row">
             <p className="kicker">THIS WEEK'S STANDINGS</p>
             {weekFailed ? (
               <p className="muted small">Could not read this week's standings from the chain. Refresh the page to try again.</p>
             ) : weekRound === 0 ? (
-              <p className="muted small">No week is open yet. The keeper opens weeks on the countdown, and every recorded run ranks here.</p>
+              <p className="muted small">No week is open yet. The next week appears here the moment it opens.</p>
             ) : week === null ? (
               <p className="muted small">Reading this week's standings…</p>
             ) : week.rows.length === 0 ? (
-              <p className="muted small">No runs recorded on chain for this week yet. Play and send your run record to the keeper to rank here.</p>
+              <p className="muted small">No runs yet this week. Play one and it ranks here.</p>
             ) : (
               <ul className="rules-list">
                 {week.rows.slice(0, 5).map((r, i) => (
@@ -140,12 +136,17 @@ export default function Landing() {
             )}
             {week !== null && <p className="track-note">{standingsNote(week)}</p>}
           </div>
-          {board !== null && board.length === 0 && !boardFailed && (
-            <div className="stat-row">
-              <Stat label="TODAY'S COURSE" value="450m" note={`Seed ${courseStats.seed} · ${courseStats.obstacles} obstacles · the same field for everyone`} />
-              <Stat label="THE BOARD" value="BE FIRST" note="No placement is recorded yet. The first week's podium lands here." tone="accent" />
-            </div>
+          {board !== null && board.length > 0 && (
+            <>
+              <div className="lane lane-one"><div className="lane-label">1ST <span>{placeName(1)}</span></div><div className="runner runner-one">◉</div></div>
+              <div className="lane lane-two"><div className="lane-label">2ND <span>{placeName(2)}</span></div><div className="runner runner-two">◉</div></div>
+              <div className="lane lane-three"><div className="lane-label">3RD <span>{placeName(3)}</span></div><div className="runner runner-three">◉</div></div>
+            </>
           )}
+          {board !== null && board.length === 0 && !boardFailed && (
+            <p className="track-note">The all-time board forms at the first settle. This week's top 3 land on it.</p>
+          )}
+          <p className="muted small">Today's course: 450m · {courseStats.obstacles} obstacles · the same field for everyone.</p>
           <Button onClick={() => navigate("/run")}>Play the game</Button>
         </Panel>
       </section>

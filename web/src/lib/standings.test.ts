@@ -38,7 +38,7 @@ describe("standingsNote", () => {
       "All 3 recorded runs",
     );
     expect(standingsNote({ ...base, recorded: 3, rows: [row(1, 1)], covered: false })).toContain(
-      "Showing 1 of 3",
+      "1 of 3",
     );
     expect(standingsNote({ ...base, recorded: 3, rows: [row(1, 1)], covered: false })).not.toContain(
       "All 3",

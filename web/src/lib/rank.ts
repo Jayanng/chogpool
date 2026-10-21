@@ -29,10 +29,10 @@ export function rankRuns(rows: StandingRow[]): StandingRow[] {
 
 /**
  * The one line that says what the list is. Never "full standings" when the
- * scan could not reach the week's opening.
+ * scan could not reach the week's opening. Honest without the plumbing.
  */
 export function standingsNote(s: RankedBoard): string {
-  if (s.recorded === 0) return "No runs recorded on chain for this week yet.";
-  if (s.covered) return `All ${s.recorded} recorded run${s.recorded === 1 ? "" : "s"}, ranked by score.`;
-  return `Showing ${s.rows.length} of ${s.recorded} recorded runs. Older runs are outside this reader's window.`;
+  if (s.recorded === 0) return "No runs recorded yet this week.";
+  if (s.covered) return `All ${s.recorded} recorded run${s.recorded === 1 ? "" : "s"}, live from the chain.`;
+  return `${s.rows.length} of ${s.recorded} recorded runs shown, live from the chain.`;
 }
