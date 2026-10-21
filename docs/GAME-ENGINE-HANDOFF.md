@@ -234,6 +234,49 @@ treasury, so this is the same 1,000 Test $CHOG from a different source.
 because the funder is not the operator — the first attempt reverted `NotOperator`.
 The operator key was used for that call only.
 
+### THE MISS THAT BROKE EVERY RUN SUBMISSION, AND THE ONE-TRANSACTION FIX
+
+**The engine's `pool()` was the zero address after the deploy.** Every
+`submitScores` reverted on the `sharesOf` read against `address(0)`, so no run
+could record at all.
+
+**Why it happened.** `GameEngine` inherits `pool` from `DrawEngine`, which sets it
+only through `setPool`. The constructor does not take it. The deploy script wired
+`pool.setDrawEngine`, `careerStore.setDrawEngine` and `gameAuthority`, and read all
+three back — but never called `engine.setPool`, so the engine's own pointer stayed
+at zero.
+
+**The general lesson.** The engine is the one consumer whose pool pointer is *not*
+set by the migration, because the migration points the pool *at* the engine and
+that is the opposite direction. A read-back list that omits a pointer can pass
+while that pointer is zero, which is exactly what happened: three wirings verified,
+one unset, and the product completely broken.
+
+**Fixed on chain** with one owner transaction:
+
+```
+cast send <ENGINE> "setPool(address)" <POOL> --rpc-url monad_testnet --private-key $PRIVATE_KEY
+tx 0xd44f62f5d6fc1492b9241b305c1147cf97d99bff04ebc9b8a893ec5755e3c3a8  block 73053402
+```
+
+Read back: `engine.pool() = 0x79D30244bD59c01aD1963800791522e3dAA876e0`. Round 1 was
+untouched, so no restart was needed and runs recorded the moment it landed.
+
+**The submit path was then verified rather than assumed.** A simulated
+`submitScores` against the live engine as the gameAuthority (on a fork, no
+broadcast, because the recorder's key is not on this host) produced:
+
+```
+emit Transfer(from: engine, to: 0x71708D8171F0Af75b0184861906B3678f7337E50, amount: 700000000000000000)
+emit ScoreRecorded(roundId: 1, tokenId: 20, score: 1234, coins: 7, coinPayout: 7e17)
+```
+
+7 coins paid exactly 0.7 Test $CHOG to the position's depositor, at 0.1 per coin.
+
+`DeployGameEngine.s.sol` now calls `engine.setPool` and reads it back with the
+others. **Any future deploy must read back every pointer, including the ones the
+migration does not naturally set.**
+
 ### Demo round 1, read back from the chain
 
 ```
