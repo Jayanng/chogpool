@@ -89,8 +89,9 @@ Built for Chogathon 2026. Test funds only, Monad testnet (chainId 10143).
 
 - Rounds settle on chain: the top 3 paid by the contract itself, recorded
   to the career store at settlement.
-- Yield through the no-loss adapter feeds the pot: the SponsorAdapter is
-  built and tested, and an Aave venue follows where Aave is live.
+- Yield through the no-loss adapter feeds the pot: a no-loss venue behind
+  the frozen interface is the next step, and an Aave venue follows where
+  Aave is live.
 - Trait powers on the course: each Chog's traits become its signature move.
 
 ## Links
