@@ -9,7 +9,7 @@ import { DEPLOYED } from "../generated/addresses.gen";
 import { gameEngineAbi, testChogAbi } from "./abi";
 import { testnetReadClient } from "./wallet";
 
-const engineAddress = DEPLOYED.gameEngine as Address;
+const engineAddress = DEPLOYED.drawEngine as Address;
 const testChogAddress = DEPLOYED.testChogToken as Address;
 
 export type RoundStateName = "none" | "open" | "closed" | "settled";
@@ -144,7 +144,7 @@ export async function sendPayRevive(
   account: Address,
   roundId: bigint,
   tokenId: bigint,
-): Promise<{ ok: true; hash: Hash } | { ok: false; error: string }> {
+): Promise<{ ok: true; hash: Hash; detail: string } | { ok: false; error: string }> {
   try {
     const fee = (await testnetReadClient.readContract({
       address: engineAddress,
@@ -179,7 +179,11 @@ export async function sendPayRevive(
       account,
       chain: null,
     });
-    return { ok: true, hash };
+    return {
+      ok: true,
+      hash,
+      detail: `Revive fee for Chog #${tokenId.toString()} in round ${roundId.toString()}`,
+    };
   } catch (error) {
     return {
       ok: false,
