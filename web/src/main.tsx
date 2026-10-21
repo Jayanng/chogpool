@@ -59,7 +59,11 @@ function App() {
   const gate = useGate(wallet.address ?? undefined);
   // Fail closed: the gate stays shut while a check is in flight too, so an
   // unanswered read never opens the app. Only a settled "in" opens it.
-  const gateBlocked = Boolean(wallet.address) && gate !== "in" && path !== "/mint";
+  // The landing is never gated: it is the storefront and stays browsable with
+  // or without a Chog. The gate appears the moment a click heads inside the
+  // app, exactly at the door, and the mint page stays reachable as the way in.
+  const gateBlocked =
+    Boolean(wallet.address) && gate !== "in" && path !== "/mint" && path !== "/";
   // Before a wallet is connected there is no app at all: no nav, and every way
   // in stops at "connect a wallet first". The landing is the only thing shown.
   const connectBlocked = !wallet.address && path !== "/";
