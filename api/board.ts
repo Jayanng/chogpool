@@ -119,7 +119,7 @@ export default async function handler(req: Req, res: Res) {
   } catch (error) {
     return res.status(500).json({
       status: "error",
-      detail: error instanceof Error ? error.message.slice(0, 200) : "The board could not be read.",
+      detail: error instanceof Error ? error.message.slice(0, 900) : "The board could not be read.",
     });
   }
 }
