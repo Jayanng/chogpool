@@ -114,7 +114,7 @@ export default function Yield() {
         >
           <div className="stat-row">
             <Stat label="SEEDED FUNDS" value="Real, on chain" note="Seeded into the pot as real transactions. The card labels it SEEDED wherever it shows." tone="lime" />
-            <Stat label="REVIVE FEES" value="Real, when rounds land" note="Each revive pays a Test $CHOG fee into the round's prize. Live when the round contract is live." tone="accent" />
+            <Stat label="REVIVE FEES" value="Real, per round" note="Each revive pays a 10 Test $CHOG fee, split with the round's top 3 at settlement. The round engine is live on chain and the fee applies while a round is open." tone="accent" />
             <Stat label="YIELD" value="The future plan" note="The no-loss adapter's realized value feeds the pot next. A no-loss venue behind the frozen interface is the roadmap step; an Aave venue follows when we deploy where Aave is live." />
           </div>
           <p className="muted small">

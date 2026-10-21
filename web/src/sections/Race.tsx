@@ -6,6 +6,7 @@ import Game from "./Game";
 import Replays from "./Replays";
 import Career from "../career";
 import { BookPanel } from "../race/BookPanel";
+import { RoundPanel } from "../race/RoundPanel";
 
 export default function Race() {
   return (
@@ -17,6 +18,7 @@ export default function Race() {
         { label: "Career", path: "/career", Component: Career },
       ]}
     />
+      <RoundPanel />
       <BookPanel />
     </>
   );

@@ -500,7 +500,7 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
       >
         <p className="muted small">
           Distance carries the score. Coins on the racing line are 25 points each and land in your
-          Test $CHOG purse when the round contract is live. Close calls, passing an obstacle within
+          Test $CHOG purse at 0.1 Test $CHOG per coin the moment your run is recorded on chain. Close calls, passing an obstacle within
           a hand's width, pay 15 points and a beat of slow motion. The same seed always builds the
           same course, so the leaderboard compares skill, not luck.
         </p>

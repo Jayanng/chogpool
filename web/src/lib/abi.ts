@@ -76,12 +76,41 @@ export const mirrorAbi = parseAbi([
   "event MirrorMinted(address indexed mainnetOwner, uint256 indexed tokenId, string realURI, bool isTestDrive)",
 ]);
 
+// The round engine deployed at gameEngine: one getter per view the UI binds to,
+// plus the one player write, payRevive. RoundState is (None, Open, Closed,
+// Settled) and reviveUsed is a public mapping, so its getter is part of the
+// deployed interface even though it is not a declared function.
+export const gameEngineAbi = parseAbi([
+  "function latestRoundId() view returns (uint256)",
+  "function roundState(uint256 roundId) view returns (uint8)",
+  "function roundClosesAt(uint256 roundId) view returns (uint64)",
+  "function participantCount(uint256 roundId) view returns (uint32)",
+  "function courseSeedOf(uint256 roundId) view returns (bytes32)",
+  "function potAtClose(uint256 roundId) view returns (uint256)",
+  "function chogAtClose(uint256 roundId) view returns (uint256)",
+  "function scoreOf(uint256 roundId, uint256 tokenId) view returns (uint256)",
+  "function coinsOf(uint256 roundId, uint256 tokenId) view returns (uint256)",
+  "function coinPayoutOf(uint256 roundId, uint256 tokenId) view returns (uint256)",
+  "function coinRate() view returns (uint256)",
+  "function revivedOf(uint256 roundId, uint256 tokenId) view returns (bool)",
+  "function reviveUsed(uint256 roundId, uint256 tokenId) view returns (bool)",
+  "function hasRun(uint256 roundId, uint256 tokenId) view returns (bool)",
+  "function roundWinnersOf(uint256 roundId) view returns (uint256[3])",
+  "function reviveFee() view returns (uint256)",
+  "function payRevive(uint256 roundId, uint256 tokenId)",
+  "event RoundOpened(uint256 indexed roundId, bytes32 courseSeed, uint64 closesAt)",
+  "event RoundClosed(uint256 indexed roundId, uint256 potAtClose, uint256 chogAtClose)",
+  "event RevivePaid(uint256 indexed roundId, uint256 indexed tokenId, uint256 fee)",
+]);
+
 export const testChogAbi = parseAbi([
   "function name() view returns (string)",
   "function symbol() view returns (string)",
   "function decimals() view returns (uint8)",
   "function balanceOf(address account) view returns (uint256)",
   "function transfer(address to, uint256 amount) returns (bool)",
+  "function allowance(address owner, address spender) view returns (uint256)",
+  "function approve(address spender, uint256 amount) returns (bool)",
   "function claimAmount() view returns (uint256)",
   "function claimCooldown() view returns (uint64)",
   "function nextClaimAt(address account) view returns (uint64)",
