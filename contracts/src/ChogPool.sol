@@ -309,21 +309,32 @@ contract ChogPool is IChogPool, IYieldAdapter, Ownable2Step, ReentrancyGuard {
 
         IYieldAdapter(yieldAdapter).redeem(deliverable, pos.depositor);
 
-        // Burn the shares the position was actually worth. If the venue delivered
-        // less than the nominal shares (entry cost plus drift), the difference is a
-        // claim the venue cannot honour, and carrying it forward would strand the
-        // depositor's next withdrawal attempt exactly as this fix removes.
-        uint256 burned = deliverable < shares ? deliverable : shares;
-        pos.shares = shares - burned;
-        totalShares -= burned;
-        totalPrincipal -= burned;
+        // ALL the shares burn, not just what the venue could pay.
+        //
+        // WHY THIS IS THE WHOLE POSITION AND NOT `deliverable`. The previous version
+        // burned only `deliverable` and left the remainder standing, which meant a
+        // position in an underwater venue could never be closed: the leftover claim
+        // was worth strictly less than its own pro-rata slice of a venue that had
+        // just shrunk, so the next `withdrawAll` burned even less and left more
+        // behind. A function called "withdrawAll" that cannot clear a position is
+        // the same stranding defect wearing a different hat, and it is the exact
+        // promise the deposit screen makes.
+        //
+        // This is safe because the money already moved: `deliverable` is what the
+        // venue actually paid, so the depositor has received everything the venue
+        // had for them. The unrealisable remainder is a realised cost, not a claim
+        // that can ever be honoured, so carrying it forward would only strand the
+        // next attempt. It is emitted rather than dropped.
+        pos.shares = 0;
+        totalShares -= shares;
+        totalPrincipal -= shares;
 
         // The shortfall is real, so it is emitted rather than silently dropped.
         if (deliverable < shares) {
             emit EntryCostRealized(tokenId, shares - deliverable);
         }
 
-        emit Withdrawn(tokenId, pos.depositor, burned, deliverable);
+        emit Withdrawn(tokenId, pos.depositor, shares, deliverable);
     }
 
     // ---------------- TWAB ----------------

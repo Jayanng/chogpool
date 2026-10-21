@@ -388,10 +388,23 @@ contract ChogPoolTwabTest is Test {
         uint256 got = usdc.balanceOf(alice) - before;
         assertEq(got, venueValue, "sole depositor receives the venue's full value");
 
-        // And the shares are burned against what was actually paid, so no
-        // unbackable claim is left to strand the depositor later.
-        assertEq(pool.sharesOf(TOKEN_A), shares - venueValue, "shares burned against the real value");
-        assertEq(pool.totalShares(), shares - venueValue, "totalShares matches");
+        // The position CLOSES: all shares burn, not only what the venue could pay.
+        //
+        // This assertion used to read `shares - venueValue`, i.e. it deliberately
+        // left 10 USDC of unbackable shares standing and called that correct. It
+        // is the same stranding defect the fix above removes, wearing a different
+        // hat: a leftover claim is worth strictly less than its own pro-rata slice
+        // of a venue that has just shrunk, so the next withdrawAll burns even less
+        // and leaves more behind, and a position in an underwater venue can never
+        // be closed at all. "Withdraw all" that cannot clear a position is the
+        // demo-killer this suite exists to prevent.
+        //
+        // Burning everything is safe because the money already moved: `venueValue`
+        // is what the venue actually paid, so the depositor has received all of it.
+        // The unrealisable remainder is a realised cost, emitted as
+        // EntryCostRealized, not a claim anyone can ever honour.
+        assertEq(pool.sharesOf(TOKEN_A), 0, "withdraw-all closes the position");
+        assertEq(pool.totalShares(), 0, "no unbackable claim is left behind");
         assertEq(pool.totalPrincipal(), pool.totalShares(), "the two still agree");
     }
 
@@ -438,6 +451,41 @@ contract ChogPoolTwabTest is Test {
         vm.prank(alice);
         vm.expectEmit(true, false, false, true, address(pool));
         emit IChogPool.EntryCostRealized(TOKEN_A, expectedShortfall);
+        pool.withdrawAll(TOKEN_A);
+    }
+
+    /// REGRESSION: the second withdraw-all must not be needed at all.
+    ///
+    /// This is the trap the old burn rule created. It burned only what the venue
+    /// could pay, so an underwater position kept an unbackable remainder. That
+    /// remainder was worth strictly less than its own pro-rata slice of a venue
+    /// that had just shrunk, so a second withdrawAll burned even less and left
+    /// more behind — the position could never be closed, and the "Withdraw all"
+    /// button silently stopped working for anyone whose venue had drifted.
+    ///
+    /// Pinned by calling withdrawAll twice and asserting the second call has
+    /// nothing left to do: the position is already empty, so it must revert rather
+    /// than pay a second time. One click, one close, no leftovers.
+    function test_WithdrawAll_ClosesThePosition_InOneCall_EvenUnderwater() public {
+        _deposit(alice, TOKEN_A, 100 * ONE);
+        uint256 shares = pool.sharesOf(TOKEN_A);
+        assertEq(shares, 100 * ONE, "lossless venue credits the full deposit");
+
+        adapter.simulateDrift(10 * ONE); // venue now worth 90 against 100 of shares
+
+        uint256 before = usdc.balanceOf(alice);
+        vm.prank(alice);
+        pool.withdrawAll(TOKEN_A);
+
+        // The whole position is gone after ONE call.
+        assertEq(pool.sharesOf(TOKEN_A), 0, "no shares survive the first call");
+        assertEq(usdc.balanceOf(alice) - before, 90 * ONE, "and the venue's real value was paid");
+
+        // A second call has nothing to withdraw, so it must refuse rather than
+        // pay again. Under the old rule this second call would have burned a
+        // further slice and left still more behind, forever.
+        vm.prank(alice);
+        vm.expectRevert();
         pool.withdrawAll(TOKEN_A);
     }
 
