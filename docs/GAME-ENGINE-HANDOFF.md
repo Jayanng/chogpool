@@ -258,6 +258,33 @@ cast send <TEST_CHOG> "transfer(address,uint256)" 0xC6599116e6f9c7F4b225247bE1DA
 1,000 CHOG covers 10,000 coins of runs at 0.1 each. Check the balance before each
 session and top up from the faucet when it runs low.
 
+### UNRECOVERABLE: 1,000 Test $CHOG stranded in the first engine
+
+The first engine (`0x437ae585f336F1d3Edc13Aa49b63E8e268f2c4c7`) was funded with
+1,000 Test $CHOG when it was deployed, and then replaced by the second engine
+(`0xC6599116e6f9c7F4b225247bE1DA14389c8DcfF5`) when `submitScores` changed to
+best-run-counts. The pool and CareerStore now point at the new engine, so the old
+one is orphaned.
+
+**Those 1,000 Test $CHOG are unrecoverable.** `GameEngine` has no sweep, rescue
+or withdraw function, and adding one would need a redeploy of a contract that
+nothing points at any more. The tokens are testnet-only and worthless, so the
+loss is cosmetic, but it is recorded here so nobody spends time chasing them.
+
+Do not attempt to recover them. Do not treat the old engine as a funding source.
+
+### An extra 1,000 Test $CHOG exists but is NOT claimable from here
+
+The recorder's address `0xBC65365cb6D8EB704445015EA8eeFD346e9bed71` has never
+claimed from the faucet and is eligible, so it could add another 1,000 Test $CHOG
+of runway. **Its private key is not on this host** — every key in the Hermes state
+database was scanned against it and none derives to it. Claiming on its behalf
+would mint tokens into a wallet that cannot be spent from, which does not help.
+
+If more runway is wanted for the judging week, the recorder's operator claims from
+their own machine and transfers to the engine. Otherwise 1,000 CHOG covers 10,000
+coins of runs, which is the documented budget.
+
 ### The sequence, for anyone re-running it on a fresh stack
 
 1. Deploy GameEngine with parameters:
