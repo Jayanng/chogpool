@@ -225,7 +225,15 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
     if (submittedRef.current === runKey) return;
     submittedRef.current = runKey;
     const tokenId = wallet.address ? loadMyChog(wallet.address) : null;
-    if (tokenId === null) return;
+    if (tokenId === null) {
+      setSubmission({
+        status: "rejected",
+        detail: wallet.address
+          ? "This run is not entered: this wallet has no Chog in the book. Mint one and deposit, then every run enters itself."
+          : "This run is not entered: connect a wallet with your Chog and every run enters itself.",
+      });
+      return;
+    }
     setSubmission("sending");
     void submitRun(tokenId, record).then(setSubmission);
   }, [phase, seed, wallet.address]);
