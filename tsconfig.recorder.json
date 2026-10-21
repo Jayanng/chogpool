@@ -16,6 +16,7 @@
     "web/src/game/course.ts",
     "web/src/game/sim.ts",
     "web/src/game/runRecord.ts",
+    "web/src/lib/rank.ts",
     "web/src/lib/submit.ts",
     "web/src/generated/addresses.gen.ts"
   ]

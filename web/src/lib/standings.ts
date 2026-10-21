@@ -11,7 +11,13 @@
 
 import { type Address, parseAbiItem } from "viem";
 import { DEPLOYED } from "../generated/addresses.gen";
+import { rankRuns, standingsNote, type RankedBoard, type StandingRow } from "./rank.js";
 import { testnetReadClient } from "./wallet";
+
+export type { RankedBoard, StandingRow };
+export { rankRuns, standingsNote };
+/** The shape the standings UI holds. Same fields as the shared board. */
+export type WeekStandings = RankedBoard;
 
 const engineAddress = DEPLOYED.drawEngine as Address;
 
@@ -24,39 +30,6 @@ const scoreRecordedItem = parseAbiItem(
 const roundOpenedItem = parseAbiItem(
   "event RoundOpened(uint256 indexed roundId, bytes32 courseSeed, uint64 closesAt)",
 );
-
-export type StandingRow = {
-  tokenId: bigint;
-  score: bigint;
-  coins: bigint;
-  revived: boolean;
-};
-
-export type WeekStandings = {
-  rows: StandingRow[];
-  /** participantCount from the contract: how many runs are recorded on chain */
-  recorded: number;
-  /** true when the scan reached the week's opening, so rows is the full list */
-  covered: boolean;
-};
-
-/** Sort by score, then tokenId. Pure and tested as such. */
-export function rankRuns(rows: StandingRow[]): StandingRow[] {
-  return [...rows].sort((a, b) => {
-    if (a.score === b.score) return a.tokenId < b.tokenId ? -1 : a.tokenId > b.tokenId ? 1 : 0;
-    return a.score > b.score ? -1 : 1;
-  });
-}
-
-/**
- * The one line that says what the list is. Never "full standings" when the
- * scan could not reach the week's opening.
- */
-export function standingsNote(s: WeekStandings): string {
-  if (s.recorded === 0) return "No runs recorded on chain for this week yet.";
-  if (s.covered) return `All ${s.recorded} recorded run${s.recorded === 1 ? "" : "s"}, ranked by score.`;
-  return `Showing ${s.rows.length} of ${s.recorded} recorded runs. Older runs are outside this reader's window.`;
-}
 
 export async function readWeekStandings(roundId: bigint): Promise<WeekStandings | null> {
   try {
