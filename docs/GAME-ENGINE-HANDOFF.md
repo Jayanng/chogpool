@@ -80,10 +80,12 @@ before `recordRace` fails.
 - Second revive reverts with `ReviveAlreadyUsed(roundId, tokenId)`
 - Emits: `RevivePaid(roundId, tokenId, fee)`
 
-**submitScores(uint256 roundId, uint256[] tokenIds, uint256[] scores, bool[] revived)** - game authority only
-- Records scores for participants
+**submitScores(uint256 roundId, uint256[] tokenIds, uint256[] scores, uint256[] coins, bool[] revived)** - game authority only
+- Records scores and coin counts for participants
 - Can only submit once per (round, tokenId)
-- Emits: `ScoreRecorded(roundId, tokenId, score, revived)`
+- Pays `coins[i] * COIN_RATE` in Test $CHOG to each player's depositor IN THIS TRANSACTION
+- A failed transfer reverts the whole submission, run record included
+- Emits: `ScoreRecorded(roundId, tokenId, score, coins, revived, submittedBy, coinPayout)`
 
 **closeRound(uint256 roundId)** - operator only
 - Closes the round for entries
@@ -120,12 +122,28 @@ This creates a self-funding bonus pool where the game funds part of its own priz
 
 ## 5. Key Design Decisions
 
-### 5.1 Coins Are Score-Only, By Decision
-The game client tracks coins per run and the site copy describes them. **There is
-no coin balance in this contract and no per-coin Test $CHOG payout.** This was an
-explicit decision to reduce surface before the deadline: the only currency this
-contract moves is the revive fee and the revive-fee bonus split. The site copy is
-being reworded to match. `coinsOf` does not exist for this reason, not by omission.
+### 5.1 Coins Are Paid At Submission, At A Fixed Rate
+The game client reports the coins each run collected, and `submitScores` pays
+`coins * COIN_RATE` (0.1 Test $CHOG per coin) to that position's depositor **in
+the same transaction that records the run**.
+
+Why at submission and not at settle: the site copy promises coins "land in your
+Test $CHOG purse" when a run is recorded. Deferring to settle would break that
+promise for every run that does not make the top 3.
+
+Why the amount is a function of the recorded coins and never of the engine's
+balance: the engine's Test $CHOG is a team-funded treasury, so a huge coin count
+cannot drain it — either the transfer succeeds and pays exactly `coins * rate`, or
+it reverts and the whole submission (run record included) is rolled back. A run
+recorded without its coins paid is a promise broken on screen, so the call is
+all-or-nothing.
+
+**The engine must be funded before the first round is submitted.** The faucet
+mints 1,000 Test $CHOG per address per day, so the treasury is funded by transfer,
+not minted. An unfunded engine reverts every submission.
+
+**FUNDING STEP, part of the deploy:** after `careerStore.setDrawEngine`, transfer
+Test $CHOG to the engine address (e.g. 1,000 CHOG covers 10,000 coins of runs).
 
 ### 5.2 Course Seed is Immutable
 The `courseSeed` is set at `openRound` and can never change. Every player in the round faces the identical course, and anyone can re-derive the course from the seed in the Proof page. The operator choosing the seed affects every player equally.
@@ -198,7 +216,10 @@ error FeePullFailed(uint256 roundId, uint256 tokenId, uint256 fee);
    - `ChogPool.setDrawEngine(gameEngine)`
    - `CareerStore.setDrawEngine(gameEngine)`
 
-3. Verify both wirings:
+3. **Fund the coin treasury:** transfer Test $CHOG to the engine address. Without
+   this every `submitScores` reverts and no round can be played.
+
+4. Verify both wirings:
    ```bash
    cast call 0x79D30244bD59c01aD1963800791522e3dAA876e0 "drawEngine()" --rpc-url https://testnet-rpc.monad.xyz
    cast call 0x336258EB8099cE594a3d0154C9e8CF9Fa7fa8C67 "drawEngine()" --rpc-url https://testnet-rpc.monad.xyz
@@ -259,7 +280,7 @@ chat.
 ## 12. Testing
 
 The contract package includes:
-- **GameEngine.t.sol**: 20 unit tests covering all mandatory properties
+- **GameEngine.t.sol**: 24 unit tests covering all mandatory properties
 - **DrawEngineCareer.t.sol**: 9 integration tests for draw + career integration
 
 Run tests:
@@ -267,7 +288,7 @@ Run tests:
 forge test --match-contract GameEngineTest
 ```
 
-All 190 contract tests pass (170 existing + 20 GameEngine tests).
+All 194 contract tests pass (170 existing + 24 GameEngine tests).
 
 ### The view functions the frontend binds to
 
@@ -278,6 +299,9 @@ All 190 contract tests pass (170 existing + 20 GameEngine tests).
 | `roundClosesAt(roundId)` | `uint64` | entry window end |
 | `courseSeedOf(roundId)` | `bytes32` | the fixed course seed |
 | `scoreOf(roundId, tokenId)` | `uint256` | that run's score |
+| `coinsOf(roundId, tokenId)` | `uint256` | that run's coin count |
+| `coinPayoutOf(roundId, tokenId)` | `uint256` | the Test $CHOG that run's coins paid |
+| `coinRate()` | `uint256` | the rate per coin, one source of truth for the UI |
 | `revivedOf(roundId, tokenId)` | `bool` | whether that run used its revive |
 | `hasRun(roundId, tokenId)` | `bool` | whether a run was recorded at all |
 | `participantCount(roundId)` | `uint32` | how many runs are recorded |

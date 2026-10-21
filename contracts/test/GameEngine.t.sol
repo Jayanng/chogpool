@@ -30,6 +30,9 @@ import {IChogPool} from "../interfaces/IChogPool.sol";
 contract GameEngineTest is Test {
     uint256 constant ONE = 1e6;
     uint256 constant CHOG_ONE = 1e18;
+    /// @dev Mirrors GameEngine.COIN_RATE so the tests assert against the same
+    ///      number the contract publishes rather than a second literal.
+    uint256 constant COIN_RATE = 0.1 ether;
 
     MockERC20 usdc;
     MockMirror mirror;
@@ -89,6 +92,14 @@ contract GameEngineTest is Test {
         testChog.claim();
         vm.prank(carol);
         testChog.claim();
+
+        // The engine's coin treasury, funded by transfer from an address that
+        // claimed. This is the production condition, not a test convenience: the
+        // faucet mints 1,000 per address per day, so the treasury is funded rather
+        // than minted. Without it every coin payout reverts and no round can be
+        // submitted at all, which is exactly what happened when this was missing.
+        vm.prank(owner_);
+        testChog.transfer(address(engine), 100 * CHOG_ONE);
     }
 
     function _deposit(address who, uint256 tokenId, uint256 amount) internal {
@@ -126,8 +137,9 @@ contract GameEngineTest is Test {
 
         uint256[] memory tokenIds = _ids(T_A, T_B, T_C);
         uint256[] memory scores = _scores(300, 200, 100);
+        uint256[] memory coins = _coins3(10, 7, 4);
         bool[] memory revived = _flags(false, false, false);
-        _submit(roundId, tokenIds, scores, revived);
+        _submit(roundId, tokenIds, scores, coins, revived);
 
         vm.prank(operator_);
         engine.closeRound(roundId);
@@ -165,7 +177,7 @@ contract GameEngineTest is Test {
         _seedPot(1 * ONE + 13); // an awkward pot, so 50/30/20 all leave remainders
 
         uint256 roundId = _openRound();
-        _submit(roundId, _ids(T_A, T_B, T_C), _scores(300, 200, 100), _flags(false, false, false));
+        _submit(roundId, _ids(T_A, T_B, T_C), _scores(300, 200, 100), _coins3(10, 7, 4), _flags(false, false, false));
         vm.prank(operator_);
         engine.closeRound(roundId);
 
@@ -244,9 +256,13 @@ contract GameEngineTest is Test {
         vm.stopPrank();
 
         uint256 feePool = testChog.balanceOf(address(engine));
-        assertEq(feePool, 20 * CHOG_ONE, "the engine holds both fees");
+        assertEq(feePool, 120 * CHOG_ONE, "the engine holds both fees plus the treasury");
 
-        _submit(roundId, _ids(T_A, T_B, T_C), _scores(300, 200, 100), _flags(true, true, false));
+        // Coins are recorded as ZERO so the coin payout is zero and the only
+        // Test $CHOG moving at settle is the revive fee. Without this the coin
+        // payouts would also leave the engine and the assertion below would be
+        // measuring the wrong money.
+        _submit(roundId, _ids(T_A, T_B, T_C), _scores(300, 200, 100), _coins3(0, 0, 0), _flags(true, true, false));
         vm.prank(operator_);
         engine.closeRound(roundId);
 
@@ -255,7 +271,7 @@ contract GameEngineTest is Test {
         uint256 cBefore = testChog.balanceOf(carol);
 
         vm.prank(operator_);
-        engine.settleRound(roundId, [T_A, T_B, T_C]);
+        engine.settleRound(roundId, _winners(T_A, T_B, T_C));
 
         uint256 aGot = testChog.balanceOf(alice) - aBefore;
         uint256 bGot = testChog.balanceOf(bob) - bBefore;
@@ -274,7 +290,7 @@ contract GameEngineTest is Test {
         _deposit(carol, T_C, 100 * ONE);
         _seedPot(100 * ONE);
         uint256 roundId = _openRound();
-        _submit(roundId, _ids(T_A, T_B, T_C), _scores(300, 200, 100), _flags(false, false, false));
+        _submit(roundId, _ids(T_A, T_B, T_C), _scores(300, 200, 100), _coins3(10, 7, 4), _flags(false, false, false));
         vm.prank(operator_);
         engine.closeRound(roundId);
 
@@ -299,7 +315,7 @@ contract GameEngineTest is Test {
         _deposit(carol, T_C, 100 * ONE);
         _seedPot(100 * ONE);
         uint256 roundId = _openRound();
-        _submit(roundId, _single(T_A), _single(300), _singleFlag(false));
+        _submit(roundId, _single(T_A), _single(300), _coins1(10), _singleFlag(false));
         vm.prank(operator_);
         engine.closeRound(roundId);
 
@@ -314,7 +330,7 @@ contract GameEngineTest is Test {
         _deposit(alice, T_A, 100 * ONE);
         _deposit(bob, T_B, 100 * ONE);
         uint256 roundId = _openRound();
-        _submit(roundId, _pair(T_A, T_B), _pair(300, 200), _pairFlag(false, false));
+        _submit(roundId, _pair(T_A, T_B), _pair(300, 200), _coins2(10, 7), _pairFlag(false, false));
         vm.prank(operator_);
         engine.closeRound(roundId);
 
@@ -331,7 +347,7 @@ contract GameEngineTest is Test {
         _deposit(carol, T_C, 100 * ONE);
         _seedPot(100 * ONE);
         uint256 roundId = _openRound();
-        _submit(roundId, _ids(T_A, T_B, T_C), _scores(300, 200, 100), _flags(false, false, false));
+        _submit(roundId, _ids(T_A, T_B, T_C), _scores(300, 200, 100), _coins3(10, 7, 4), _flags(false, false, false));
         vm.prank(operator_);
         engine.closeRound(roundId);
 
@@ -351,7 +367,7 @@ contract GameEngineTest is Test {
         _deposit(carol, T_C, 100 * ONE);
         _seedPot(100 * ONE);
         uint256 roundId = _openRound();
-        _submit(roundId, _ids(T_A, T_B, T_C), _scores(300, 200, 100), _flags(false, false, false));
+        _submit(roundId, _ids(T_A, T_B, T_C), _scores(300, 200, 100), _coins3(10, 7, 4), _flags(false, false, false));
         vm.prank(operator_);
         engine.closeRound(roundId);
 
@@ -429,7 +445,7 @@ contract GameEngineTest is Test {
         _deposit(carol, T_C, 100 * ONE);
         _seedPot(100 * ONE);
         uint256 roundId = _openRound();
-        _submit(roundId, _ids(T_A, T_B, T_C), _scores(300, 200, 100), _flags(false, false, false));
+        _submit(roundId, _ids(T_A, T_B, T_C), _scores(300, 200, 100), _coins3(10, 7, 4), _flags(false, false, false));
         vm.prank(operator_);
         engine.closeRound(roundId);
 
@@ -479,7 +495,7 @@ contract GameEngineTest is Test {
         _seedPot(100 * ONE);
 
         uint256 roundId = _openRound();
-        _submit(roundId, _ids(T_A, T_B, T_C), _scores(300, 200, 100), _flags(false, false, false));
+        _submit(roundId, _ids(T_A, T_B, T_C), _scores(300, 200, 100), _coins3(10, 7, 4), _flags(false, false, false));
         vm.prank(operator_);
         engine.closeRound(roundId);
 
@@ -531,6 +547,11 @@ contract GameEngineTest is Test {
         // proves nothing about recordRace.
         pool.setDrawEngine(address(freshEngine));
 
+        // Fund the fresh engine's coin treasury, or the submission reverts on the
+        // coin payout before it ever reaches the recordRace call under test.
+        vm.prank(owner_);
+        testChog.transfer(address(freshEngine), 100 * CHOG_ONE);
+
         _deposit(alice, T_A, 100 * ONE);
         _deposit(bob, T_B, 100 * ONE);
         _deposit(carol, T_C, 100 * ONE);
@@ -541,7 +562,7 @@ contract GameEngineTest is Test {
         uint256 roundId = freshEngine.openRound(bytes32("course-seed"), uint64(block.timestamp + 1 hours));
         vm.prank(authority_);
         freshEngine.submitScores(
-            roundId, _ids(T_A, T_B, T_C), _scores(300, 200, 100), _flags(false, false, false)
+            roundId, _ids(T_A, T_B, T_C), _scores(300, 200, 100), _coins3(10, 7, 4), _flags(false, false, false)
         );
         vm.prank(operator_);
         freshEngine.closeRound(roundId);
@@ -564,6 +585,78 @@ contract GameEngineTest is Test {
         assertEq(store.drawEngine(), address(engine), "the store accepts the engine");
     }
 
+    // ---------- 9. coins: the payout path the site copy promises ----------
+
+    /// @dev THE END-TO-END COIN PATH. A submitted run's coins must reach the
+    ///      player's wallet in Test $CHOG, at the published rate, in the same
+    ///      transaction that records the run. This is the promise the frontend
+    ///      already makes on screen, so it is tested against real balances rather
+    ///      than inferred from an event.
+    function test_Coins_ReachThePlayer_InTheSameTransactionAsTheRun() public {
+        _deposit(alice, T_A, 100 * ONE);
+        _deposit(bob, T_B, 100 * ONE);
+        _deposit(carol, T_C, 100 * ONE);
+        uint256 roundId = _openRound();
+
+        uint256 aBefore = testChog.balanceOf(alice);
+        uint256 bBefore = testChog.balanceOf(bob);
+        uint256 cBefore = testChog.balanceOf(carol);
+
+        // Alice collects 10 coins, bob 7, carol 4.
+        _submit(roundId, _ids(T_A, T_B, T_C), _scores(300, 200, 100), _coins3(10, 7, 4), _flags(false, false, false));
+
+        // 0.1 Test $CHOG per coin, paid immediately.
+        assertEq(testChog.balanceOf(alice) - aBefore, 10 * COIN_RATE, "alice was paid for 10 coins");
+        assertEq(testChog.balanceOf(bob) - bBefore, 7 * COIN_RATE, "bob was paid for 7 coins");
+        assertEq(testChog.balanceOf(carol) - cBefore, 4 * COIN_RATE, "carol was paid for 4 coins");
+
+        // The run is recorded too, which is what makes it "the same transaction".
+        assertEq(engine.coinsOf(roundId, T_A), 10, "the coin count is recorded");
+        assertEq(engine.scoreOf(roundId, T_A), 300, "and so is the score");
+        assertTrue(engine.hasRun(roundId, T_A), "the run exists");
+    }
+
+    /// @dev The payout is a function of the recorded coins, never of how much the
+    ///      engine holds. A treasury cannot be drained by recording a huge count:
+    ///      either the transfer fails and the whole submission reverts, or it
+    ///      succeeds and pays exactly coins * rate.
+    function test_Coins_PayoutNeverExceedsTheTreasury() public {
+        _deposit(alice, T_A, 100 * ONE);
+        uint256 roundId = _openRound();
+
+        uint256 treasury = testChog.balanceOf(address(engine));
+        // The treasury holds 100 CHOG. Asking for 2,000 coins would pay 200 CHOG,
+        // which is more than the engine has.
+        vm.prank(authority_);
+        vm.expectRevert();
+        engine.submitScores(roundId, _single(T_A), _single(100), _coins1(2_000), _singleFlag(false));
+
+        // The failed submission must not have recorded the run either.
+        assertFalse(engine.hasRun(roundId, T_A), "nothing was recorded when the payout failed");
+        assertEq(testChog.balanceOf(address(engine)), treasury, "the treasury is untouched");
+    }
+
+    /// @dev A run with zero coins pays nothing but is still recorded: a player who
+    ///      collects no coins has still played, and the leaderboard must show them.
+    function test_Coins_ZeroCoins_StillRecordsTheRun() public {
+        _deposit(alice, T_A, 100 * ONE);
+        uint256 roundId = _openRound();
+
+        uint256 before = testChog.balanceOf(alice);
+        _submit(roundId, _single(T_A), _single(50), _coins1(0), _singleFlag(false));
+
+        assertEq(testChog.balanceOf(alice), before, "no payout for no coins");
+        assertTrue(engine.hasRun(roundId, T_A), "but the run is still recorded");
+        assertEq(engine.coinPayoutOf(roundId, T_A), 0, "and the payout reads zero");
+    }
+
+    /// @dev The rate is readable so the UI shows one number, not a hardcoded one
+    ///      that can drift from the contract.
+    function test_Coins_RateIsReadable() public {
+        assertEq(engine.coinRate(), COIN_RATE, "the rate is exposed");
+        assertEq(COIN_RATE, 0.1 ether, "and it is 0.1 Test $CHOG per coin");
+    }
+
     // ---------- access control ----------
 
     function test_OnlyTheAuthority_CanSubmitScores() public {
@@ -574,12 +667,14 @@ contract GameEngineTest is Test {
         ids[0] = T_A;
         uint256[] memory scores = new uint256[](1);
         scores[0] = 100;
+        uint256[] memory coins = new uint256[](1);
+        coins[0] = 10;
         bool[] memory revived = new bool[](1);
         revived[0] = false;
 
         vm.prank(alice);
         vm.expectRevert(GameEngine.NotGameAuthority.selector);
-        engine.submitScores(roundId, ids, scores, revived);
+        engine.submitScores(roundId, ids, scores, coins, revived);
     }
 
     function test_OnlyTheOperator_CanOpenAndSettle() public {
@@ -610,10 +705,11 @@ contract GameEngineTest is Test {
         uint256 roundId,
         uint256[] memory tokenIds,
         uint256[] memory scores,
+        uint256[] memory coins,
         bool[] memory revived
     ) internal {
         vm.prank(authority_);
-        engine.submitScores(roundId, tokenIds, scores, revived);
+        engine.submitScores(roundId, tokenIds, scores, coins, revived);
     }
 
     function _ids(uint256 a, uint256 b, uint256 c) internal pure returns (uint256[] memory) {
@@ -637,6 +733,27 @@ contract GameEngineTest is Test {
         v[0] = a;
         v[1] = b;
         v[2] = c;
+        return v;
+    }
+
+    function _coins3(uint256 a, uint256 b, uint256 c) internal pure returns (uint256[] memory) {
+        uint256[] memory v = new uint256[](3);
+        v[0] = a;
+        v[1] = b;
+        v[2] = c;
+        return v;
+    }
+
+    function _coins1(uint256 a) internal pure returns (uint256[] memory) {
+        uint256[] memory v = new uint256[](1);
+        v[0] = a;
+        return v;
+    }
+
+    function _coins2(uint256 a, uint256 b) internal pure returns (uint256[] memory) {
+        uint256[] memory v = new uint256[](2);
+        v[0] = a;
+        v[1] = b;
         return v;
     }
 

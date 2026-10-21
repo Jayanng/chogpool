@@ -42,12 +42,15 @@ import {DrawEngine} from "./DrawEngine.sol";
 ///      score from the seed plus signed inputs is a roadmap item and is NOT claimed
 ///      here. Nothing in this contract pretends a submitted score is proven.
 ///
-/// @dev COINS ARE DELIBERATELY NOT HERE. The game client tracks coins per run and
-///      the site copy describes them. There is no coin balance in this contract
-///      and no per-coin Test $CHOG payout, by explicit decision: less surface
-///      before the deadline, and the only currency this contract moves is the
-///      revive fee and the revive-fee bonus split. `coinsOf` does not exist for
-///      that reason, not by omission.
+/// @dev COINS ARE PAID AT SUBMISSION, AT A FIXED RATE. The game client reports
+///      the coins each run collected, and `submitScores` pays
+///      `coins * COIN_RATE` in Test $CHOG to that position's depositor in the same
+///      transaction that records the run. The site copy promises coins "land in
+///      your Test $CHOG purse" when a run is recorded, so paying later (at settle)
+///      would break the promise for every run that does not make the top 3. The
+///      amount is a function of the recorded coins and the constant rate, never of
+///      the engine's balance, so the treasury cannot be drained and one player
+///      cannot claim another's coins.
 contract GameEngine is DrawEngine {
     // ---------------- constants ----------------
 
@@ -58,6 +61,14 @@ contract GameEngine is DrawEngine {
     /// @dev Third takes the remainder rather than a fixed 20%, so integer division
     ///      never strands dust: first + second + third always equals the pot exactly.
     uint256 public constant TOP_N = 3;
+
+    /// @dev Test $CHOG paid per coin collected in a run. 0.1 per coin, 18 decimals,
+    ///      as agreed with the product side.
+    /// @dev WHY A CONSTANT AND NOT OWNER-SETTABLE. The site copy states the rate, so
+    ///      it is part of the product's promise rather than a tunable. Making it
+    ///      owner-settable would let the number change under players who were shown
+    ///      a different one. Changing it later is a redeploy and a visible decision.
+    uint256 public constant COIN_RATE = 0.1 ether; // 0.1 Test $CHOG per coin
 
     // ---------------- immutables / wiring ----------------
 
@@ -93,6 +104,11 @@ contract GameEngine is DrawEngine {
     /// @dev roundId => tokenId => score. 0 means "no run recorded".
     mapping(uint256 => mapping(uint256 => uint256)) internal _scores;
 
+    /// @dev roundId => tokenId => coins collected in that run. Recorded separately
+    ///      from the score because the payout is computed from it and the frontend
+    ///      reads it back for the leaderboard.
+    mapping(uint256 => mapping(uint256 => uint256)) internal _coins;
+
     /// @dev roundId => tokenId => whether that run used its one revive.
     mapping(uint256 => mapping(uint256 => bool)) internal _revived;
 
@@ -115,7 +131,15 @@ contract GameEngine is DrawEngine {
     event RoundOpened(uint256 indexed roundId, bytes32 courseSeed, uint64 closesAt);
     event RoundClosed(uint256 indexed roundId, uint256 potAtClose, uint256 chogAtClose);
     event RevivePaid(uint256 indexed roundId, uint256 indexed tokenId, uint256 fee);
-    event ScoreRecorded(uint256 indexed roundId, uint256 indexed tokenId, uint256 score, bool revived, address submittedBy);
+    event ScoreRecorded(
+        uint256 indexed roundId,
+        uint256 indexed tokenId,
+        uint256 score,
+        uint256 coins,
+        bool revived,
+        address submittedBy,
+        uint256 coinPayout
+    );
     event RoundSettled(
         uint256 indexed roundId,
         uint256[TOP_N] winners,
@@ -143,6 +167,7 @@ contract GameEngine is DrawEngine {
     error NoScoresRecorded(uint256 roundId, uint256 tokenId);
     error NothingToSettle();
     error FeePullFailed(uint256 roundId, uint256 tokenId, uint256 fee);
+    error CoinPayoutFailed(uint256 roundId, uint256 tokenId, uint256 payout);
 
     // ---------------- construction ----------------
 
@@ -271,18 +296,38 @@ contract GameEngine is DrawEngine {
     ///      the authority. They are not verified on chain and the Proof page says so.
     ///      What the contract does guarantee is that the courseSeed was fixed before
     ///      anyone played, that the submitter is recorded per entry, and that a score
-    ///      cannot be recorded for a token with no stake in the pool.
+    ///      cannot be recorded for a token that has no stake in the pool.
+    ///
+    /// @dev COINS ARE PAID HERE, AT SUBMISSION, NOT AT SETTLE. The site copy
+    ///      promises coins "land in your Test $CHOG purse" the moment a run is
+    ///      recorded, so the transfer happens in the same transaction that records
+    ///      the run. Deferring it to settle would break that promise: a run whose
+    ///      player never makes the top 3 would earn nothing, which is not what the
+    ///      copy says.
+    ///
+    /// @dev PAY THE RECORDED COINS ONLY, NEVER A BALANCE. Each entry pays
+    ///      `coins[i] * COIN_RATE` from this contract's own Test $CHOG balance.
+    ///      The engine's balance is the team-funded treasury, so a player cannot
+    ///      claim another player's coins and the treasury cannot be drained by a
+    ///      huge coin count: the amount paid is a function of the recorded input,
+    ///      not of how much the engine happens to hold.
+    ///
+    /// @dev A FAILED TRANSFER REVERTS THE WHOLE SUBMISSION. A run recorded
+    ///      without its coins paid is a promise broken on screen, so the call is
+    ///      all-or-nothing: either the run is recorded and the coins arrived, or
+    ///      nothing happened.
     function submitScores(
         uint256 roundId,
         uint256[] calldata tokenIds,
         uint256[] calldata scores,
+        uint256[] calldata coins,
         bool[] calldata revived
     ) external onlyGameAuthority {
         Round storage r = _rounds[roundId];
         if (r.state != RoundState.Open && r.state != RoundState.Closed) {
             revert WrongRoundState(RoundState.Open, r.state);
         }
-        if (tokenIds.length != scores.length || tokenIds.length != revived.length) {
+        if (tokenIds.length != scores.length || tokenIds.length != coins.length || tokenIds.length != revived.length) {
             revert LengthMismatch(tokenIds.length, scores.length);
         }
 
@@ -293,10 +338,19 @@ contract GameEngine is DrawEngine {
 
             _hasRun[roundId][tokenId] = true;
             _scores[roundId][tokenId] = scores[i];
+            _coins[roundId][tokenId] = coins[i];
             _revived[roundId][tokenId] = revived[i];
             r.participantCount += 1;
 
-            emit ScoreRecorded(roundId, tokenId, scores[i], revived[i], msg.sender);
+            // The coin payout for this run, from the engine's own treasury.
+            uint256 payout = coins[i] * COIN_RATE;
+            if (payout > 0) {
+                (address depositor,,) = IChogPool(pool).depositOf(tokenId);
+                bool ok = testChog.transfer(depositor, payout);
+                if (!ok) revert CoinPayoutFailed(roundId, tokenId, payout);
+            }
+
+            emit ScoreRecorded(roundId, tokenId, scores[i], coins[i], revived[i], msg.sender, payout);
         }
     }
 
@@ -422,6 +476,22 @@ contract GameEngine is DrawEngine {
 
     function scoreOf(uint256 roundId, uint256 tokenId) external view returns (uint256) {
         return _scores[roundId][tokenId];
+    }
+
+    /// @notice The coins a run collected, as recorded by the game authority.
+    function coinsOf(uint256 roundId, uint256 tokenId) external view returns (uint256) {
+        return _coins[roundId][tokenId];
+    }
+
+    /// @notice The Test $CHOG a run's coins paid, so the UI and a judge can both
+    ///      read the payout without recomputing it.
+    function coinPayoutOf(uint256 roundId, uint256 tokenId) external view returns (uint256) {
+        return _coins[roundId][tokenId] * COIN_RATE;
+    }
+
+    /// @notice The Test $CHOG rate per coin, so the UI reads one source of truth.
+    function coinRate() external pure returns (uint256) {
+        return COIN_RATE;
     }
 
     function revivedOf(uint256 roundId, uint256 tokenId) external view returns (bool) {
