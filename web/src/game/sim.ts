@@ -4,8 +4,8 @@
 // inputs. That is what makes the leader's ghost free and what lets the Proof
 // page re-run anyone's top finish and prove it happened.
 
-import { courseOf, prng, type PlacedObstacle } from "./course";
-import { distanceAfter, framesAirborne, framesToPeak, jumpPeak, overlaps, PHYSICS, speedAt, type Hitbox } from "./physics";
+import { courseOf, prng, type PlacedObstacle } from "./course.js";
+import { distanceAfter, framesAirborne, framesToPeak, jumpPeak, overlaps, PHYSICS, speedAt, type Hitbox } from "./physics.js";
 
 export type Input = {
   /** jump pressed this frame */

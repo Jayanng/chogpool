@@ -7,11 +7,11 @@
 // case is an unearned score, exactly the trust the authority model already
 // carries, now automated.
 
-import { createPublicClient, createWalletClient, http, parseAbi } from "viem";
+import { createPublicClient, createWalletClient, http, parseAbi, type Abi } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { DEPLOYED } from "../web/src/generated/addresses.gen";
-import { verifyRunRecord } from "../web/src/game/runRecord";
-import { parseSubmission } from "../web/src/lib/submit";
+import { DEPLOYED } from "../web/src/generated/addresses.gen.js";
+import { verifyRunRecord } from "../web/src/game/runRecord.js";
+import { parseSubmission } from "../web/src/lib/submit.js";
 
 const RPC = "https://testnet-rpc.monad.xyz";
 
@@ -24,8 +24,8 @@ const engineAbi = parseAbi([
   "function hasRun(uint256 roundId, uint256 tokenId) view returns (bool)",
   "function gameAuthority() view returns (address)",
   "function submitScores(uint256 roundId, uint256[] tokenIds, uint256[] scores, uint256[] coins, bool[] revived)",
-]);
-const poolAbi = parseAbi(["function sharesOf(uint256 tokenId) view returns (uint256)"]);
+]) as Abi;
+const poolAbi = parseAbi(["function sharesOf(uint256 tokenId) view returns (uint256)"]) as Abi;
 
 type Req = { method?: string; body?: unknown };
 type Res = { status: (code: number) => Res; json: (payload: unknown) => void };
@@ -118,7 +118,7 @@ export default async function handler(req: Req, res: Res) {
     }
 
     const account = privateKeyToAccount(key as `0x${string}`);
-    const walletClient = createWalletClient({ account, chain: null, transport: http(RPC) });
+    const walletClient = createWalletClient({ account, transport: http(RPC) });
     const hash = await walletClient.writeContract({
       address: engineAddress,
       abi: engineAbi,
@@ -130,6 +130,7 @@ export default async function handler(req: Req, res: Res) {
         [BigInt(record.claimed.coins)],
         [record.claimed.revived],
       ],
+      chain: null,
     });
     await publicClient.waitForTransactionReceipt({ hash });
 

@@ -8,7 +8,7 @@
 // so it is always clearable, and harder obstacle kinds cannot appear until
 // the run is fast enough to earn them.
 
-import { distanceAfter, jumpPeak, PHYSICS, speedAt, type Hitbox } from "./physics";
+import { distanceAfter, jumpPeak, PHYSICS, speedAt, type Hitbox } from "./physics.js";
 
 /** Dead simple deterministic PRNG seeded from the course seed (splitmix32).
  *  No Math.random anywhere in this file. */

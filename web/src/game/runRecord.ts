@@ -4,8 +4,8 @@
 // no trust in the sender, only in the tape and the seed. This replaces the
 // draw-era verifier with the same discipline, aimed at runs.
 
-import { courseOf } from "./course";
-import { coinsOf, initialRun, revive, step, type Input } from "./sim";
+import { courseOf } from "./course.js";
+import { coinsOf, initialRun, revive, step, type Input } from "./sim.js";
 
 export type RunRecord = {
   version: 1;

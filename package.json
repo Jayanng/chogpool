@@ -9,5 +9,8 @@
   },
   "dependencies": {
     "viem": "^2.57.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0"
   }
 }

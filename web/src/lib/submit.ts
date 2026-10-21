@@ -5,7 +5,7 @@
 // ranks. Responses always say which of the real outcomes happened, never a
 // hopeful "sent".
 
-import type { RunRecord } from "../game/runRecord";
+import type { RunRecord } from "../game/runRecord.js";
 
 export type SubmitOutcome =
   | { status: "recorded"; detail: string; tx: string | null }
