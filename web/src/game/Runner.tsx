@@ -12,6 +12,9 @@ import { type ChogAppearance } from "../race/chogArt";
 import { courseOf, type PlacedObstacle } from "./course";
 import { drawScene, spawnBurst, spawnConfetti, spawnDust, type Particle, type Popup } from "./render";
 import { buildRunRecord } from "./runRecord";
+import { loadMyChog } from "../lib/mychog";
+import { submitRun, type SubmitOutcome } from "../lib/submit";
+import { useWallet } from "../lib/useWallet";
 import { coinsOf, initialRun, revive, step, type Input, type RunState } from "./sim";
 import { playCue } from "../lib/sound";
 
@@ -198,6 +201,34 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
       setCopied("The browser blocked the clipboard. The record is below, select and copy it.");
     }
   }, [seed]);
+
+  // THE ENTRY. A finished run records itself on chain: the recorder re-derives
+  // it and submits it, and the board ranks it by score. One entry per Chog per
+  // week is the contract's rule, so the first finished run is the week's entry
+  // and the player is told exactly that. Without a wallet Chog there is no
+  // entry to record and the copy-the-record path stands.
+  const wallet = useWallet();
+  const [submission, setSubmission] = useState<SubmitOutcome | "sending" | null>(null);
+  const submittedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (phase !== "dead" && phase !== "cleared") return;
+    const st = stateRef.current;
+    const record = buildRunRecord({
+      seed,
+      lengthPx: LEN,
+      state: st,
+      inputs: inputsRef.current,
+      reviveAt: reviveAtRef.current,
+    });
+    const runKey = `${seed}:${record.inputs.length}:${record.claimed.score}:${record.claimed.coins}:${record.claimed.revived}`;
+    if (submittedRef.current === runKey) return;
+    submittedRef.current = runKey;
+    const tokenId = wallet.address ? loadMyChog(wallet.address) : null;
+    if (tokenId === null) return;
+    setSubmission("sending");
+    void submitRun(tokenId, record).then(setSubmission);
+  }, [phase, seed, wallet.address]);
 
   // Input: keyboard and gestures. Tap = jump, hold = higher, swipe down or
   // press down = duck. The whole frame is the touch target.
@@ -468,6 +499,24 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
               {copied ? ` · ${copied}` : ""} Send the copied run record to the keeper to rank in
               this week's standings.
             </p>
+            {submission === "sending" ? (
+              <p className="game-overlay-foot">Recording your run on chain…</p>
+            ) : submission && submission.status === "recorded" ? (
+              <p className="game-overlay-foot">
+                Recorded on chain: this run is your entry for the week and it ranks now.
+                {submission.tx ? (
+                  <>
+                    {" "}
+                    <a href={wallet.explorerTx(submission.tx as `0x${string}`)} target="_blank" rel="noreferrer">
+                      See the transaction
+                    </a>
+                    .
+                  </>
+                ) : null}
+              </p>
+            ) : submission ? (
+              <p className="game-overlay-foot">{submission.detail}</p>
+            ) : null}
           </div>
         )}
 
@@ -489,6 +538,24 @@ export function Runner({ appearance, imageUrl }: { appearance: ChogAppearance; i
             <p className="game-overlay-foot">
               Send the copied run record to the keeper to rank in this week's standings.
             </p>
+            {submission === "sending" ? (
+              <p className="game-overlay-foot">Recording your run on chain…</p>
+            ) : submission && submission.status === "recorded" ? (
+              <p className="game-overlay-foot">
+                Recorded on chain: this run is your entry for the week and it ranks now.
+                {submission.tx ? (
+                  <>
+                    {" "}
+                    <a href={wallet.explorerTx(submission.tx as `0x${string}`)} target="_blank" rel="noreferrer">
+                      See the transaction
+                    </a>
+                    .
+                  </>
+                ) : null}
+              </p>
+            ) : submission ? (
+              <p className="game-overlay-foot">{submission.detail}</p>
+            ) : null}
           </div>
         )}
       </div>

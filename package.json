@@ -6,5 +6,8 @@
     "check:addresses": "node infra/check-addresses.mjs",
     "check:fixtures": "node infra/check-fixtures.mjs",
     "build:web": "pnpm --filter web build"
+  },
+  "dependencies": {
+    "viem": "^2.57.5"
   }
 }

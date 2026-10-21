@@ -6,7 +6,11 @@ settings:
 
 importers:
 
-  .: {}
+  .:
+    dependencies:
+      viem:
+        specifier: ^2.57.5
+        version: 2.57.5(typescript@7.0.2)
 
   packages/ui:
     dependencies:
