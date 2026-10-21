@@ -177,7 +177,7 @@ export default async function handler(req: Req, res: Res) {
     }
     return res.status(500).json({
       status: "error",
-      detail: `The chain refused the submission. ${message.slice(0, 200)}`,
+      detail: `The chain refused the submission. ${message.slice(0, 2000)}`,
     });
   }
 }

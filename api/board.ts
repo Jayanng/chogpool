@@ -145,7 +145,7 @@ export default async function handler(req: Req, res: Res) {
   } catch (error) {
     const detail =
       error instanceof Error
-        ? `${error.message.slice(0, 400)} | details: ${String((error as { details?: string }).details ?? "").slice(0, 300)}`
+        ? `${error.message.slice(0, 2000)} | details: ${String((error as { details?: string }).details ?? "").slice(0, 1500)}`
         : "The board could not be read.";
     return res.status(500).json({ status: "error", detail });
   }
