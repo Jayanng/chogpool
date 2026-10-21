@@ -34,6 +34,21 @@ declare const process: { env: Record<string, string | undefined> };
 
 const publicClient = createPublicClient({ transport: http(RPC) });
 
+// One walk is ~20 getLogs calls and the RPC rate-limits shared egress, so the
+// board is cached briefly and every call retries once. The standings are only
+// as fresh as the last block anyway; thirty seconds changes nothing on chain.
+const CACHE_TTL_MS = 30_000;
+let cache: { key: string; at: number; payload: unknown } | null = null;
+
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch {
+    await new Promise((r) => setTimeout(r, 1500));
+    return fn();
+  }
+}
+
 export default async function handler(req: Req, res: Res) {
   if ((req.method ?? "GET") !== "GET") {
     return res.status(405).json({ status: "rejected", detail: "GET the ranked board." });
@@ -52,6 +67,11 @@ export default async function handler(req: Req, res: Res) {
       return res.status(200).json({ status: "no-week", detail: "No week is open on chain yet." });
     }
 
+    const cacheKey = roundId.toString();
+    if (cache && cache.key === cacheKey && Date.now() - cache.at < CACHE_TTL_MS) {
+      return res.status(200).json(cache.payload);
+    }
+
     const recorded = Number(
       await publicClient.readContract({
         address: engineAddress,
@@ -68,20 +88,24 @@ export default async function handler(req: Req, res: Res) {
     for (let i = 0; i < MAX_CHUNKS && !covered; i++) {
       const from = to - CHUNK + 1n > 0n ? to - CHUNK + 1n : 0n;
       const [scores, opens] = await Promise.all([
-        publicClient.getLogs({
-          address: engineAddress,
-          event: scoreRecordedItem,
-          args: { roundId },
-          fromBlock: from,
-          toBlock: to,
-        }),
-        publicClient.getLogs({
-          address: engineAddress,
-          event: roundOpenedItem,
-          args: { roundId },
-          fromBlock: from,
-          toBlock: to,
-        }),
+        withRetry(() =>
+          publicClient.getLogs({
+            address: engineAddress,
+            event: scoreRecordedItem,
+            args: { roundId },
+            fromBlock: from,
+            toBlock: to,
+          }),
+        ),
+        withRetry(() =>
+          publicClient.getLogs({
+            address: engineAddress,
+            event: roundOpenedItem,
+            args: { roundId },
+            fromBlock: from,
+            toBlock: to,
+          }),
+        ),
       ]);
       for (const log of scores) {
         byToken.set(log.args.tokenId!.toString(), {
@@ -99,7 +123,7 @@ export default async function handler(req: Req, res: Res) {
 
     const rows = rankRuns([...byToken.values()]);
     const board = { rows, recorded, covered };
-    return res.status(200).json({
+    const payload = {
       status: "board",
       roundId: roundId.toString(),
       recorded,
@@ -115,11 +139,14 @@ export default async function handler(req: Req, res: Res) {
       // when fewer than three runs exist; settleRound refuses a zero tokenId,
       // so the keeper must not settle a week with under three runs.
       top3: rows.slice(0, 3).map((r) => r.tokenId.toString()),
-    });
+    };
+    cache = { key: cacheKey, at: Date.now(), payload };
+    return res.status(200).json(payload);
   } catch (error) {
-    return res.status(500).json({
-      status: "error",
-      detail: error instanceof Error ? error.message.slice(0, 900) : "The board could not be read.",
-    });
+    const detail =
+      error instanceof Error
+        ? `${error.message.slice(0, 400)} | details: ${String((error as { details?: string }).details ?? "").slice(0, 300)}`
+        : "The board could not be read.";
+    return res.status(500).json({ status: "error", detail });
   }
 }
