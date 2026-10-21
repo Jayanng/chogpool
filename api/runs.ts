@@ -22,6 +22,7 @@ const engineAbi = parseAbi([
   "function latestRoundId() view returns (uint256)",
   "function roundState(uint256 roundId) view returns (uint8)",
   "function hasRun(uint256 roundId, uint256 tokenId) view returns (bool)",
+  "function scoreOf(uint256 roundId, uint256 tokenId) view returns (uint256)",
   "function gameAuthority() view returns (address)",
   "function submitScores(uint256 roundId, uint256[] tokenIds, uint256[] scores, uint256[] coins, bool[] revived)",
 ]) as Abi;
@@ -116,10 +117,21 @@ export default async function handler(req: Req, res: Res) {
       args: [roundId, tokenId],
     })) as boolean;
     if (already) {
-      return res.status(200).json({
-        status: "already",
-        detail: `Chog #${tokenId.toString()} is already on this week's board.`,
-      });
+      // Best run counts. The contract replaces an entry only when the new
+      // score is strictly higher, so a worse run is skipped here rather than
+      // sent up to be refused.
+      const current = (await publicClient.readContract({
+        address: engineAddress,
+        abi: engineAbi,
+        functionName: "scoreOf",
+        args: [roundId, tokenId],
+      })) as bigint;
+      if (BigInt(record.claimed.score) <= current) {
+        return res.status(200).json({
+          status: "already",
+          detail: `Chog #${tokenId.toString()} is on this week's board with a better score (${current.toString()}). This run did not replace it.`,
+        });
+      }
     }
 
     const account = privateKeyToAccount(key as `0x${string}`);

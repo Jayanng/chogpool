@@ -41,7 +41,7 @@ export declare const DEPLOYED: {
     readonly mirror: "0xc8b49dbd74B0B5EEaE158Cdb671bcec931DC7E31";
     readonly pool: "0x79D30244bD59c01aD1963800791522e3dAA876e0";
     readonly yieldAdapter: "0x96EB00390bA95970310EF2721C7948CdFD6aF7Ed";
-    readonly drawEngine: "0x437ae585f336F1d3Edc13Aa49b63E8e268f2c4c7";
+    readonly drawEngine: "0xC6599116e6f9c7F4b225247bE1DA14389c8DcfF5";
     readonly careerStore: "0x336258EB8099cE594a3d0154C9e8CF9Fa7fa8c67";
     readonly testChogToken: "0x94a4456e3051B37ECb1AA46423779F35cc9D063d";
     readonly deployedAt: 1792435991;
