@@ -15,8 +15,19 @@
   "gameEngineOperator": "0x6297D796f5BBD8224293d6fA12d10C1F4b986291",
   "gameEngineAuthority": "0xBC65365cb6D8EB704445015EA8eeFD346e9bed71",
   "gameEngineTreasury": "0xC6599116e6f9c7F4b225247bE1DA14389c8DcfF5",
-  "gameEngineTreasuryBalance": 0,
-  "gameEngineTreasuryNote": "NOT YET FUNDED. The owner's faucet claim is on cooldown until 1792662082 (2026-10-22 09:41 UTC). An unfunded engine reverts every submitScores with ERC20InsufficientBalance. Fund with: claim 1000 Test CHOG, then transfer to this engine address.",
+  "gameEngineTreasuryBalance": 1000000000000000000000,
+  "gameEngineTreasuryFundedBy": "0xA23810840142daecC29708cC554bfA669C5f1992",
+  "gameEngineTreasuryTxs": {
+    "claim": "0x213b98754472a4f046b0902982867d3fd9e245d5ba5f15bfc5d0a1a5f5b7e803",
+    "transferToEngine": "0x197ccf878835ebc6665fd0462efa9792e1e3374081a7ae9766d7d948f5131c54"
+  },
+  "demoRound": {
+    "roundId": 1,
+    "courseSeed": "0xdc6a7053bd3c571b2630ca15195f38e8b6d515348404bab27142427a0e37602d",
+    "closesAt": 1792621538,
+    "openTx": "0x6e5390bd38160fe0375f05be1b662b9d3ecb38be78e1640584cbe75a28b9d719",
+    "state": "Open"
+  },
   "mirror": "0xc8b49dbd74B0B5EEaE158Cdb671bcec931DC7E31",
   "pair": "0xEa236ABC4Fa54bF5a7a690d0CC2190f3b2C138F9",
   "pool": "0x79D30244bD59c01aD1963800791522e3dAA876e0",

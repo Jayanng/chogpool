@@ -210,20 +210,57 @@ testnet (chain 10143).** This is the LIVE engine. It replaced the first engine
 (`0x437ae585f336F1d3Edc13Aa49b63E8e268f2c4c7`, now orphaned) because
 `submitScores` changed to best-run-counts.
 
-The engine is deployed and wired. **The treasury is NOT funded yet** — see the
-warning below.
+**DEMO ROUND 1 IS OPEN.** Funded and opened 2026-10-21. Details below.
 
 | Step | Tx | Result |
 |---|---|---|
 | Deploy GameEngine | `0x4e1405207b1987746d3d81cfc482ff58b4252fede61f52f5f2ba504260e784ee` | block 73000024, 4,875,310 gas, success |
 | `pool.setDrawEngine` | `0xb63ab8246643b52a6db9304fd51aa80d05fcfbc35533d9251271d19d5ea6b439` | block 73000026, 43,544 gas, success |
 | `careerStore.setDrawEngine` | `0x0557099c26e6a0d0eb5a7f8b37fa0d8ae9ed4626cc5b40f74824c99e09fc984d` | block 73000027, 43,334 gas, success |
-
-`setGameAuthority` was **not** a separate transaction: the constructor was given
-`0xBC65365cb6D8EB704445015EA8eeFD346e9bed71` directly, so the deploy script's
-conditional correctly skipped it. Verified by reading `gameAuthority()` back.
+| Treasury: faucet claim | `0x213b98754472a4f046b0902982867d3fd9e245d5ba5f15bfc5d0a1a5f5b7e803` | block 73039875, success |
+| Treasury: transfer to engine | `0x197ccf878835ebc6665fd0462efa9792e1e3374081a7ae9766d7d948f5131c54` | block 73039941, success |
+| `openRound` (demo round 1) | `0x6e5390bd38160fe0375f05be1b662b9d3ecb38be78e1640584cbe75a28b9d719` | block 73040096, success |
 
 **Deployed GameEngine: `0xC6599116e6f9c7F4b225247bE1DA14389c8DcfF5`**
+
+### The treasury was funded from a different address than the owner
+
+The owner's faucet claim was on cooldown until 2026-10-22 09:41 UTC, so the
+funding came from `0xA23810840142daecC29708cC554bfA669C5f1992`, which held 9.47
+MON and had an unclaimed faucet. The cooldown binds one address, not the
+treasury, so this is the same 1,000 Test $CHOG from a different source.
+
+`openRound` still had to come from the operator (`0x6297D796f5BBD8224293d6fA12d10C1F4b986291`),
+because the funder is not the operator — the first attempt reverted `NotOperator`.
+The operator key was used for that call only.
+
+### Demo round 1, read back from the chain
+
+```
+latestRoundId      = 1
+courseSeedOf(1)    = 0xdc6a7053bd3c571b2630ca15195f38e8b6d515348404bab27142427a0e37602d
+roundState(1)      = 1  (Open)
+roundClosesAt(1)   = 1792621538  (2026-10-21 22:25:38 UTC, 3 hours from open)
+treasury balance   = 1000000000000000000000  (1,000 Test $CHOG)
+coinRate           = 100000000000000000  (0.1 CHOG per coin)
+```
+
+The seed is the block hash of the block the round was opened in, so it is
+non-repeating and re-derivable. The board endpoint
+(`GET https://chogpool.vercel.app/api/board`) reads round 1 and returns `top3` in
+placement order, ready to drop into `settleRound`. If it is unreachable at close,
+derive the top 3 off-chain from `scoreOf` instead.
+
+At settle the pot pays 50/30/20 of 20 USDC = **10 / 6 / 4 USDC**, and the video
+shows those true amounts.
+
+### The scheduled 09:45 job stays armed as a top-up
+
+The job that fires 2026-10-22 09:45 UTC is now a **treasury top-up** rather than
+the initial funding. It claims from the owner's faucet (whose cooldown clears
+09:41 UTC) and transfers to the engine if the balance has run low. It verifies
+the cooldown has cleared before claiming, so it will not burn gas on a
+`CooldownActive` revert.
 
 Read back from the chain after the run, which is the only evidence that counts:
 
@@ -235,28 +272,9 @@ engine.gameAuthority   = 0xBC65365cb6D8EB704445015EA8eeFD346e9bed71   (the recor
 engine.owner           = 0x6297D796f5BBD8224293d6fA12d10C1F4b986291
 engine.coinRate        = 100000000000000000 (0.1 CHOG per coin)
 engine.reviveFee       = 10000000000000000000 (10 CHOG)
-engine.latestRoundId   = 0 (no round opened yet)
-engine Test $CHOG      = 0   <-- TREASURY EMPTY, SEE BELOW
+engine.latestRoundId   = 1
+engine Test $CHOG      = 1000000000000000000000 (1,000 CHOG treasury)
 ```
-
-### THE TREASURY IS EMPTY AND THE ENGINE CANNOT ACCEPT RUNS UNTIL IT IS FUNDED
-
-The faucet grants 1,000 Test $CHOG per address per day, and the owner's claim is
-on cooldown until **1792662082 = 2026-10-22 09:41 UTC**. That is before the Oct 23
-deadline, so the funding is a scheduling problem rather than a blocker, but until
-it happens **every `submitScores` reverts with `ERC20InsufficientBalance` and no
-run records at all.**
-
-To fund it, from the owner key, once the cooldown clears:
-
-```bash
-cast send <TEST_CHOG> "claim()" --rpc-url monad_testnet --private-key $PRIVATE_KEY
-cast send <TEST_CHOG> "transfer(address,uint256)" 0xC6599116e6f9c7F4b225247bE1DA14389c8DcfF5 1000000000000000000000 \
-  --rpc-url monad_testnet --private-key $PRIVATE_KEY
-```
-
-1,000 CHOG covers 10,000 coins of runs at 0.1 each. Check the balance before each
-session and top up from the faucet when it runs low.
 
 ### UNRECOVERABLE: 1,000 Test $CHOG stranded in the first engine
 
