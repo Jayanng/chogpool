@@ -7,13 +7,25 @@
 // case is an unearned score, exactly the trust the authority model already
 // carries, now automated.
 
-import { createPublicClient, createWalletClient, http, parseAbi, type Abi } from "viem";
+import { createPublicClient, createWalletClient, http, parseAbi, type Abi, type Chain } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { DEPLOYED } from "./_gen/generated/addresses.gen.js";
+import { CHAIN, DEPLOYED } from "./_gen/generated/addresses.gen.js";
 import { verifyRunRecord } from "./_gen/game/runRecord.js";
 import { parseSubmission } from "./_gen/lib/submit.js";
 
 const RPC = "https://testnet-rpc.monad.xyz";
+
+// The wallet client MUST carry the chain. With `chain: null` the signed
+// transaction goes out without a chain id and the RPC rejects it as invalid
+// params before it is ever a transaction. The chain id comes from the
+// registry, never a literal.
+const chain = {
+  id: CHAIN.monadTestnet.id,
+  name: CHAIN.monadTestnet.name,
+  nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
+  rpcUrls: { default: { http: [CHAIN.monadTestnet.rpc] } },
+  blockExplorers: { default: { name: "MonadScan", url: CHAIN.monadTestnet.explorer } },
+} as unknown as Chain;
 
 const engineAddress = DEPLOYED.drawEngine as `0x${string}`;
 const poolAddress = DEPLOYED.pool as `0x${string}`;
@@ -135,7 +147,7 @@ export default async function handler(req: Req, res: Res) {
     }
 
     const account = privateKeyToAccount(key as `0x${string}`);
-    const walletClient = createWalletClient({ account, transport: http(RPC) });
+    const walletClient = createWalletClient({ account, chain, transport: http(RPC) });
     const hash = await walletClient.writeContract({
       address: engineAddress,
       abi: engineAbi,
@@ -147,7 +159,6 @@ export default async function handler(req: Req, res: Res) {
         [BigInt(record.claimed.coins)],
         [record.claimed.revived],
       ],
-      chain: null,
     });
     await publicClient.waitForTransactionReceipt({ hash });
 
