@@ -169,28 +169,13 @@ export default function Landing() {
 
       <Marquee items={["TOP 3 SPLIT THE POT", "SAME COURSE FOR EVERYONE", "EVERY RUN REPLAYABLE", "PRINCIPAL WITHDRAWABLE ANY TIME"]} tone="accent" />
 
-      <section className="proof-grid">
-        <div>
-          <p className="kicker">THE PROMISE</p>
-          <h2>Safe by design, checkable by anyone.</h2>
-          <p className="muted">Your stake stays yours and stays withdrawable. The top 3 split the pot, and every run is checkable by anyone.</p>
-        </div>
-        <Panel className="proof-panel">
-          <Stat label="THE ROSTER" value="1,969 Chogs" note="Every one is a playable athlete, and your entry binds to one of them." tone="lime" />
-          <Stat label="FAIRNESS" value="Published seed" note="Run re-derivable from its published seed and inputs on the verifier page." />
-        </Panel>
-        <Panel className="proof-panel">
-          <Stat label="TRY IT NOW" value="Test Drive" note="No Chog? Claim one clearly-labeled Test Chog and use the full site." tone="accent" />
-          <Button variant="quiet" onClick={() => navigate("/setup")}>Set me up in 2 minutes ↗</Button>
-        </Panel>
+      <section className="style-panel">
+        <p className="kicker">HOW IT WORKS</p>
+        <h2>Three steps, two minutes.</h2>
+        <p className="muted">From an empty wallet to a proven run. Every step is a real transaction you sign.</p>
       </section>
 
       <section className="proof-grid">
-        <div>
-          <p className="kicker">HOW IT WORKS</p>
-          <h2>Three steps, two minutes.</h2>
-          <p className="muted">From an empty wallet to a proven run. Every step is a real transaction you sign.</p>
-        </div>
         <Panel className="proof-panel">
           <Stat label="01 · SET ME UP" value="Two minutes" note="Faucet, swap, Test $CHOG, and a Test Chog minted as your runner, one guided button." tone="accent" />
           <Button variant="quiet" onClick={() => navigate("/setup")}>Start the setup ↗</Button>
@@ -206,10 +191,36 @@ export default function Landing() {
       </section>
 
       <section className="style-panel">
-        <p className="kicker">THE FAIRNESS LAYER</p>
-        <h2>Built for proof, designed for play.</h2>
-        <p className="muted">Every run is a tape of presses on a published seed. The Proof page replays it and recomputes every number. The verifier is part of the experience, not a footnote.</p>
+        <p className="kicker">THE PROMISE</p>
+        <h2>Safe by design, checkable by anyone.</h2>
+        <p className="muted">
+          Your stake stays yours and stays withdrawable. The top 3 split the pot, and every run is
+          checkable by anyone. Every run is a tape of presses on a published seed, and the Proof page
+          replays it and recomputes every number. The verifier is part of the experience, not a footnote.
+        </p>
         {fixturesOn && <Badge tone="danger">DEV FIXTURE MODE · SIMULATED DATA</Badge>}
+      </section>
+
+      <section className="proof-grid">
+        <Panel className="proof-panel">
+          <Stat label="THE ROSTER" value="1,969 Chogs" note="Every one is a playable athlete, and your entry binds to one of them." tone="lime" />
+        </Panel>
+        <Panel className="proof-panel">
+          <Stat label="FAIRNESS" value="Published seed" note="Run re-derivable from its published seed and inputs on the verifier page." />
+        </Panel>
+        <Panel className="proof-panel">
+          <Stat label="PRINCIPAL" value="Yours, always" note="Deposits are never used as prizes. Withdraw the full position value any time." tone="accent" />
+        </Panel>
+      </section>
+
+      <section className="style-panel">
+        <p className="kicker">TRY IT NOW</p>
+        <h2>Two minutes to your first ranked run.</h2>
+        <p className="muted">No Chog? Claim one clearly-labeled Test Chog and use the full site.</p>
+        <div className="hero-actions">
+          <Button onClick={() => navigate("/setup")}>Set me up in 2 minutes</Button>
+          <Button variant="outline" onClick={() => navigate("/run")}>Play the game</Button>
+        </div>
       </section>
 
       <Card title="Honest boundaries" footer="CLEAR LABELS, ALWAYS">
