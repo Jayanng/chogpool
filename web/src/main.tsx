@@ -5,12 +5,12 @@ import "@chogpool/ui/styles.css";
 import "./styles.css";
 import { usePath, navigate } from "./lib/router";
 import { useWallet, WalletProvider } from "./lib/useWallet";
-import { useGate } from "./lib/gate";
+import { useGate, CHOG_MARKETPLACE_URL } from "./lib/gate";
 import { WalletButton } from "./components/WalletButton";
 import { GateModal } from "./components/GateModal";
 import { TxSuccessModal } from "./components/TxSuccessModal";
 import { ConnectGateModal } from "./components/ConnectGateModal";
-import { CHAIN } from "./generated/addresses.gen";
+import { CHAIN, DEPLOYED } from "./generated/addresses.gen";
 
 // One async page bundle per route.
 const Landing = lazy(() => import("./landing"));
@@ -30,7 +30,9 @@ const routes: Array<{ path: string; label: string; Component: LazyExoticComponen
   // Aliases keep every existing deep link and navigate() call working.
   { path: "/deposit", label: "Play", Component: Play },
   { path: "/mint", label: "Play", Component: Play },
-  { path: "/draft", label: "Play", Component: Play },
+  { path: "/setup", label: "Play", Component: Play },
+  { path: "/run", label: "Race", Component: RaceSection },
+  { path: "/replays", label: "Race", Component: RaceSection },
   { path: "/spectator", label: "Race", Component: RaceSection },
   { path: "/career", label: "Race", Component: RaceSection },
   { path: "/yield", label: "Earn", Component: EarnSection },
@@ -132,20 +134,42 @@ function App() {
 
       <footer className="footer">
         <div className="footer-card">
-          <div className="footer-top">
-            <a className="footer-brand" href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}>CHOG<span>TRACK</span></a>
-            <nav className="footer-nav">
-              {wallet.address && navRoutes.map((r) => (
+          {path === "/" ? (
+          <div className="footer-grid">
+            <div className="footer-brandcol">
+              <a className="footer-brand" href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}>CHOG<span>TRACK</span></a>
+              <p className="footer-tag">Deposits are never used as prizes.</p>
+              <div className="footer-badge"><Badge tone="neutral">MONAD TESTNET BUILD</Badge></div>
+            </div>
+            <nav className="footer-col">
+              <h4>App</h4>
+              {navRoutes.map((r) => (
                 <a key={r.path} href={r.path} onClick={(e) => { e.preventDefault(); navigate(r.path); }}>{r.label}</a>
               ))}
             </nav>
+            <nav className="footer-col">
+              <h4>Explore</h4>
+              <a href="/mint" onClick={(e) => { e.preventDefault(); navigate("/mint"); }}>Get a Chog</a>
+              <a href="/spectator" onClick={(e) => { e.preventDefault(); navigate("/spectator"); }}>Spectate</a>
+              <a href="/career" onClick={(e) => { e.preventDefault(); navigate("/career"); }}>Career</a>
+              <a href="/tips" onClick={(e) => { e.preventDefault(); navigate("/tips"); }}>Tips</a>
+            </nav>
+            <nav className="footer-col">
+              <h4>On-chain</h4>
+              <a href={`${CHAIN.monadTestnet.explorer}/address/${DEPLOYED.pool}`} target="_blank" rel="noreferrer">Pool contract ↗</a>
+              <a href="/proof" onClick={(e) => { e.preventDefault(); navigate("/proof"); }}>Verify a race</a>
+              <a href={CHOG_MARKETPLACE_URL} target="_blank" rel="noreferrer">Chog on OpenSea</a>
+              <span className="footer-fact">Monad Testnet · Chain 10143</span>
+            </nav>
           </div>
-          <p className="footer-tag">Deposits are never used as prizes.</p>
-          <div className="footer-note">
-            Your deposit never funds prizes. What comes back is your shares at live value.
+          ) : (
+          <div className="footer-compact">
+            <a className="footer-brand" href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}>CHOG<span>TRACK</span></a>
+            <p className="footer-tag">Deposits are never used as prizes.</p>
           </div>
-          <div className="footer-meta">
-            <Badge tone="neutral">MONAD TESTNET BUILD</Badge>
+          )}
+          <div className="footer-bottom">
+            <span>Your deposit never funds prizes. What comes back is your shares at live value.</span>
             <span>Monad testnet · test funds only · draws re-derivable from the published seed</span>
           </div>
         </div>

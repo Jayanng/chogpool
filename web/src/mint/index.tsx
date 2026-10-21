@@ -11,6 +11,7 @@
 
 import { useState } from "react";
 import { saveMyChog } from "../lib/mychog";
+import { refreshGate } from "../lib/gate";
 import { Badge, Button, Card, Panel, Skeleton, Stat, Toast } from "@chogpool/ui";
 import { navigate } from "../lib/router";
 import { useWallet } from "../lib/useWallet";
@@ -143,6 +144,7 @@ export default function Mint() {
       if (ok) {
         setMessage(`Chog #${record.tokenId} is mirrored. Its stored URI is now provably the one its mainnet owner signed.`);
         if (wallet.address) saveMyChog(wallet.address, record.tokenId);
+        refreshGate();
         setLookup(await lookupChog(record.tokenId));
         void loadSupplyAndTestDrive();
       }
@@ -177,6 +179,7 @@ export default function Mint() {
       if (ok) {
         setMessage(`Chog #${record.tokenId} is mirrored as a Test Drive. Nobody signed anything for it, that is what the label means.`);
         if (wallet.address) saveMyChog(wallet.address, record.tokenId);
+        refreshGate();
         setLookup(await lookupChog(record.tokenId));
         void loadSupplyAndTestDrive();
       }
@@ -240,7 +243,7 @@ export default function Mint() {
               Chog. Your principal stays withdrawable, and only the realized yield feeds the prize
               pot.
             </p>
-            <Button onClick={() => navigate("/play")}>Fund and deposit →</Button>
+            <Button onClick={() => { refreshGate(); navigate("/deposit"); }}>Fund and deposit →</Button>
           </Card>
         </Panel>
       )}

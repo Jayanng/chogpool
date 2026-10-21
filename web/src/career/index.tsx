@@ -8,6 +8,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Badge, Button, Card, Panel, Stat } from "@chogpool/ui";
+import { ChogViewer } from "../components/ChogViewer";
 import {
   fatigueLevel,
   multiplierValue,
@@ -242,6 +243,12 @@ export default function Career() {
           </Panel>
         </>
       )}
+
+      <Panel className="feature-panel">
+        <Card title="The Chog's identity" footer="REAL IPFS METADATA, LOOKED UP LIVE">
+          <ChogViewer />
+        </Card>
+      </Panel>
     </>
   );
 }

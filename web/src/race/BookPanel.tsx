@@ -50,8 +50,8 @@ export function BookPanel() {
         )
       ) : entries.length === 0 ? (
         <p className="muted small">
-          No Chogs in the book yet. Enter at Play and your Chog is on the card. The gate drops
-          when the race is called.
+          No Chogs entered yet. Enter at Play and yours shows up here, and it is in every race from
+          then on.
         </p>
       ) : (
         <>
@@ -77,7 +77,7 @@ export function BookPanel() {
             <p className="muted small">…and {entries.length - SHOWN} more Chogs in the book.</p>
           )}
           <p className="muted small">
-            The gate drops when the race is called. Every stake here is already entered.
+            Every Chog here is already entered in the next race.
           </p>
         </>
       )}

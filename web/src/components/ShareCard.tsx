@@ -268,7 +268,7 @@ export function ShareCard({
     } else {
       ctx.fillStyle = tokens.color.faint;
       ctx.font = "500 28px 'DM Mono', monospace";
-      ctx.fillText("A savings game for Chog holders.", 72, 420);
+      ctx.fillText("A skill game for Chog holders.", 72, 420);
     }
 
     // QR to the race page of this exact deployment.
