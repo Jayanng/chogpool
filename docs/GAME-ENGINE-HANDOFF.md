@@ -82,9 +82,9 @@ before `recordRace` fails.
 
 **submitScores(uint256 roundId, uint256[] tokenIds, uint256[] scores, uint256[] coins, bool[] revived)** - game authority only
 - Records scores and coin counts for participants
-- Can only submit once per (round, tokenId)
-- Pays `coins[i] * COIN_RATE` in Test $CHOG to each player's depositor IN THIS TRANSACTION
-- A failed transfer reverts the whole submission, run record included
+- BEST RUN COUNTS: a Chog with an existing entry may re-submit with a STRICTLY HIGHER score, which replaces score/coins/revived and pays only the coin difference `max(0, newCoins - oldCoins) * COIN_RATE`
+- Anything not strictly higher is refused with `NotABetterScore(roundId, tokenId, currentScore, submittedScore)`
+- No clawback: a better run with fewer coins pays nothing and takes nothing back
 - Emits: `ScoreRecorded(roundId, tokenId, score, coins, revived, submittedBy, coinPayout)`
 
 **closeRound(uint256 roundId)** - operator only
@@ -150,10 +150,10 @@ The `courseSeed` is set at `openRound` and can never change. Every player in the
 
 ### 5.3 Access Control
 - **Operator**: Can open rounds, close rounds, settle rounds (same role model as existing draw)
-- **Game Authority**: Can submit scores (starts as operator, can be changed via `setGameAuthority`)
+- **Game Authority**: The recorder. Can submit scores, and its key can ONLY call `submitScores`. Currently `0xBC65365cb6D8EB704445015EA8eeFD346e9bed71`, re-pointable by the owner via `setGameAuthority` if the recorder rotates.
 - **Owner**: Can change operator, game authority, career store, and test CHOG token addresses
 
-### 5.3 Prize Payouts
+### 5.4 Prize Payouts
 - USDC prizes go through `ChogPool.payPot(winnerAddress, amount)` - the pool's existing payout mechanism
 - TestCHOG bonuses are transferred directly from GameEngine balance
 - Winners are resolved through `ChogPool.depositOf(tokenId)` to get the depositor address (not the tokenId)
@@ -192,7 +192,7 @@ error RoundNotOpen(uint256 roundId);
 error RoundAlreadyClosed(uint256 roundId);
 error ReviveAlreadyUsed(uint256 roundId, uint256 tokenId);
 error NotInPool(uint256 tokenId);
-error AlreadyRecorded(uint256 roundId, uint256 tokenId);
+error NotABetterScore(uint256 roundId, uint256 tokenId, uint256 currentScore, uint256 submittedScore);
 error EmptyTop3();
 error DuplicateWinner(uint256 tokenId);
 error WinnerNotInPool(uint256 tokenId);
@@ -205,31 +205,58 @@ error FeePullFailed(uint256 roundId, uint256 tokenId, uint256 fee);
 
 ## 9. Deployment Sequence
 
-**STATUS: DEPLOYED 2026-10-21 on Monad testnet (chain 10143).** All four steps
-were broadcast and verified by reading the chain back, not from the script log.
+**STATUS: DEPLOYED 2026-10-21 (second engine, with best-run-counts) on Monad
+testnet (chain 10143).** This is the LIVE engine. It replaced the first engine
+(`0x437ae585f336F1d3Edc13Aa49b63E8e268f2c4c7`, now orphaned) because
+`submitScores` changed to best-run-counts.
+
+The engine is deployed and wired. **The treasury is NOT funded yet** — see the
+warning below.
 
 | Step | Tx | Result |
 |---|---|---|
-| Deploy GameEngine | `0x4d6b5a95d1004dac064e62de47ca9c31b63e464b571b44bc37f08e7f5e982602` | block 72923959, 4,860,865 gas, success |
-| `pool.setDrawEngine` | `0xa421b37093e3fee0064f92f863a37789cade79f21f6f66e6397cc8699fd0f80c` | block 72923968, 43,544 gas, success |
-| `careerStore.setDrawEngine` | `0x53a5db2a9f19e7dd87304bf4c0e3417e3833126af9468278fd2ad22612b3d4bd` | block 72923974, 43,334 gas, success |
-| Fund the treasury (claim 1,000 CHOG) | `0xc4d728eea57639ba4cb9773384509912ae2cf5dd065fcb1943b4e76b15cf385c` | block 72924196, success |
-| Fund the treasury (transfer to engine) | `0x135bd1808922c5e55409c6fbc14f704029d26d829a6ec13b34a7993b056e9c85` | block 72924219, success |
+| Deploy GameEngine | `0x4e1405207b1987746d3d81cfc482ff58b4252fede61f52f5f2ba504260e784ee` | block 73000024, 4,875,310 gas, success |
+| `pool.setDrawEngine` | `0xb63ab8246643b52a6db9304fd51aa80d05fcfbc35533d9251271d19d5ea6b439` | block 73000026, 43,544 gas, success |
+| `careerStore.setDrawEngine` | `0x0557099c26e6a0d0eb5a7f8b37fa0d8ae9ed4626cc5b40f74824c99e09fc984d` | block 73000027, 43,334 gas, success |
 
-**Deployed GameEngine: `0x437ae585f336F1d3Edc13Aa49b63E8e268f2c4c7`**
+`setGameAuthority` was **not** a separate transaction: the constructor was given
+`0xBC65365cb6D8EB704445015EA8eeFD346e9bed71` directly, so the deploy script's
+conditional correctly skipped it. Verified by reading `gameAuthority()` back.
+
+**Deployed GameEngine: `0xC6599116e6f9c7F4b225247bE1DA14389c8DcfF5`**
 
 Read back from the chain after the run, which is the only evidence that counts:
 
 ```
-pool.drawEngine        = 0x437ae585f336F1d3Edc13Aa49b63E8e268f2c4c7
-careerStore.drawEngine = 0x437ae585f336F1d3Edc13Aa49b63E8e268f2c4c7
+pool.drawEngine        = 0xC6599116e6f9c7F4b225247bE1DA14389c8DcfF5
+careerStore.drawEngine = 0xC6599116e6f9c7F4b225247bE1DA14389c8DcfF5
 engine.operator        = 0x6297D796f5BBD8224293d6fA12d10C1F4b986291
-engine.gameAuthority   = 0x6297D796f5BBD8224293d6fA12d10C1F4b986291
+engine.gameAuthority   = 0xBC65365cb6D8EB704445015EA8eeFD346e9bed71   (the recorder)
+engine.owner           = 0x6297D796f5BBD8224293d6fA12d10C1F4b986291
 engine.coinRate        = 100000000000000000 (0.1 CHOG per coin)
 engine.reviveFee       = 10000000000000000000 (10 CHOG)
-engine Test $CHOG      = 1000000000000000000000 (1,000 CHOG treasury)
 engine.latestRoundId   = 0 (no round opened yet)
+engine Test $CHOG      = 0   <-- TREASURY EMPTY, SEE BELOW
 ```
+
+### THE TREASURY IS EMPTY AND THE ENGINE CANNOT ACCEPT RUNS UNTIL IT IS FUNDED
+
+The faucet grants 1,000 Test $CHOG per address per day, and the owner's claim is
+on cooldown until **1792662082 = 2026-10-22 09:41 UTC**. That is before the Oct 23
+deadline, so the funding is a scheduling problem rather than a blocker, but until
+it happens **every `submitScores` reverts with `ERC20InsufficientBalance` and no
+run records at all.**
+
+To fund it, from the owner key, once the cooldown clears:
+
+```bash
+cast send <TEST_CHOG> "claim()" --rpc-url monad_testnet --private-key $PRIVATE_KEY
+cast send <TEST_CHOG> "transfer(address,uint256)" 0xC6599116e6f9c7F4b225247bE1DA14389c8DcfF5 1000000000000000000000 \
+  --rpc-url monad_testnet --private-key $PRIVATE_KEY
+```
+
+1,000 CHOG covers 10,000 coins of runs at 0.1 each. Check the balance before each
+session and top up from the faucet when it runs low.
 
 ### The sequence, for anyone re-running it on a fresh stack
 
@@ -238,7 +265,8 @@ engine.latestRoundId   = 0 (no round opened yet)
    - operator: the address that will open/close/settle rounds
    - careerStore: the deployed CareerStore
    - testChog: the deployed TestChogToken
-   - gameAuthority: starts as the operator
+   - gameAuthority: **the recorder's public identity**, `0xBC65365cb6D8EB704445015EA8eeFD346e9bed71`.
+     Its key can only call `submitScores`.
 
 2. **Both** wiring transactions, from the pool owner:
    - `ChogPool.setDrawEngine(gameEngine)`
@@ -316,7 +344,7 @@ before any broadcast:**
 ## 12. Testing
 
 The contract package includes:
-- **GameEngine.t.sol**: 24 unit tests covering all mandatory properties
+- **GameEngine.t.sol**: 33 unit tests covering all mandatory properties
 - **DrawEngineCareer.t.sol**: 9 integration tests for draw + career integration
 
 Run tests:
@@ -324,7 +352,7 @@ Run tests:
 forge test --match-contract GameEngineTest
 ```
 
-All 194 contract tests pass (170 existing + 24 GameEngine tests).
+All 204 contract tests pass (170 existing + 33 GameEngine tests + 1 withdraw regression).
 
 ### The view functions the frontend binds to
 
