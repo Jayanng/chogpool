@@ -97,6 +97,21 @@ function App() {
     return <ConnectGateModal onConnect={() => void wallet.connect()} />;
   }
 
+  // The gate replaces the page entirely: the app behind it never renders, so
+  // nothing peeks through a dimmed layer. Dismissing it leaves for the landing.
+  if (gateBlocked) {
+    return gate === "checking" ? (
+      <div className="gate-overlay" role="dialog" aria-modal="true" aria-label="Checking your Chog">
+        <div className="gate-modal">
+          <p className="kicker">ONE MOMENT</p>
+          <h2 className="gate-title">Checking your Chog…</h2>
+        </div>
+      </div>
+    ) : (
+      <GateModal />
+    );
+  }
+
   return (
     <main className="app-shell">
       <nav className="topbar">
@@ -179,20 +194,6 @@ function App() {
         </div>
       </footer>
 
-      {gateBlocked && gate === "checking" && (
-        <div
-          className="gate-overlay gate-overlay--checking"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Checking your Chog"
-        >
-          <div className="gate-checking">
-            <p className="kicker">ONE MOMENT</p>
-            <p className="gate-checking__text">Checking your Chog…</p>
-          </div>
-        </div>
-      )}
-      {gateBlocked && gate === "blocked" && <GateModal />}
       {wallet.txStage === "confirmed" && wallet.txHash && (
         <TxSuccessModal
           label={wallet.txLabel}
